@@ -1,0 +1,284 @@
+================================================================================
+  CONSTRUCTION MODEL LIBRARY
+  Hướng dẫn sử dụng & tạo block thư viện
+  AutoCAD / Civil 3D 2023 trở lên
+================================================================================
+
+MỤC LỤC
+  1. Giới thiệu
+  2. Cài đặt
+  3. Sử dụng hàng ngày
+  4. Cấu trúc thư mục thư viện
+  5. Tạo block thư viện (chi tiết)
+  6. Thêm mô hình vào catalog
+  7. Ảnh thumbnail (xem trước)
+  8. Tỷ lệ (scale) và góc xoay (INS)
+  9. Lệnh AutoCAD
+  10. Xử lý lỗi thường gặp
+
+
+--------------------------------------------------------------------------------
+1. GIỚI THIỆU
+--------------------------------------------------------------------------------
+
+Addon giúp bạn:
+  - Mở thư viện mô hình máy móc / thiết bị thi công trên palette
+  - Tìm kiếm theo tên, loại, tag
+  - Xem trước ảnh thumbnail
+  - Đặt block 3D trực tiếp vào Model Space
+  - Chọn tỷ lệ dự án và góc xoay (INS) khi đặt
+
+Hỗ trợ: AutoCAD 2023, 2024, 2025 và Civil 3D tương ứng.
+
+
+--------------------------------------------------------------------------------
+2. CÀI ĐẶT
+--------------------------------------------------------------------------------
+
+Cách 1 — Chạy file cài đặt (khuyến nghị)
+  1) Mở thư mục:  dist\Setup\
+  2) Chạy:  Setup-ConstructionModelLibrary.exe
+     (thư mục phải có cả thư mục "Payload" cùng cấp)
+  3) Bấm "Cài đặt"
+  4) Khởi động lại AutoCAD hoặc Civil 3D
+  5) Gõ lệnh:  CMLIB
+
+Cách 2 — Copy bundle thủ công
+  Copy toàn bộ thư mục:
+    ConstructionModelLibrary.bundle
+  vào:
+    %ProgramData%\Autodesk\ApplicationPlugins\
+  Khởi động lại phần mềm, gõ lệnh CMLIB.
+
+Cách 3 — Thử nhanh (không cài)
+  Lệnh NETLOAD → chọn file ConstructionModelLibrary.dll
+  (trong thư mục R24 hoặc R25 nếu copy thủ công)
+
+
+--------------------------------------------------------------------------------
+3. SỬ DỤNG HÀNG NGÀY
+--------------------------------------------------------------------------------
+
+Bước 1: Mở thư viện
+  Gõ lệnh:  CMLIB
+  Palette "Thư viện thi công" hiện bên phải màn hình.
+
+Bước 2: Tìm mô hình
+  Gõ vào ô tìm kiếm (tên, loại, tag...).
+  Ví dụ: "máy đào", "cần trục", "bê tông"
+  Chọn dòng trong danh sách → xem preview bên phải.
+
+Bước 3: Cấu hình tỷ lệ (nếu cần)
+  Ô "Tỷ lệ dự án": nhập hệ số (ví dụ 1, 0.001, 2.5...)
+  Bấm "Lưu tỷ lệ" để ghi nhớ cho lần sau.
+  Scale khi đặt = Tỷ lệ dự án × DefaultScale (trong catalog).
+
+Bước 4: Đặt mô hình
+  Bấm "Đặt mô hình" hoặc double-click dòng đã chọn.
+  Trên bản vẽ:
+    a) Chọn điểm đặt (chân máy / tâm thiết bị)
+    b) Nếu bật "Hỏi góc INS": chọn góc xoay (hoặc Enter = 0°)
+  Block được chèn vào Model Space.
+
+Bước 5: Cập nhật sau khi thêm file mới
+  Bấm "Làm mới" trên palette.
+
+
+--------------------------------------------------------------------------------
+4. CẤU TRÚC THƯ MỤC THƯ VIỆN
+--------------------------------------------------------------------------------
+
+Sau khi cài đặt, thư viện nằm tại (ví dụ):
+
+  ...\ConstructionModelLibrary.bundle\Contents\
+    HUONG_DAN_SU_DUNG.txt   ← tài liệu này (sau khi cài lại bản mới)
+    Assets\
+      catalog.json          ← danh sách mô hình
+      settings.json         ← tỷ lệ dự án, hỏi góc INS
+      HUONG_DAN_SU_DUNG.txt
+      Models\               ← file DWG từng máy/thiết bị
+      Thumbnails\           ← ảnh PNG xem trước
+    R24\                    ← addon cho 2023–2024
+    R25\                    ← addon cho 2025+
+
+Khi THÊM mô hình mới: chỉ sửa trong Assets\
+(không cần build lại phần mềm — bấm "Làm mới" trên palette).
+
+
+--------------------------------------------------------------------------------
+5. TẠO BLOCK THƯ VIỆN (CHI TIẾT)
+--------------------------------------------------------------------------------
+
+NGUYÊN TẮC
+  - Mỗi thiết bị = 1 file DWG riêng trong Assets\Models\
+  - Mỗi file DWG chứa ĐÚNG 1 block (tên cố định, không ký tự lạ)
+  - Điểm đặt block = điểm bạn sẽ pick trên bản vẽ (chân máy, tâm quay...)
+
+QUY TRÌNH TẠO BLOCK MỚI
+------------------------
+
+Bước A — Có geometry 3D
+  • Vẽ / import 3D trong AutoCAD (Solid, Surface, Mesh...)
+  • Import STEP / IGES / FBX
+  • Mở DWG từ Inventor, SolidWorks, Revit (Save As DWG)
+  • Tải DWG từ hãng sản xuất thiết bị
+
+  Lưu ý đơn vị: thống nhất mm hoặc m với dự án.
+  Nếu block vẽ mm mà bản vẽ dùng m → đặt DefaultScale = 0.001 trong catalog.
+
+Bước B — Đặt geometry về vị trí chuẩn
+  Di chuyển mô hình sao cho ĐIỂM ĐẶT block nằm tại (0,0,0)
+  hoặc vị trí bạn muốn pick trên bản vẽ.
+  Ví dụ máy đào: (0,0,0) = tâm hai bánh xích hoặc chân giữa máy.
+
+Bước C — Tạo block
+  Lệnh:  BLOCK  (hoặc -BLOCK)
+
+  Tên block:     PC200              (trùng BlockName trong catalog.json)
+  Base point:    0,0,0              (điểm chân máy / tâm quay)
+  Objects:       chọn toàn bộ mô hình 3D
+
+  Không đưa vào block:
+    - Layout, viewport
+    - Text, dimension không cần thiết
+
+Bước D — Dọn file DWG thư viện
+  1) Chỉ giữ block và geometry trong block
+  2) Xóa geometry ngoài block (nếu còn)
+  3) PURGE (gõ Y) xóa layer/block thừa
+  4) SAVEAS tên rõ ràng, ví dụ:  excavator-pc200.dwg
+
+Bước E — Kiểm tra block
+  Mở file DWG thư viện → INSERT → chọn block → đặt thử
+  Kiểm tra hướng, tỷ lệ, vị trí.
+
+CHECKLIST BLOCK CHUẨN
+  [ ] Tên block không có ký tự * $ ...
+  [ ] Chỉ 1 block chính trong file
+  [ ] Base point = điểm đặt thực tế trên công trình
+  [ ] Đơn vị thống nhất với dự án (hoặc ghi DefaultScale)
+  [ ] File gọn (đã purge)
+
+
+--------------------------------------------------------------------------------
+6. THÊM MÔ HÌNH VÀO CATALOG
+--------------------------------------------------------------------------------
+
+Mở file:  Assets\catalog.json  (Notepad hoặc VS Code).
+
+Thêm một mục trong mảng "Models", ví dụ:
+
+  {
+    "Id": "excavator-pc200",
+    "Name": "Máy đào PC200",
+    "Category": "Máy đào",
+    "File": "excavator-pc200.dwg",
+    "BlockName": "PC200",
+    "Description": "Máy đào bánh xích 20 tấn",
+    "Thumbnail": "excavator-pc200.png",
+    "DefaultScale": 1.0,
+    "Tags": [ "đào", "earthwork", "thi công" ]
+  }
+
+Giải thích từng trường:
+  Id            — Mã duy nhất (không dấu, dùng gạch ngang)
+  Name          — Tên hiển thị trên palette
+  Category      — Nhóm: Máy đào, Cần trục, Xe thi công...
+  File          — Tên file trong Assets\Models\
+  BlockName     — Tên block trong DWG (phải khớp chính xác)
+  Description   — Mô tả ngắn (hiện ở preview)
+  Thumbnail     — Tên file PNG (để trống = tự tìm theo Id / tên DWG)
+  DefaultScale  — Hệ số nhân thêm (1 = giữ nguyên kích thước block)
+  Tags          — Từ khóa tìm kiếm
+
+Sau khi lưu catalog.json và copy DWG vào Models\:
+  → CMLIB → bấm "Làm mới"
+
+
+--------------------------------------------------------------------------------
+7. ẢNH THUMBNAIL (XEM TRƯỚC)
+--------------------------------------------------------------------------------
+
+Đặt file PNG vào:  Assets\Thumbnails\
+
+Thứ tự tìm ảnh:
+  1) Trường Thumbnail trong catalog.json
+  2) {Id}.png
+  3) {tên-file-dwg-không-đuôi}.png
+
+Khuyến nghị: 256×256 px, nền xám nhạt hoặc trong.
+
+Tạo ảnh trong AutoCAD:
+  1) Mở DWG thư viện, zoom góc đẹp
+  2) VIEWSHOT hoặc chụp màn hình
+  3) Lưu thành PNG
+
+
+--------------------------------------------------------------------------------
+8. TỶ LỆ (SCALE) VÀ GÓC XOAY (INS)
+--------------------------------------------------------------------------------
+
+TỶ LỆ DỰ ÁN (palette hoặc lệnh CMLSCALE)
+  Hệ số nhân khi đặt block. Ví dụ:
+    Block vẽ bằng mm, bản vẽ dùng m  → tỷ lệ 0.001
+    Cần phóng to                      → tỷ lệ 2 hoặc 5
+
+  Scale thực tế = Tỷ lệ dự án × DefaultScale
+
+GÓC INS
+  Sau điểm đặt, chọn góc xoay trên bản vẽ.
+  Enter = 0° | Esc = hủy
+  Tắt hỏi góc: bỏ chọn "Hỏi góc INS" trên palette.
+
+
+--------------------------------------------------------------------------------
+9. LỆNH AUTOCAD / CIVIL 3D
+--------------------------------------------------------------------------------
+
+  CMLIB      Mở palette thư viện
+  CMLINSERT  Chèn nhanh theo tên (1 kết quả tìm kiếm)
+  CMLSCALE   Đặt / đổi hệ số tỷ lệ dự án
+
+
+--------------------------------------------------------------------------------
+10. XỬ LÝ LỖI THƯỜNG GẶP
+--------------------------------------------------------------------------------
+
+"Không tìm thấy file mô hình"
+  → Kiểm tra DWG trong Assets\Models\
+  → Tên File trong catalog.json đúng tên file
+
+"Block không tồn tại"
+  → BlockName trong catalog = tên block trong DWG
+  → Lệnh BLOCK trong file thư viện để kiểm tra tên
+
+Palette trống
+  → Kiểm tra catalog.json (JSON đúng cú pháp)
+  → Bấm "Làm mới"
+
+Addon không load
+  → Khởi động lại AutoCAD/Civil 3D
+  → Kiểm tra ApplicationPlugins có folder .bundle
+
+Đặt sai tỷ lệ
+  → Chỉnh "Tỷ lệ dự án" hoặc DefaultScale trong catalog
+
+Không thấy thumbnail
+  → Thêm PNG vào Assets\Thumbnails\
+
+
+--------------------------------------------------------------------------------
+VÍ DỤ NHANH — THÊM MÁY ỦI MỚI
+--------------------------------------------------------------------------------
+
+  1) Vẽ / import mô hình 3D máy ủi
+  2) BLOCK tên "BULLDOZER_D6", base point chân máy
+  3) SAVEAS:  Assets\Models\bulldozer-d6.dwg
+  4) Ảnh:     Assets\Thumbnails\bulldozer-d6.png
+  5) Thêm mục vào catalog.json
+  6) CMLIB → Làm mới → Đặt mô hình
+
+
+================================================================================
+  Hết tài liệu — Construction Model Library v1.1
+================================================================================
