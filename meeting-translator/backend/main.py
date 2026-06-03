@@ -96,22 +96,22 @@ def _provider_health() -> tuple[bool, str, str, str | None]:
     label = PROVIDER_LABELS.get(provider, provider)
 
     if provider == "google":
-        has_gemini = is_valid_gemini_key(get_gemini_api_key())
-        bad_gemini = get_gemini_api_key() and not has_gemini
-        stt = GEMINI_MODEL if has_gemini else "cần GEMINI_API_KEY"
-        msg = None
-        if bad_gemini:
-            msg = (
-                f"GEMINI_API_KEY trong {config_path} không hợp lệ (cần AIza... hoặc AQ....). "
-                "Xóa dòng đó nếu chỉ dịch chữ, hoặc sửa key Gemini."
+        from services.stt_offline import get_offline_model_name, offline_model_status
+
+        stt_info = offline_model_status()
+        stt = f"Whisper offline ({get_offline_model_name()})"
+        hints: list[str] = [
+            "Live Caption: nhận dạng giọng trên máy (không cần GEMINI_API_KEY).",
+            "Dịch văn bản: Google Translate (không cần key).",
+        ]
+        if stt_info.get("ffmpeg", "true") == "false":
+            hints.insert(
+                0,
+                "Live Caption cần FFmpeg — dùng bản cài đầy đủ hoặc cài https://ffmpeg.org",
             )
-            return False, label, stt, msg
-        if not has_gemini:
-            msg = (
-                f"Dịch văn bản: OK (không cần key). "
-                f"Dịch họp realtime: thêm GEMINI_API_KEY vào {config_path}"
-            )
-        return True, label, stt, msg
+        if not is_valid_openai_key(get_openai_api_key()):
+            hints.append(f"Dịch realtime (ChatGPT): thêm OPENAI_API_KEY vào {config_path}")
+        return True, label, stt, " ".join(hints)
 
     if provider == "gemini":
         gkey = get_gemini_api_key()

@@ -20,6 +20,7 @@ if not exist "%ENV_DIR%\.env" (
   echo OPENAI_API_KEY=>> "%ENV_DIR%\.env"
   echo GEMINI_API_KEY=>> "%ENV_DIR%\.env"
   echo GEMINI_MODEL=gemini-2.0-flash>> "%ENV_DIR%\.env"
+  echo WHISPER_OFFLINE_MODEL=small>> "%ENV_DIR%\.env"
 )
 echo File: %ENV_DIR%\.env
 echo.

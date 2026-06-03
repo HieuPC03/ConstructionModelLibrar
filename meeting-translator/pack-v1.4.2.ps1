@@ -61,10 +61,10 @@ $ReleaseNotes = @"
 Meeting Translator v$Version
 ============================
 
-- Dich van ban: Gemini (che do transcript), tu fallback Google Translate khi het quota
-- Nut Lam moi & dat lai: refresh thiet bi + reset app mac dinh
-- Dong bo che do phiên trai/phai
-- Gemini key AQ.... hoac AIza....
+- Live Caption OFFLINE: Whisper tren may (khong can GEMINI_API_KEY)
+- Dich van ban: Google Translate (mien phi)
+- Dich realtime: ChatGPT (OPENAI_API_KEY)
+- FFmpeg kem trong ban cai day du
 
 Cai dat: CAI-BANG-EXE.bat hoac Meeting-Translator-Setup-$Version.exe
 API key: CAU-HINH-API-KEY.bat

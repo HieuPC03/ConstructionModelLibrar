@@ -4,14 +4,14 @@ MEETING TRANSLATOR — Cac file .BAT (Windows)
 Tai day: https://github.com/HieuPC03/ConstructionModelLibrar/releases
 
 Dat CHUNG mot thu muc:
-  - Meeting-Translator-Setup-1.4.2.exe  (ban moi nhat)
+  - Meeting-Translator-Setup-1.5.1.exe  (ban moi nhat)
   - Cac file .bat ben duoi
   - BAT-HUONG-DAN.txt (file nay)
 
 THU TU SU DUNG
 --------------
 1. CAI-BANG-EXE.bat      → Cai app (chay file Setup .exe)
-2. CAU-HINH-API-KEY.bat  → Mo file .env, dien GEMINI_API_KEY (AQ.... hoac AIza...)
+2. CAU-HINH-API-KEY.bat  → (Tuy chon) OPENAI_API_KEY cho dich realtime
 3. MO-APP.bat            → Mo Meeting Translator
 
 CAC FILE .BAT
@@ -26,10 +26,12 @@ CHAY-DESKTOP.bat       (Dev) Chay tu source code (khong can cai .exe)
 CHAY.bat               (Dev) Chay qua trinh duyet
 install.bat            (Dev) Cai dependencies source
 
-API KEY
--------
-Gemini (ghi transcript): GEMINI_API_KEY=AQ.... hoac AIza...
-  https://aistudio.google.com/apikey
+API KEY / OFFLINE
+-----------------
+Live Caption: OFFLINE tren may (Whisper) — KHONG can GEMINI_API_KEY
+  Lan dau Play: tai model ~500MB. Can FFmpeg (kem trong ban cai day du).
 
-OpenAI (dich realtime):  OPENAI_API_KEY=sk-proj-...
+Dich van ban: Google Translate — khong can key
+
+Dich realtime (ChatGPT): OPENAI_API_KEY=sk-proj-...
   https://platform.openai.com/api-keys

@@ -79,8 +79,8 @@ def friendly_api_error(exc: Exception, provider_hint: str | None = None) -> str:
         if "openai" in lower or "sk-proj" in lower or provider_hint == "openai":
             return (
                 "OpenAI hết quota / chưa bật billing (https://platform.openai.com/account/billing). "
-                "Chọn chế độ «Ghi transcript (Gemini)» để dịch văn bản bằng Gemini, "
-                "hoặc thêm GEMINI_API_KEY vào .env (https://aistudio.google.com/apikey)."
+                "Dịch văn bản dùng Google Translate (miễn phí). "
+                "Dịch realtime cần OPENAI_API_KEY trong .env."
             )
         if "gemini" in lower or "generative" in lower or "google" in lower:
             return (
@@ -89,9 +89,8 @@ def friendly_api_error(exc: Exception, provider_hint: str | None = None) -> str:
                 "https://aistudio.google.com/apikey — hoặc thử lại sau."
             )
         return (
-            "Hết quota API. Dịch văn bản: chọn «Ghi transcript (Gemini)», "
-            f"thêm GEMINI_API_KEY vào {hint} (https://aistudio.google.com/apikey), "
-            "khởi động lại app. (Không cần OpenAI billing.)"
+            "Hết quota API. Dịch văn bản vẫn dùng Google Translate (miễn phí). "
+            f"Dịch realtime: kiểm tra OPENAI_API_KEY trong {hint}."
         )
     if "OPENAI_API_KEY" in msg:
         return f"{msg} — File cấu hình: {hint}"

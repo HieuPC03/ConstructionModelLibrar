@@ -39,7 +39,7 @@ jobs:
 
       - name: Package v1.4.2 release
         shell: pwsh
-        run: ./pack-v1.4.2.ps1 -Version "1.5.0"
+        run: ./pack-v1.4.2.ps1 -Version "1.5.1"
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
@@ -57,14 +57,14 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/meeting-translator-v') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: meeting-translator-v1.5.0
-          name: Meeting Translator v1.5.0
+          tag_name: meeting-translator-v1.5.1
+          name: Meeting Translator v1.5.1
           prerelease: true
           generate_release_notes: true
           files: |
-            dist/Meeting-Translator-Setup-1.5.0.exe
-            dist/Meeting-Translator-v1.5.0-Full-Package.zip
-            dist/Meeting-Translator-v1.5.0-BAT-scripts.zip
+            dist/Meeting-Translator-Setup-1.5.1.exe
+            dist/Meeting-Translator-v1.5.1-Full-Package.zip
+            dist/Meeting-Translator-v1.5.1-BAT-scripts.zip
             dist/Meeting-Translator-BAT-scripts.zip
             CAI-BANG-EXE.bat
             MO-APP.bat
