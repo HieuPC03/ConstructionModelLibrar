@@ -1,0 +1,15 @@
+TẢI BẢN CÀI ĐẶT — Meeting Translator (Windows)
+==============================================
+
+Mình KHÔNG thể ghi file trực tiếp lên ổ C: của bạn.
+Bạn tải file .exe về máy rồi chạy để cài (giống Zalo, Chrome).
+
+Link tải (GitHub Release):
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.0.0
+
+File: Meeting-Translator-Setup-1.0.0.exe  (~123 MB)
+
+Sau khi tải:
+  1. Double-click file .exe
+  2. Install → mở app từ Start Menu
+  3. Sửa API key: %APPDATA%\meeting-translator-desktop\.env
