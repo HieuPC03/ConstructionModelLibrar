@@ -74,6 +74,21 @@ export async function fetchSettings(): Promise<AppSettings> {
 
 export const APP_RESET_EVENT = "meeting-translator-reset";
 
+export const TEXT_TRANSLATE_FILL_EVENT = "meeting-translator-fill-text-translate";
+
+export type TextTranslateFillDetail = {
+  text: string;
+  sourceLang?: LangCode;
+  targetLang?: LangCode;
+};
+
+/** Đưa nội dung vào ô nhập panel «Dịch văn bản» (Live Caption → Dịch đoạn). */
+export function fillTextTranslateInput(detail: TextTranslateFillDetail): void {
+  window.dispatchEvent(
+    new CustomEvent<TextTranslateFillDetail>(TEXT_TRANSLATE_FILL_EVENT, { detail })
+  );
+}
+
 export async function resetSettings(): Promise<AppSettings> {
   const res = await fetch(`${API_BASE}/api/settings/reset`, { method: "POST" });
   const data = await res.json().catch(() => ({}));

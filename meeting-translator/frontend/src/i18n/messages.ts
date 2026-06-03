@@ -80,6 +80,7 @@ const vi = {
   segment: "Đoạn",
   recordingNow: "đang ghi",
   segmentRecording: "Nội dung đang được ghi vào đây…",
+  filledFromCaption: "Đã đưa script vào ô dịch văn bản",
 };
 
 export type MessageKey = keyof typeof vi;
@@ -164,6 +165,7 @@ const ja: Record<MessageKey, string> = {
   segment: "段落",
   recordingNow: "録音中",
   segmentRecording: "ここに続けて記録されます…",
+  filledFromCaption: "字幕をテキスト翻訳欄に入れました",
 };
 
 export const messages = { vi, ja };

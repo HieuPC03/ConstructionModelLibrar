@@ -1,24 +1,20 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.6.1
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.6.2
 ============================================
 
 Trang releases:
 https://github.com/HieuPC03/ConstructionModelLibrar/releases
 
-File cài v1.6.1 (link 404 = CI đang build ~5 phút sau khi push tag; xong thì tải được):
+File cài v1.6.2 (link 404 = CI đang build ~5 phút sau khi push tag):
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.6.2/Meeting-Translator-Setup-1.6.2.exe
+
+Trang release:
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.6.2
+
+Tạm thời (nếu v1.6.2 chưa có file):
 https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.6.1/Meeting-Translator-Setup-1.6.1.exe
 
-Trang release (xem đã có file .exe chưa):
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.6.1
+v1.6.2 mới:
+- «Dịch đoạn» (Live Caption): tự động đưa script vào ô nhập «Dịch văn bản»
 
-Tạm thời (nếu v1.6.1 chưa có file trên trang release):
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.6.0/Meeting-Translator-Setup-1.6.0.exe
-
-v1.6.1 mới (Live Caption):
-- Ghi thành đoạn văn bản dài (Đoạn 1, Đoạn 2…), không tách từng câu nhỏ
-- Nút «Dịch đoạn»: dịch đoạn hiện tại bằng ChatGPT, trong lúc dịch vẫn ghi tiếp đoạn mới
-
-v1.6.0:
-- Live Caption + dịch realtime: OpenAI — cần OPENAI_API_KEY
-- Một nút «Xuất dữ liệu» (txt hoặc video)
-- Nút Dán ở dịch văn bản
-- Sửa lỗi ghi âm khi quay màn hình
+v1.6.1:
+- Live Caption: đoạn văn bản dài + «Dịch đoạn» (ChatGPT), ghi tiếp đoạn mới khi dịch

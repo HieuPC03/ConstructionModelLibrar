@@ -9,6 +9,7 @@ import {
   exportTranscript,
   exportTranscriptSegments,
   exportVideoToFolder,
+  fillTextTranslateInput,
   translateCaptionOpenAI,
 } from "../api";
 import { copyText } from "../utils/clipboard";
@@ -179,6 +180,11 @@ export default function ConversationPanel() {
   const handleTranslateSegment = async (seg: TranscriptSegment) => {
     const text = seg.original.trim();
     if (!text || seg.translating) return;
+    fillTextTranslateInput({
+      text,
+      sourceLang: sourceLang === "auto" ? undefined : sourceLang,
+      targetLang,
+    });
     session.beginNextSegmentAfterTranslate(seg.id);
     try {
       const result = await translateCaptionOpenAI(text, sourceLang, targetLang);

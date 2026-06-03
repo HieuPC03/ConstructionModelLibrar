@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import type { LangCode } from "../types";
-import { APP_RESET_EVENT, translateText } from "../api";
+import {
+  APP_RESET_EVENT,
+  TEXT_TRANSLATE_FILL_EVENT,
+  type TextTranslateFillDetail,
+  translateText,
+} from "../api";
 import { useAppSettings } from "../AppSettingsContext";
 import { copyText } from "../utils/clipboard";
 
@@ -25,6 +30,26 @@ export default function TextTranslatePanel() {
     window.addEventListener(APP_RESET_EVENT, onReset);
     return () => window.removeEventListener(APP_RESET_EVENT, onReset);
   }, []);
+
+  useEffect(() => {
+    const onFill = (ev: Event) => {
+      const detail = (ev as CustomEvent<TextTranslateFillDetail>).detail;
+      if (!detail?.text) return;
+      setInput(detail.text);
+      setOutput("");
+      setError(null);
+      if (detail.sourceLang && detail.sourceLang !== "auto") {
+        setSourceLang(detail.sourceLang);
+      }
+      if (detail.targetLang) {
+        setTargetLang(detail.targetLang);
+      }
+      setCopyMsg(tr("filledFromCaption"));
+      setTimeout(() => setCopyMsg(null), 2500);
+    };
+    window.addEventListener(TEXT_TRANSLATE_FILL_EVENT, onFill);
+    return () => window.removeEventListener(TEXT_TRANSLATE_FILL_EVENT, onFill);
+  }, [tr]);
 
   const swap = () => {
     setSourceLang(targetLang === "auto" ? "vi" : targetLang);
