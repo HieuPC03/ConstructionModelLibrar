@@ -92,14 +92,14 @@ def _provider_health() -> tuple[bool, str, str, str | None]:
         msg = None
         if bad_gemini:
             msg = (
-                f"GEMINI_API_KEY trong {config_path} không hợp lệ (cần AIza..., không phải sk-proj). "
+                f"GEMINI_API_KEY trong {config_path} không hợp lệ (cần AIza... hoặc AQ....). "
                 "Xóa dòng đó nếu chỉ dịch chữ, hoặc sửa key Gemini."
             )
             return False, label, stt, msg
         if not has_gemini:
             msg = (
                 f"Dịch văn bản: OK (không cần key). "
-                f"Dịch họp realtime: thêm GEMINI_API_KEY (AIza...) vào {config_path}"
+                f"Dịch họp realtime: thêm GEMINI_API_KEY vào {config_path}"
             )
         return True, label, stt, msg
 
@@ -111,7 +111,7 @@ def _provider_health() -> tuple[bool, str, str, str | None]:
             if gkey.startswith("sk-"):
                 msg = f"Đang dán nhầm key OpenAI vào GEMINI_API_KEY. Sửa {config_path}"
             else:
-                msg = f"Thêm GEMINI_API_KEY (AIza...) vào {config_path}"
+                msg = f"Thêm GEMINI_API_KEY (AIza... hoặc AQ....) vào {config_path}"
         return ok, label, GEMINI_MODEL, msg
 
     ok = is_valid_openai_key(get_openai_api_key())
@@ -196,7 +196,7 @@ async def test_provider_config() -> dict[str, Any]:
             if not is_valid_gemini_key(get_gemini_api_key()):
                 raise HTTPException(
                     status_code=400,
-                    detail=f"GEMINI_API_KEY không hợp lệ (cần AIza...) trong {env_file_hint()}",
+                    detail=f"GEMINI_API_KEY không hợp lệ trong {env_file_hint()}",
                 )
             result = await translate_text("test", "en", "vi", provider_override="gemini")
             return {"ok": True, "message": f"Gemini OK (thử dịch: {result})"}

@@ -40,7 +40,7 @@ async def transcribe_audio(
             return await _transcribe_gemini(audio_bytes, filename, language)
         if gemini_key:
             raise ValueError(
-                "GEMINI_API_KEY sai định dạng (cần AIza..., không phải sk-proj OpenAI)."
+                "GEMINI_API_KEY sai định dạng (AIza... hoặc AQ...., không phải sk-proj OpenAI)."
             )
         raise ValueError(
             "Cần GEMINI_API_KEY (https://aistudio.google.com/apikey) cho nhận dạng giọng."
@@ -106,8 +106,8 @@ async def _transcribe_gemini(
     api_key = get_gemini_api_key()
     if not is_valid_gemini_key(api_key):
         raise ValueError(
-            "GEMINI_API_KEY không hợp lệ. Key lấy tại https://aistudio.google.com/apikey "
-            "(bắt đầu AIza...). Không dán key OpenAI (sk-proj) vào ô Gemini."
+            "GEMINI_API_KEY không hợp lệ. Lấy key tại https://aistudio.google.com/apikey "
+            "(AIza... hoặc AQ....). Không dán key OpenAI (sk-proj)."
         )
 
     import google.generativeai as genai

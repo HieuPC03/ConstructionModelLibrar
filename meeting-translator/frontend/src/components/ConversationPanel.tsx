@@ -148,7 +148,7 @@ export default function ConversationPanel() {
         ) : (
           <>
             <strong>Ghi transcript:</strong> chỉ ghi chữ qua <em>Gemini</em>; dịch thủ công
-            bên phải cũng dùng Gemini. Cần GEMINI_API_KEY (AIza...).
+            bên phải cũng dùng Gemini. Cần GEMINI_API_KEY từ Google AI Studio.
           </>
         )}
         {" "}

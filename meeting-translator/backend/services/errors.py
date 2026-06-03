@@ -30,12 +30,19 @@ def is_placeholder_key(key: str) -> bool:
 
 
 def is_valid_gemini_key(key: str) -> bool:
+    """Google AI Studio: AIza... (cũ) hoặc AQ.... (key mới 2024+)."""
     k = (key or "").strip()
     if is_placeholder_key(k):
         return False
     if k.startswith("sk-"):
         return False
-    return k.startswith("AIza") and len(k) >= 35
+    if len(k) < 20:
+        return False
+    if k.startswith("AIza"):
+        return True
+    if k.startswith("AQ."):
+        return True
+    return bool(re.match(r"^AQ[A-Za-z0-9._-]{15,}$", k))
 
 
 def is_valid_openai_key(key: str) -> bool:
@@ -55,8 +62,9 @@ def friendly_api_error(exc: Exception) -> str:
         or "invalid api key" in msg.lower()
     ):
         return (
-            "GEMINI_API_KEY không hợp lệ. Key Gemini phải bắt đầu bằng AIza... "
-            f"(KHÔNG dùng key OpenAI sk-proj). File: {hint} — tạo key tại "
+            "GEMINI_API_KEY không hợp lệ hoặc đã revoke. Key từ "
+            "https://aistudio.google.com/apikey (dạng AIza... hoặc AQ....). "
+            f"KHÔNG dùng key OpenAI sk-proj. File: {hint} — "
             "https://aistudio.google.com/apikey — hoặc chọn Nhà cung cấp "
             "'Google Translate' và xóa/để trống GEMINI_API_KEY nếu chỉ dịch chữ."
         )
