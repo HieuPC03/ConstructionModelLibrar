@@ -13,7 +13,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from services.config import RECORDINGS_DIR, TRANSLATOR_PROVIDER
+from services.config import OPENAI_API_KEY, RECORDINGS_DIR, TRANSLATOR_PROVIDER
+from services.errors import env_file_hint, friendly_api_error, is_placeholder_key
 from services.stt import transcribe_audio
 from services.translate import translate_text
 
@@ -47,20 +48,40 @@ class HealthResponse(BaseModel):
     status: str
     provider: str
     stt: str
+    api_key_ok: bool
+    config_path: str
+    message: str | None = None
 
 
 @app.get("/api/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
+    config_path = env_file_hint()
+    api_ok = not is_placeholder_key(OPENAI_API_KEY)
+    message = None
+    if not api_ok:
+        message = (
+            "Chưa có OPENAI_API_KEY hợp lệ. "
+            f"Mở file {config_path} và dán key từ "
+            "https://platform.openai.com/api-keys"
+        )
     return HealthResponse(
-        status="ok",
+        status="ok" if api_ok else "config_required",
         provider=TRANSLATOR_PROVIDER,
         stt="openai-whisper",
+        api_key_ok=api_ok,
+        config_path=config_path,
+        message=message,
     )
 
 
 @app.post("/api/translate/text", response_model=TextTranslateResponse)
 async def translate_text_endpoint(body: TextTranslateRequest) -> TextTranslateResponse:
-    result = await translate_text(body.text, body.source_lang, body.target_lang)
+    try:
+        result = await translate_text(body.text, body.source_lang, body.target_lang)
+    except Exception as exc:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail=friendly_api_error(exc)) from exc
     return TextTranslateResponse(translation=result, provider=TRANSLATOR_PROVIDER)
 
 
@@ -152,7 +173,7 @@ async def session_websocket(websocket: WebSocket) -> None:
                     await websocket.send_json({"type": "utterance", **entry})
                 except Exception as exc:
                     await websocket.send_json(
-                        {"type": "error", "message": str(exc)}
+                        {"type": "error", "message": friendly_api_error(exc)}
                     )
                 continue
 
@@ -161,7 +182,9 @@ async def session_websocket(websocket: WebSocket) -> None:
             await _save_session(session_id, transcript_log, {})
     except Exception as exc:
         try:
-            await websocket.send_json({"type": "error", "message": str(exc)})
+            await websocket.send_json(
+                {"type": "error", "message": friendly_api_error(exc)}
+            )
         except Exception:
             pass
 

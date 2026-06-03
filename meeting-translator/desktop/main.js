@@ -52,7 +52,7 @@ function ensureUserConfig() {
     } else {
       fs.writeFileSync(
         ud.env,
-        "TRANSLATOR_PROVIDER=openai\nOPENAI_API_KEY=\n",
+        "# Dan key OpenAI: https://platform.openai.com/api-keys\nTRANSLATOR_PROVIDER=openai\nOPENAI_API_KEY=\n",
         "utf8"
       );
     }

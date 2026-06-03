@@ -6,6 +6,9 @@ export async function checkHealth(): Promise<{
   status: string;
   provider: string;
   stt: string;
+  api_key_ok?: boolean;
+  config_path?: string;
+  message?: string | null;
 }> {
   const res = await fetch(`${API_BASE}/api/health`);
   if (!res.ok) throw new Error("Backend không phản hồi");

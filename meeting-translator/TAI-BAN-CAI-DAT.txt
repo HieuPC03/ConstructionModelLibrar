@@ -12,4 +12,11 @@ File: Meeting-Translator-Setup-1.0.0.exe  (~123 MB)
 Sau khi tải:
   1. Double-click file .exe
   2. Install → mở app từ Start Menu
-  3. Sửa API key: %APPDATA%\meeting-translator-desktop\.env
+  3. Sửa API key (BẮT BUỘC):
+     Win+R → gõ: %APPDATA%\meeting-translator-desktop
+     Mở file .env bằng Notepad
+     Dán key: OPENAI_API_KEY=sk-proj-xxxxxxxx
+     Lưu file → tắt app → mở lại
+
+  Lỗi 401 = key sai hoặc vẫn để sk-... mẫu. Tạo key mới tại:
+  https://platform.openai.com/api-keys
