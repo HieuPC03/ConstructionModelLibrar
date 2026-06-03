@@ -1,18 +1,19 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.5.3
-============================================
+TẢI BẢN CÀI ĐẶT — Meeting Translator
+====================================
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.5.3
+Trang tải (luôn cập nhật file mới nhất):
+https://github.com/HieuPC03/ConstructionModelLibrar/releases
 
-File cài (Whisper small ~500MB đã gói sẵn — không tải lần đầu):
+--- Bản có Whisper gói sẵn (v1.5.3+, ~1GB) ---
+Đang build trên GitHub Actions. Khi có, file sẽ là:
 https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.3/Meeting-Translator-Setup-1.5.3.exe
 
-Gói đầy đủ (.exe + .bat):
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.3/Meeting-Translator-v1.5.3-Full-Package.zip
+--- Bản dùng ngay (v1.5.2, ~130MB, Live Caption tải model lần đầu) ---
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.2/Meeting-Translator-Setup-1.5.2.exe
 
-Tính năng v1.5.3:
-- Model Whisper «small» kèm trong installer (~1GB tổng, tùy máy)
-- Live Caption mở ngay sau cài, không cần tải model lần đầu
-- Đổi model tiny/base/medium trong Cài đặt → tải thêm lần đầu nếu chọn size khác
+Gói đầy đủ v1.5.2:
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.2/Meeting-Translator-v1.5.2-Full-Package.zip
 
-Tính năng v1.5.2:
-- Sửa lỗi «Not supported» khi Play
+Ghi chú:
+- v1.5.2: sửa lỗi «Not supported» khi Play
+- v1.5.3: Whisper small ~500MB kèm installer, không tải model lần đầu

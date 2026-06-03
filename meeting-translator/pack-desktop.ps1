@@ -1,7 +1,8 @@
 # Dong goi ban CAI DAT Windows (.exe) — khong can Python tren may nguoi dung
 # Chay: .\pack-desktop.ps1  hoac double-click TAO-BAN-CAI-DAT.bat
 param(
-    [switch]$SkipPythonBundle
+    [switch]$SkipPythonBundle,
+    [switch]$SkipRuntimeBundle
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,14 +24,16 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
 
 Push-Location $Root
 
-# 1) Python embed + pip (cho may cai khong co Python)
-if (-not $SkipPythonBundle) {
+# 1) Python embed + pip + FFmpeg + Whisper (CI thường chạy riêng bước này)
+if (-not $SkipPythonBundle -and -not $SkipRuntimeBundle) {
     Write-Host "[1/6] Dong goi Python runtime..." -ForegroundColor Yellow
     & "$Root\scripts\bundle-python.ps1" -Root $Root
     Write-Host "[1b/6] FFmpeg (offline STT)..." -ForegroundColor Yellow
     & "$Root\scripts\bundle-ffmpeg.ps1" -Root $Root
     Write-Host "[1c/6] Whisper model small (~500MB, kem trong installer)..." -ForegroundColor Yellow
     & "$Root\scripts\bundle-whisper.ps1" -Root $Root -Model "small"
+} elseif ($SkipRuntimeBundle) {
+    Write-Host "[1/6] Bo qua bundle runtime (da chay o buoc CI truoc)" -ForegroundColor DarkYellow
 } else {
     Write-Host "[1/6] Bo qua bundle Python (dev)" -ForegroundColor DarkYellow
 }

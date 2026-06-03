@@ -22,8 +22,10 @@ if ((Test-Path $Marker) -and (Test-Path $RepoDir)) {
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $DlScript = Join-Path $PSScriptRoot "download_whisper_model.py"
 
-Write-Host "Tai Whisper model '$Model' (co the ~500MB, doi vai phut)..."
+Write-Host "[$(Get-Date -Format o)] Tai Whisper model '$Model' (co the ~500MB)..."
+$env:HF_HUB_DISABLE_TELEMETRY = "1"
 & $Py $DlScript --root $OutDir --model $Model
+Write-Host "[$(Get-Date -Format o)] Whisper download script xong."
 if ($LASTEXITCODE -ne 0) { throw "Tai Whisper model that bai" }
 
 Set-Content -Path $Marker -Value "ok" -Encoding ASCII

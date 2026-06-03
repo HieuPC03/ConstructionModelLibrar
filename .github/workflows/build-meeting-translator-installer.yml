@@ -22,6 +22,7 @@ permissions:
 jobs:
   build-windows-installer:
     runs-on: windows-latest
+    timeout-minutes: 120
     defaults:
       run:
         working-directory: meeting-translator
@@ -41,9 +42,18 @@ jobs:
           restore-keys: |
             whisper-small-
 
+      - name: Bundle Python, FFmpeg, Whisper
+        shell: pwsh
+        timeout-minutes: 45
+        run: |
+          ./scripts/bundle-python.ps1
+          ./scripts/bundle-ffmpeg.ps1
+          ./scripts/bundle-whisper.ps1 -Model "small"
+
       - name: Build installer
         shell: pwsh
-        run: ./pack-desktop.ps1
+        timeout-minutes: 60
+        run: ./pack-desktop.ps1 -SkipRuntimeBundle
 
       - name: Read version
         id: ver
