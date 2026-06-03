@@ -54,10 +54,24 @@ jobs:
           ./scripts/bundle-ffmpeg.ps1
           ./scripts/bundle-whisper.ps1 -Model "small"
 
-      - name: Build installer
+      - name: Build portable package (Whisper bundled)
+        shell: pwsh
+        timeout-minutes: 50
+        run: ./pack-portable.ps1 -SkipRuntimeBundle
+
+      - name: Build NSIS Setup.exe (optional)
         shell: pwsh
         timeout-minutes: 90
-        run: ./pack-desktop.ps1 -SkipRuntimeBundle
+        continue-on-error: true
+        run: |
+          Push-Location desktop
+          $env:CSC_IDENTITY_AUTO_DISCOVERY = "false"
+          npm run dist:win
+          Pop-Location
+          $exe = Get-ChildItem dist\desktop -Filter "Meeting-Translator-Setup-*.exe" | Select-Object -First 1
+          if ($exe) {
+            Copy-Item $exe.FullName -Destination "dist\$($exe.Name)" -Force
+          }
 
       - name: Read version
         id: ver
@@ -70,17 +84,30 @@ jobs:
         shell: pwsh
         run: ./pack-v1.4.2.ps1 -Version "${{ steps.ver.outputs.version }}"
 
+      - name: Verify release artifacts exist
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          $portable = "dist\Meeting-Translator-v$v-Portable.zip"
+          $setup = "dist\Meeting-Translator-Setup-$v.exe"
+          if (-not (Test-Path $portable) -and -not (Test-Path $setup)) {
+            throw "Khong co Portable.zip hay Setup.exe — khong the phat hanh"
+          }
+          if (Test-Path $portable) { Write-Host "OK: $portable" }
+          if (Test-Path $setup) { Write-Host "OK: $setup" }
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: Meeting-Translator-v${{ steps.ver.outputs.version }}
           path: |
             meeting-translator/dist/Meeting-Translator-Setup-*.exe
+            meeting-translator/dist/Meeting-Translator-v*-Portable.zip
             meeting-translator/dist/Meeting-Translator-v*-Full-Package.zip
             meeting-translator/dist/Meeting-Translator-v*-BAT-scripts.zip
             meeting-translator/dist/desktop/Meeting-Translator-Setup-*.exe
             meeting-translator/dist/release/**
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/meeting-translator-v') || github.event_name == 'workflow_dispatch'
@@ -91,6 +118,7 @@ jobs:
           prerelease: true
           generate_release_notes: true
           files: |
+            meeting-translator/dist/Meeting-Translator-v${{ steps.ver.outputs.version }}-Portable.zip
             meeting-translator/dist/Meeting-Translator-Setup-${{ steps.ver.outputs.version }}.exe
             meeting-translator/dist/Meeting-Translator-v${{ steps.ver.outputs.version }}-Full-Package.zip
             meeting-translator/dist/Meeting-Translator-v${{ steps.ver.outputs.version }}-BAT-scripts.zip
@@ -98,6 +126,7 @@ jobs:
             meeting-translator/CAI-BANG-EXE.bat
             meeting-translator/MO-APP.bat
             meeting-translator/CAU-HINH-API-KEY.bat
+            meeting-translator/CHAY-PORTABLE.bat
             meeting-translator/BAT-HUONG-DAN.txt
             meeting-translator/TAI-BAN-CAI-DAT.txt
             meeting-translator/HUONG_DAN_CAI_DAT.txt

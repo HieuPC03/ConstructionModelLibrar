@@ -1,17 +1,18 @@
 TẢI BẢN CÀI ĐẶT — Meeting Translator
 ====================================
 
-Trang releases (chọn file .exe mới nhất):
+Trang releases (file luôn có sau khi CI xong):
 https://github.com/HieuPC03/ConstructionModelLibrar/releases
 
---- TẢI NGAY (v1.5.2, link hoạt động) ---
+--- v1.5.6+ BẢN PORTABLE (Whisper gói sẵn, khuyên dùng) ---
+Giai nen zip → chay CHAY-PORTABLE.bat hoặc Meeting Translator.exe
+
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.6/Meeting-Translator-v1.5.6-Portable.zip
+
+(Nếu link 404: CI chưa xong — xem tab Actions trên GitHub)
+
+--- Bản Setup .exe nhỏ hơn (v1.5.2, tải được ngay) ---
 https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.2/Meeting-Translator-Setup-1.5.2.exe
+(Live Caption: tải Whisper ~500MB lần đầu khi Play)
 
-Gói đầy đủ v1.5.2:
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.2/Meeting-Translator-v1.5.2-Full-Package.zip
-
---- v1.5.5+ (Whisper small gói sẵn, ~1GB) ---
-Đang build trên GitHub (mất ~1–2 giờ). Khi xong:
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.5/Meeting-Translator-Setup-1.5.5.exe
-
-Lưu ý: v1.5.3 / v1.5.4 chưa có file trên GitHub → link 404 là bình thường.
+Lưu ý: v1.5.3 / v1.5.4 / v1.5.5 không có file trên GitHub → 404.

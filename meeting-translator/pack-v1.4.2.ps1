@@ -26,11 +26,22 @@ if (-not $Setup) {
         Sort-Object LastWriteTime -Descending |
         Select-Object -First 1
 }
-if (-not $Setup) { throw "Khong tim thay Meeting-Translator-Setup-*.exe" }
+$PortableZip = Join-Path $Dist "Meeting-Translator-v$Version-Portable.zip"
+if (-not $Setup -and -not (Test-Path $PortableZip)) {
+    throw "Khong tim thay Setup.exe hoac Portable.zip — chay pack-portable.ps1 hoac pack-desktop.ps1"
+}
 
-$TargetExe = Join-Path $Dist "Meeting-Translator-Setup-$Version.exe"
-Copy-Item $Setup.FullName -Destination $TargetExe -Force
-Write-Host "Setup: $TargetExe ($([math]::Round((Get-Item $TargetExe).Length / 1MB, 2)) MB)" -ForegroundColor Green
+if ($Setup) {
+    $TargetExe = Join-Path $Dist "Meeting-Translator-Setup-$Version.exe"
+    Copy-Item $Setup.FullName -Destination $TargetExe -Force
+    Write-Host "Setup: $TargetExe ($([math]::Round((Get-Item $TargetExe).Length / 1MB, 2)) MB)" -ForegroundColor Green
+} else {
+    Write-Host "Khong co Setup.exe — dung ban Portable.zip" -ForegroundColor Yellow
+}
+
+if (Test-Path $PortableZip) {
+    Write-Host "Portable: $PortableZip ($([math]::Round((Get-Item $PortableZip).Length / 1MB, 2)) MB)" -ForegroundColor Green
+}
 
 # BAT zip
 & "$Root\pack-bat-zip.ps1"
@@ -46,11 +57,16 @@ $Stage = Join-Path $Dist "stage-v$Version"
 if (Test-Path $Stage) { Remove-Item -Recurse -Force $Stage }
 New-Item -ItemType Directory -Force -Path $Stage | Out-Null
 
-Copy-Item $TargetExe -Destination $Stage
+if ($Setup) {
+    Copy-Item (Join-Path $Dist "Meeting-Translator-Setup-$Version.exe") -Destination $Stage
+}
+if (Test-Path $PortableZip) {
+    Copy-Item $PortableZip -Destination $Stage
+}
 @(
     "CAI-BANG-EXE.bat", "MO-APP.bat", "CAU-HINH-API-KEY.bat",
     "BAT-HUONG-DAN.txt", "HUONG_DAN_CAI_DAT.txt", "TAI-BAN-CAI-DAT.txt",
-    "TAO-BAN-CAI-DAT.bat", "CHAY-DESKTOP.bat", "CHAY.bat",
+    "TAO-BAN-CAI-DAT.bat", "CHAY-DESKTOP.bat", "CHAY-PORTABLE.bat", "CHAY.bat",
     "install.bat", "install-desktop.bat"
 ) | ForEach-Object {
     $p = Join-Path $Root $_
@@ -66,7 +82,8 @@ Meeting Translator v$Version
 - Dich realtime: ChatGPT (OPENAI_API_KEY)
 - FFmpeg kem trong ban cai day du
 
-Cai dat: CAI-BANG-EXE.bat hoac Meeting-Translator-Setup-$Version.exe
+Portable (Whisper gói sẵn): giai nen Meeting-Translator-v$Version-Portable.zip, chay CHAY-PORTABLE.bat
+Cai dat NSIS (neu co): Meeting-Translator-Setup-$Version.exe hoac CAI-BANG-EXE.bat
 API key: CAU-HINH-API-KEY.bat
 "@
 Set-Content -Path (Join-Path $Stage "RELEASE-v$Version.txt") -Value $ReleaseNotes -Encoding UTF8
