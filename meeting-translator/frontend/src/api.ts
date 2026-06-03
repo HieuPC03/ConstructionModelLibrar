@@ -32,6 +32,8 @@ export async function testApiKey(): Promise<string> {
 
 export type TranslatorProvider = "openai" | "gemini" | "google";
 
+export type SessionMode = "translate_realtime" | "transcript";
+
 export type AppSettings = {
   recordings_dir: string;
   export_dir: string;
@@ -40,6 +42,9 @@ export type AppSettings = {
   default_target_lang: LangCode;
   meeting_pair: "vi-ja" | "ja-vi";
   translator_provider?: TranslatorProvider;
+  session_mode?: SessionMode;
+  text_translate_via?: string;
+  live_stt_via?: string;
   config_path?: string;
   recordings_dir_active?: string;
   provider?: string;

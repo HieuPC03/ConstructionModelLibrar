@@ -58,6 +58,7 @@ export function useAudioCapture() {
       const streams: MediaStream[] = [];
 
       try {
+        let mixMic = includeMic;
         if (mode === "display" || mode === "screen") {
           const display = await navigator.mediaDevices.getDisplayMedia({
             video: true,
@@ -71,6 +72,9 @@ export function useAudioCapture() {
           if (display.getAudioTracks().length > 0) {
             streams.push(new MediaStream(display.getAudioTracks()));
           }
+          if (mode === "screen") {
+            mixMic = true;
+          }
         } else if (mode === "loopback" && loopbackDeviceId) {
           const loop = await navigator.mediaDevices.getUserMedia({
             audio: {
@@ -83,7 +87,7 @@ export function useAudioCapture() {
           streams.push(loop);
         }
 
-        if (includeMic) {
+        if (mixMic) {
           const mic = await navigator.mediaDevices.getUserMedia({
             audio: micDeviceId
               ? { deviceId: { exact: micDeviceId } }

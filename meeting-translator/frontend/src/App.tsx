@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import ConversationPanel from "./components/ConversationPanel";
 import SettingsBar from "./components/SettingsBar";
+import TextTranslatePanel from "./components/TextTranslatePanel";
 import { checkHealth } from "./api";
 
 export default function App() {
@@ -25,7 +26,7 @@ export default function App() {
   return (
     <>
       <header className="app-header">
-        <h1>Meeting Translator — Ghi chữ cuộc họp</h1>
+        <h1>Meeting Translator</h1>
         <span className="badge">
           {window.desktopApp?.isDesktop
             ? "Desktop app"
@@ -45,8 +46,9 @@ export default function App() {
           {configWarning}
         </div>
       )}
-      <main className="main-single">
+      <main className="split-layout">
         <ConversationPanel />
+        <TextTranslatePanel />
       </main>
     </>
   );

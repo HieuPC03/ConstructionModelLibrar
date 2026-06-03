@@ -22,17 +22,24 @@ def _lang_name(code: str) -> str:
     return {"vi": "Vietnamese", "ja": "Japanese", "en": "English"}.get(code, code)
 
 
-async def translate_text(text: str, source_lang: str, target_lang: str) -> str:
+async def translate_text(
+    text: str,
+    source_lang: str,
+    target_lang: str,
+    provider_override: str | None = None,
+) -> str:
     if not text.strip():
         return ""
     if source_lang == target_lang:
         return text
 
-    provider = get_translator_provider()
+    provider = (provider_override or get_translator_provider()).lower()
     prompt = (
         f"Translate the following from {_lang_name(source_lang)} to {_lang_name(target_lang)}:\n\n{text}"
     )
 
+    if provider == "openai":
+        return await _translate_openai(prompt)
     if provider == "gemini":
         return await _translate_gemini(prompt)
     if provider == "google":
@@ -43,7 +50,7 @@ async def translate_text(text: str, source_lang: str, target_lang: str) -> str:
     except Exception as openai_err:
         msg = str(openai_err).lower()
         if "insufficient_quota" in msg or "billing" in msg or "429" in msg:
-            if get_gemini_api_key():
+            if is_valid_gemini_key(get_gemini_api_key()):
                 return await _translate_gemini(prompt)
             return await _translate_google(text, source_lang, target_lang)
         raise

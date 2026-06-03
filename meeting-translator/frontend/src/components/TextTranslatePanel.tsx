@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { LangCode } from "../types";
-import { translateText } from "../api";
+import { fetchSettings, translateText, type SessionMode } from "../api";
 
 export default function TextTranslatePanel() {
+  const [sessionMode, setSessionMode] = useState<SessionMode>("transcript");
   const [sourceLang, setSourceLang] = useState<LangCode>("vi");
   const [targetLang, setTargetLang] = useState<LangCode>("ja");
   const [input, setInput] = useState("");
@@ -10,21 +11,20 @@ export default function TextTranslatePanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    fetchSettings()
+      .then((s) => setSessionMode(s.session_mode || "transcript"))
+      .catch(() => undefined);
+  }, []);
+
+  const apiLabel =
+    sessionMode === "translate_realtime" ? "ChatGPT" : "Gemini";
+
   const swap = () => {
     setSourceLang(targetLang === "auto" ? "vi" : targetLang);
     setTargetLang(sourceLang === "auto" ? "ja" : sourceLang);
     setInput(output);
     setOutput("");
-  };
-
-  const setViToJa = () => {
-    setSourceLang("vi");
-    setTargetLang("ja");
-  };
-
-  const setJaToVi = () => {
-    setSourceLang("ja");
-    setTargetLang("vi");
   };
 
   const handleTranslate = async () => {
@@ -46,17 +46,35 @@ export default function TextTranslatePanel() {
     <section className="panel">
       <div className="panel-header">
         <h2>Dịch văn bản</h2>
-        <span className="badge" id="translate-provider-badge">
-          Dịch
-        </span>
+        <span className="badge">{apiLabel}</span>
+      </div>
+
+      <div className="hint-box">
+        Dịch thủ công qua{" "}
+        <strong>{sessionMode === "translate_realtime" ? "ChatGPT" : "Gemini"}</strong>{" "}
+        (theo chế độ phiên bên trái).
       </div>
 
       <div className="text-translate-body">
         <div className="lang-swap">
-          <button type="button" className="secondary" onClick={setViToJa}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              setSourceLang("vi");
+              setTargetLang("ja");
+            }}
+          >
             Việt → Nhật
           </button>
-          <button type="button" className="secondary" onClick={setJaToVi}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              setSourceLang("ja");
+              setTargetLang("vi");
+            }}
+          >
             Nhật → Việt
           </button>
           <label>
@@ -90,11 +108,7 @@ export default function TextTranslatePanel() {
         </div>
 
         <textarea
-          placeholder={
-            sourceLang === "ja"
-              ? "日本語のテキストを入力…"
-              : "Nhập văn bản tiếng Việt…"
-          }
+          placeholder="Nhập văn bản…"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           rows={6}
@@ -107,7 +121,7 @@ export default function TextTranslatePanel() {
             output
           ) : (
             <span style={{ color: "var(--muted)" }}>
-              Kết quả dịch (ChatGPT) hiển thị tại đây…
+              Kết quả dịch ({apiLabel})…
             </span>
           )}
         </div>

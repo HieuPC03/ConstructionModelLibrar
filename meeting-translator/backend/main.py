@@ -31,6 +31,13 @@ from services.errors import (
     is_valid_openai_key,
 )
 from services.settings_store import load_settings, resolve_export_dir, resolve_recordings_dir, save_settings
+from services.session_modes import (
+    SESSION_TRANSLATE,
+    SESSION_TRANSCRIPT,
+    get_session_mode,
+    stt_engine_for_mode,
+    text_translate_provider_for_mode,
+)
 from services.stt import transcribe_audio
 from services.translate import translate_text
 
@@ -142,6 +149,9 @@ class SettingsUpdate(BaseModel):
     translator_provider: str | None = Field(
         default=None, pattern="^(openai|gemini|google)$"
     )
+    session_mode: str | None = Field(
+        default=None, pattern="^(translate_realtime|transcript)$"
+    )
 
 
 @app.get("/api/settings")
@@ -154,6 +164,9 @@ async def get_settings() -> dict[str, Any]:
         "translate_model": OPENAI_TRANSLATE_MODEL,
         "provider": PROVIDER_LABELS.get(get_translator_provider(), "openai"),
         "translator_provider": get_translator_provider(),
+        "session_mode": get_session_mode(),
+        "text_translate_via": text_translate_provider_for_mode(get_session_mode()),
+        "live_stt_via": stt_engine_for_mode(get_session_mode()),
     }
 
 
@@ -168,9 +181,10 @@ async def patch_settings(body: SettingsUpdate) -> dict[str, Any]:
 async def test_provider_config() -> dict[str, Any]:
     from fastapi import HTTPException
 
-    provider = get_translator_provider()
+    mode = get_session_mode()
+    via = text_translate_provider_for_mode(mode)
     try:
-        if provider == "google":
+        if via == "google":
             result = await translate_text("xin chào", "vi", "ja")
             if not result:
                 raise ValueError("Google Translate không trả kết quả")
@@ -178,15 +192,15 @@ async def test_provider_config() -> dict[str, Any]:
                 "ok": True,
                 "message": f"Google Translate OK (ví dụ: xin chào → {result})",
             }
-        if provider == "gemini":
+        if via == "gemini":
             if not is_valid_gemini_key(get_gemini_api_key()):
                 raise HTTPException(
                     status_code=400,
                     detail=f"GEMINI_API_KEY không hợp lệ (cần AIza...) trong {env_file_hint()}",
                 )
-            result = await translate_text("test", "en", "vi")
+            result = await translate_text("test", "en", "vi", provider_override="gemini")
             return {"ok": True, "message": f"Gemini OK (thử dịch: {result})"}
-        if is_placeholder_key(get_openai_api_key()):
+        if mode == SESSION_TRANSLATE and not is_valid_openai_key(get_openai_api_key()):
             raise HTTPException(
                 status_code=400,
                 detail=f"Thiếu OPENAI_API_KEY trong {env_file_hint()}",
@@ -223,6 +237,8 @@ async def export_text(body: ExportRequest) -> dict[str, str]:
             lines.append(
                 f"[{u.get('speaker', '?')}{time_part}] {u.get('original', '')}"
             )
+            if u.get("translation"):
+                lines.append(f"  → {u['translation']}")
             lines.append("")
     content = "\n".join(lines) or "(trống)"
 
@@ -236,16 +252,21 @@ async def export_text(body: ExportRequest) -> dict[str, str]:
 
 @app.post("/api/translate/text", response_model=TextTranslateResponse)
 async def translate_text_endpoint(body: TextTranslateRequest) -> TextTranslateResponse:
+    mode = get_session_mode()
+    via = text_translate_provider_for_mode(mode)
     try:
-        result = await translate_text(body.text, body.source_lang, body.target_lang)
+        result = await translate_text(
+            body.text,
+            body.source_lang,
+            body.target_lang,
+            provider_override=via,
+        )
     except Exception as exc:
         from fastapi import HTTPException
 
         raise HTTPException(status_code=400, detail=friendly_api_error(exc)) from exc
-    return TextTranslateResponse(
-        translation=result,
-        provider=PROVIDER_LABELS.get(get_translator_provider(), "openai"),
-    )
+    label = "ChatGPT (OpenAI)" if via == "openai" else "Google Gemini"
+    return TextTranslateResponse(translation=result, provider=label)
 
 
 @app.post("/api/transcribe")
@@ -311,18 +332,33 @@ async def session_websocket(websocket: WebSocket) -> None:
                 source_lang = meta.get("source_lang", "auto")
                 target_lang = meta.get("target_lang", "vi")
                 speaker = meta.get("speaker", "remote")
+                session_mode = get_session_mode(meta.get("session_mode"))
+                stt_engine = stt_engine_for_mode(session_mode)
 
                 try:
                     text = await transcribe_audio(
-                        data, meta.get("filename", "chunk.webm"), source_lang
+                        data,
+                        meta.get("filename", "chunk.webm"),
+                        source_lang,
+                        engine=stt_engine,
                     )
+                    translation = ""
+                    if text and session_mode == SESSION_TRANSLATE:
+                        src = source_lang if source_lang != "auto" else "en"
+                        translation = await translate_text(
+                            text,
+                            src,
+                            target_lang,
+                            provider_override="openai",
+                        )
 
                     entry = {
                         "id": str(uuid.uuid4()),
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                         "speaker": speaker,
                         "original": text,
-                        "translation": "",
+                        "translation": translation,
+                        "session_mode": session_mode,
                     }
                     transcript_log.append(entry)
                     await websocket.send_json({"type": "utterance", **entry})

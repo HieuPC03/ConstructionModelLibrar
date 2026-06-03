@@ -314,3 +314,27 @@ textarea {
   background: #000;
   border: 1px solid var(--border);
 }
+
+.mode-switch {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.mode-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.mode-btn.secondary:not(.active) {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+}

@@ -13,6 +13,7 @@ _DEFAULT: dict[str, Any] = {
     "default_target_lang": "vi",
     "meeting_pair": "vi-ja",
     "translator_provider": "gemini",
+    "session_mode": "transcript",
 }
 
 

@@ -1,21 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import type { LangCode, Utterance } from "../types";
+import type { LangCode, SessionMode, Utterance } from "../types";
 import type { CaptureMode } from "../hooks/useAudioCapture";
 import { useAudioCapture } from "../hooks/useAudioCapture";
 import { useRealtimeSession } from "../hooks/useRealtimeSession";
-import { exportTranscript, fetchSettings } from "../api";
+import { exportTranscript, fetchSettings, updateSettings } from "../api";
 
 export default function ConversationPanel() {
   const feedRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [sessionMode, setSessionMode] = useState<SessionMode>("transcript");
   const [sourceLang, setSourceLang] = useState<LangCode>("auto");
+  const [targetLang, setTargetLang] = useState<LangCode>("vi");
   const [captureMode, setCaptureMode] = useState<CaptureMode>("screen");
   const [loopbackId, setLoopbackId] = useState("");
-  const [includeMic, setIncludeMic] = useState(false);
+  const [includeMic, setIncludeMic] = useState(true);
   const [micId] = useState("");
   const [starting, setStarting] = useState(false);
   const [exportDir, setExportDir] = useState("");
 
+  const isTranslate = sessionMode === "translate_realtime";
   const audio = useAudioCapture();
   const session = useRealtimeSession();
 
@@ -24,7 +27,14 @@ export default function ConversationPanel() {
     fetchSettings()
       .then((s) => {
         setExportDir(s.export_dir || s.recordings_dir || "");
-        setSourceLang(s.default_source_lang || "auto");
+        setSessionMode(s.session_mode || "transcript");
+        if (s.meeting_pair === "ja-vi") {
+          setSourceLang("ja");
+          setTargetLang("vi");
+        } else {
+          setSourceLang(s.default_source_lang || "auto");
+          setTargetLang(s.default_target_lang || "vi");
+        }
       })
       .catch(() => undefined);
   }, []);
@@ -45,6 +55,11 @@ export default function ConversationPanel() {
     }
   }, [session.isLive, captureMode, audio]);
 
+  const onModeChange = async (mode: SessionMode) => {
+    setSessionMode(mode);
+    await updateSettings({ session_mode: mode }).catch(() => undefined);
+  };
+
   const loopbackDevices = audio.devices.filter((d) =>
     /stereo mix|loopback|what u hear|monitor|blackhole|vb-audio|cable output|mix/i.test(
       d.label
@@ -57,13 +72,21 @@ export default function ConversationPanel() {
     setStarting(true);
     session.setStatus("Đang mở nguồn âm thanh…");
     try {
+      const mixMic =
+        captureMode === "screen" ? true : includeMic;
       const stream = await audio.startCapture(
         captureMode,
         loopbackId || displayDevices[0]?.deviceId,
-        includeMic,
+        mixMic,
         micId || undefined
       );
-      await session.startSession(stream, sourceLang, "remote");
+      await session.startSession(
+        stream,
+        sourceLang,
+        targetLang,
+        sessionMode,
+        "remote"
+      );
     } catch (e) {
       session.setStatus((e as Error).message);
     } finally {
@@ -91,27 +114,56 @@ export default function ConversationPanel() {
   };
 
   return (
-    <section className="panel panel-full">
+    <section className="panel">
       <div className="panel-header">
-        <h2>Ghi chữ trực tiếp (phụ đề / transcript)</h2>
-        {session.isLive && <span className="badge live">ĐANG GHI</span>}
+        <h2>Phiên họp</h2>
+        {session.isLive && <span className="badge live">LIVE</span>}
+      </div>
+
+      <div className="mode-switch">
+        <button
+          type="button"
+          className={isTranslate ? "mode-btn active" : "mode-btn secondary"}
+          onClick={() => onModeChange("translate_realtime")}
+          disabled={session.isLive}
+        >
+          Dịch realtime · ChatGPT
+        </button>
+        <button
+          type="button"
+          className={!isTranslate ? "mode-btn active" : "mode-btn secondary"}
+          onClick={() => onModeChange("transcript")}
+          disabled={session.isLive}
+        >
+          Ghi transcript · Gemini
+        </button>
       </div>
 
       <div className="hint-box">
-        <strong>Chỉ ghi văn bản</strong> — không dịch realtime. Bắt lời từ cuộc họp (tai nghe /
-        quay màn hình) và lưu thành file .txt. Cần <em>GEMINI_API_KEY</em> (AIza...) trong .env
-        để nhận dạng giọng nói.
+        {isTranslate ? (
+          <>
+            <strong>Dịch realtime:</strong> nhận dạng + dịch qua <em>ChatGPT (OpenAI)</em>.
+            Cần OPENAI_API_KEY + billing.
+          </>
+        ) : (
+          <>
+            <strong>Ghi transcript:</strong> chỉ ghi chữ qua <em>Gemini</em>; dịch thủ công
+            bên phải cũng dùng Gemini. Cần GEMINI_API_KEY (AIza...).
+          </>
+        )}
+        {" "}
+        <strong>Quay màn hình:</strong> tự trộn âm <em>loa/tai nghe + micro</em>.
       </div>
 
       <div className="panel-header">
         <div className="controls-row">
           <label>
-            Nguồn âm
+            Nguồn
             <select
               value={captureMode}
               onChange={(e) => setCaptureMode(e.target.value as CaptureMode)}
             >
-              <option value="screen">Quay màn hình + âm thanh</option>
+              <option value="screen">Quay màn hình (loa + micro)</option>
               <option value="display">Chia sẻ tab / màn hình</option>
               <option value="loopback">Loopback / Stereo Mix</option>
               <option value="mic">Chỉ micro</option>
@@ -124,7 +176,7 @@ export default function ConversationPanel() {
                 value={loopbackId}
                 onChange={(e) => setLoopbackId(e.target.value)}
               >
-                <option value="">— Chọn thiết bị —</option>
+                <option value="">— Chọn —</option>
                 {displayDevices.map((d) => (
                   <option key={d.deviceId} value={d.deviceId}>
                     {d.label}
@@ -133,14 +185,16 @@ export default function ConversationPanel() {
               </select>
             </label>
           )}
-          <label>
-            <input
-              type="checkbox"
-              checked={includeMic}
-              onChange={(e) => setIncludeMic(e.target.checked)}
-            />
-            Thêm micro (bạn nói)
-          </label>
+          {captureMode !== "screen" && (
+            <label>
+              <input
+                type="checkbox"
+                checked={includeMic}
+                onChange={(e) => setIncludeMic(e.target.checked)}
+              />
+              Thêm micro
+            </label>
+          )}
           <label>
             Ngôn ngữ nói
             <select
@@ -153,11 +207,28 @@ export default function ConversationPanel() {
               <option value="en">English</option>
             </select>
           </label>
+          {isTranslate && (
+            <label>
+              Dịch sang
+              <select
+                value={targetLang}
+                onChange={(e) => setTargetLang(e.target.value as LangCode)}
+              >
+                <option value="vi">Tiếng Việt</option>
+                <option value="ja">日本語</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+          )}
         </div>
         <div className="controls-row">
           {!session.isLive ? (
             <button onClick={handleStart} disabled={starting}>
-              {starting ? "Đang bắt đầu…" : "Bắt đầu ghi chữ"}
+              {starting
+                ? "Đang bắt đầu…"
+                : isTranslate
+                  ? "Bắt đầu dịch realtime"
+                  : "Bắt đầu ghi transcript"}
             </button>
           ) : (
             <button className="danger" onClick={handleStop}>
@@ -170,7 +241,7 @@ export default function ConversationPanel() {
             disabled={session.utterances.length === 0}
             onClick={handleExport}
           >
-            Xuất file .txt
+            Xuất .txt
           </button>
           <button className="secondary" type="button" onClick={audio.refreshDevices}>
             Làm mới thiết bị
@@ -187,7 +258,9 @@ export default function ConversationPanel() {
       <div className="conversation-feed" ref={feedRef}>
         {session.utterances.length === 0 ? (
           <p className="empty-hint">
-            Văn bản cuộc họp hiện tại đây khi có âm thanh (giống phụ đề Win+Ctrl+L).
+            {isTranslate
+              ? "Câu gốc + bản dịch (ChatGPT) hiện tại đây."
+              : "Transcript (Gemini) hiện tại đây."}
           </p>
         ) : (
           session.utterances.map((u: Utterance) => (
@@ -200,6 +273,9 @@ export default function ConversationPanel() {
                 {new Date(u.timestamp).toLocaleTimeString()}
               </div>
               {u.original && <p className="original">{u.original}</p>}
+              {isTranslate && u.translation && (
+                <p className="translation">{u.translation}</p>
+              )}
             </article>
           ))
         )}

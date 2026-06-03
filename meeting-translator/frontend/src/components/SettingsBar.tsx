@@ -4,7 +4,6 @@ import {
   testApiKey,
   updateSettings,
   type AppSettings,
-  type TranslatorProvider,
 } from "../api";
 
 export default function SettingsBar() {
@@ -12,7 +11,9 @@ export default function SettingsBar() {
   const [recordingsDir, setRecordingsDir] = useState("");
   const [exportDir, setExportDir] = useState("");
   const [uiLang, setUiLang] = useState<"vi" | "ja">("vi");
-  const [provider, setProvider] = useState<TranslatorProvider>("google");
+  const [sessionMode, setSessionMode] = useState<"translate_realtime" | "transcript">(
+    "transcript"
+  );
   const [testMsg, setTestMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -23,9 +24,7 @@ export default function SettingsBar() {
         setRecordingsDir(s.recordings_dir || "");
         setExportDir(s.export_dir || "");
         setUiLang(s.ui_language || "vi");
-        setProvider(
-          (s.translator_provider as TranslatorProvider) || "google"
-        );
+        setSessionMode(s.session_mode || "transcript");
       })
       .catch(() => undefined);
   }, []);
@@ -37,7 +36,7 @@ export default function SettingsBar() {
         recordings_dir: recordingsDir,
         export_dir: exportDir,
         ui_language: uiLang,
-        translator_provider: provider,
+        session_mode: sessionMode,
       });
       setSettings(s);
       setTestMsg("Đã lưu nhà cung cấp và đường dẫn.");
@@ -75,17 +74,17 @@ export default function SettingsBar() {
         {uiLang === "ja" ? "設定" : "Cài đặt"}
       </span>
       <label className="settings-field">
-        {uiLang === "ja" ? "翻訳API" : "Nhà cung cấp"}
+        {uiLang === "ja" ? "モード" : "Chế độ mặc định"}
         <select
-          value={provider}
+          value={sessionMode}
           onChange={(e) =>
-            setProvider(e.target.value as TranslatorProvider)
+            setSessionMode(
+              e.target.value as "translate_realtime" | "transcript"
+            )
           }
-          title="OpenAI hết quota → chọn Google Translate hoặc Gemini"
         >
-          <option value="gemini">Google Gemini — ghi chữ + STT (khuyến nghị)</option>
-          <option value="google">Google (chỉ hỗ trợ hạn chế)</option>
-          <option value="openai">OpenAI (cần billing)</option>
+          <option value="transcript">Ghi transcript (Gemini)</option>
+          <option value="translate_realtime">Dịch realtime (ChatGPT)</option>
         </select>
       </label>
       <label className="settings-field">

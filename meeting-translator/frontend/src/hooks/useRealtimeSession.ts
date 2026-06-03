@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import type { LangCode, Speaker, Utterance } from "../types";
+import type { LangCode, SessionMode, Speaker, Utterance } from "../types";
 import { exportTranscript, uploadRecording, wsUrl } from "../api";
 
 const CHUNK_MS = 3000;
@@ -68,6 +68,8 @@ export function useRealtimeSession() {
     async (
       stream: MediaStream,
       sourceLang: LangCode,
+      targetLang: LangCode,
+      sessionMode: SessionMode,
       remoteSpeaker: Speaker
     ) => {
       setUtterances([]);
@@ -88,7 +90,11 @@ export function useRealtimeSession() {
         if (data.type === "ready") {
           setSessionId(data.session_id);
           setIsLive(true);
-          setStatus("Đang ghi chữ…");
+          setStatus(
+            sessionMode === "translate_realtime"
+              ? "Đang dịch realtime (ChatGPT)…"
+              : "Đang ghi transcript (Gemini)…"
+          );
         } else if (data.type === "utterance" && data.original) {
           appendUtterance({
             id: data.id,
@@ -106,7 +112,8 @@ export function useRealtimeSession() {
 
       const meta = {
         source_lang: sourceLang,
-        transcribe_only: "true",
+        target_lang: targetLang,
+        session_mode: sessionMode,
         speaker: remoteSpeaker,
       };
       startChunkPipeline(stream, meta);

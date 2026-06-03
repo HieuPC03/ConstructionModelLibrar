@@ -24,9 +24,14 @@ async def transcribe_audio(
     audio_bytes: bytes,
     filename: str = "chunk.webm",
     language: str = "auto",
+    engine: str | None = None,
 ) -> str:
-    provider = get_translator_provider()
+    if engine == "openai":
+        return await _transcribe_openai(audio_bytes, filename, language)
+    if engine == "gemini":
+        return await _transcribe_gemini(audio_bytes, filename, language)
 
+    provider = get_translator_provider()
     if provider == "gemini":
         return await _transcribe_gemini(audio_bytes, filename, language)
     if provider == "google":
@@ -35,19 +40,19 @@ async def transcribe_audio(
             return await _transcribe_gemini(audio_bytes, filename, language)
         if gemini_key:
             raise ValueError(
-                "GEMINI_API_KEY sai định dạng (cần AIza..., không phải sk-proj OpenAI). "
-                "Sửa .env hoặc xóa dòng GEMINI_API_KEY nếu chỉ dùng dịch chữ."
+                "GEMINI_API_KEY sai định dạng (cần AIza..., không phải sk-proj OpenAI)."
             )
         raise ValueError(
-            "Dịch họp realtime cần GEMINI_API_KEY (https://aistudio.google.com/apikey) "
-            "hoặc chỉ dùng khung dịch văn bản bên phải (Google Translate)."
+            "Cần GEMINI_API_KEY (https://aistudio.google.com/apikey) cho nhận dạng giọng."
         )
 
     try:
         return await _transcribe_openai(audio_bytes, filename, language)
     except Exception as exc:
         msg = str(exc).lower()
-        if ("insufficient_quota" in msg or "billing" in msg) and get_gemini_api_key():
+        if ("insufficient_quota" in msg or "billing" in msg) and is_valid_gemini_key(
+            get_gemini_api_key()
+        ):
             return await _transcribe_gemini(audio_bytes, filename, language)
         raise
 
