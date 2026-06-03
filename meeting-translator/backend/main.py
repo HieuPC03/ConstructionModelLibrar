@@ -23,7 +23,13 @@ from services.config import (
     get_openai_api_key,
     get_translator_provider,
 )
-from services.errors import env_file_hint, friendly_api_error, is_placeholder_key
+from services.errors import (
+    env_file_hint,
+    friendly_api_error,
+    is_placeholder_key,
+    is_valid_gemini_key,
+    is_valid_openai_key,
+)
 from services.settings_store import load_settings, resolve_export_dir, resolve_recordings_dir, save_settings
 from services.stt import transcribe_audio
 from services.translate import translate_text
@@ -73,26 +79,35 @@ def _provider_health() -> tuple[bool, str, str, str | None]:
     label = PROVIDER_LABELS.get(provider, provider)
 
     if provider == "google":
-        has_gemini = not is_placeholder_key(get_gemini_api_key())
+        has_gemini = is_valid_gemini_key(get_gemini_api_key())
+        bad_gemini = get_gemini_api_key() and not has_gemini
         stt = GEMINI_MODEL if has_gemini else "cần GEMINI_API_KEY"
         msg = None
+        if bad_gemini:
+            msg = (
+                f"GEMINI_API_KEY trong {config_path} không hợp lệ (cần AIza..., không phải sk-proj). "
+                "Xóa dòng đó nếu chỉ dịch chữ, hoặc sửa key Gemini."
+            )
+            return False, label, stt, msg
         if not has_gemini:
             msg = (
-                f"Dịch văn bản: Google Translate (không cần key). "
-                f"Dịch họp realtime: thêm GEMINI_API_KEY vào {config_path}"
+                f"Dịch văn bản: OK (không cần key). "
+                f"Dịch họp realtime: thêm GEMINI_API_KEY (AIza...) vào {config_path}"
             )
         return True, label, stt, msg
 
     if provider == "gemini":
-        ok = not is_placeholder_key(get_gemini_api_key())
-        msg = (
-            None
-            if ok
-            else f"Thêm GEMINI_API_KEY vào {config_path} (https://aistudio.google.com/apikey)"
-        )
+        gkey = get_gemini_api_key()
+        ok = is_valid_gemini_key(gkey)
+        msg = None
+        if not ok:
+            if gkey.startswith("sk-"):
+                msg = f"Đang dán nhầm key OpenAI vào GEMINI_API_KEY. Sửa {config_path}"
+            else:
+                msg = f"Thêm GEMINI_API_KEY (AIza...) vào {config_path}"
         return ok, label, GEMINI_MODEL, msg
 
-    ok = not is_placeholder_key(get_openai_api_key())
+    ok = is_valid_openai_key(get_openai_api_key())
     msg = (
         None
         if ok
@@ -164,10 +179,10 @@ async def test_provider_config() -> dict[str, Any]:
                 "message": f"Google Translate OK (ví dụ: xin chào → {result})",
             }
         if provider == "gemini":
-            if is_placeholder_key(get_gemini_api_key()):
+            if not is_valid_gemini_key(get_gemini_api_key()):
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Thiếu GEMINI_API_KEY trong {env_file_hint()}",
+                    detail=f"GEMINI_API_KEY không hợp lệ (cần AIza...) trong {env_file_hint()}",
                 )
             result = await translate_text("test", "en", "vi")
             return {"ok": True, "message": f"Gemini OK (thử dịch: {result})"}

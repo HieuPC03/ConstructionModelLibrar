@@ -10,6 +10,7 @@ from services.config import (
     get_openai_api_key,
     get_translator_provider,
 )
+from services.errors import is_valid_gemini_key, is_valid_openai_key
 
 WHISPER_LANG = {"vi": "vi", "ja": "ja", "en": "en", "auto": None}
 _GEMINI_LANG_HINT = {
@@ -29,9 +30,18 @@ async def transcribe_audio(
     if provider == "gemini":
         return await _transcribe_gemini(audio_bytes, filename, language)
     if provider == "google":
-        if get_gemini_api_key():
+        gemini_key = get_gemini_api_key()
+        if is_valid_gemini_key(gemini_key):
             return await _transcribe_gemini(audio_bytes, filename, language)
-        return await _transcribe_openai(audio_bytes, filename, language)
+        if gemini_key:
+            raise ValueError(
+                "GEMINI_API_KEY sai định dạng (cần AIza..., không phải sk-proj OpenAI). "
+                "Sửa .env hoặc xóa dòng GEMINI_API_KEY nếu chỉ dùng dịch chữ."
+            )
+        raise ValueError(
+            "Dịch họp realtime cần GEMINI_API_KEY (https://aistudio.google.com/apikey) "
+            "hoặc chỉ dùng khung dịch văn bản bên phải (Google Translate)."
+        )
 
     try:
         return await _transcribe_openai(audio_bytes, filename, language)
@@ -46,9 +56,9 @@ async def _transcribe_openai(
     audio_bytes: bytes, filename: str, language: str
 ) -> str:
     api_key = get_openai_api_key()
-    if not api_key:
+    if not is_valid_openai_key(api_key):
         raise ValueError(
-            "OPENAI hết quota hoặc chưa có key. Đổi TRANSLATOR_PROVIDER=gemini hoặc google trong .env"
+            "OPENAI_API_KEY không hợp lệ hoặc hết quota. Chọn Google Translate trong Cài đặt."
         )
 
     from openai import AsyncOpenAI
@@ -89,10 +99,10 @@ async def _transcribe_gemini(
     audio_bytes: bytes, filename: str, language: str
 ) -> str:
     api_key = get_gemini_api_key()
-    if not api_key:
+    if not is_valid_gemini_key(api_key):
         raise ValueError(
-            "Cần GEMINI_API_KEY cho nhận dạng giọng (Google Translate chỉ dịch chữ). "
-            "Lấy key: https://aistudio.google.com/apikey"
+            "GEMINI_API_KEY không hợp lệ. Key lấy tại https://aistudio.google.com/apikey "
+            "(bắt đầu AIza...). Không dán key OpenAI (sk-proj) vào ô Gemini."
         )
 
     import google.generativeai as genai

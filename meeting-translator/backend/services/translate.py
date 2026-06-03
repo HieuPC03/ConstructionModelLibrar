@@ -69,9 +69,10 @@ async def _translate_openai(prompt: str) -> str:
 
 async def _translate_gemini(prompt: str) -> str:
     api_key = get_gemini_api_key()
-    if not api_key:
+    if not is_valid_gemini_key(api_key):
         raise ValueError(
-            "GEMINI_API_KEY chưa có. Lấy key miễn phí: https://aistudio.google.com/apikey"
+            "GEMINI_API_KEY không hợp lệ (cần AIza... từ https://aistudio.google.com/apikey). "
+            "Không dán key OpenAI sk-proj vào đây."
         )
 
     import google.generativeai as genai

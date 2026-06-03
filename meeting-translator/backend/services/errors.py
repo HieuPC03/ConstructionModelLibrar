@@ -24,20 +24,46 @@ def is_placeholder_key(key: str) -> bool:
         "sk-xxxx",
         "your-api-key",
         "paste-your-key",
+        "aiza",
     }
     return any(p in lowered for p in placeholders) or len(key.strip()) < 20
+
+
+def is_valid_gemini_key(key: str) -> bool:
+    k = (key or "").strip()
+    if is_placeholder_key(k):
+        return False
+    if k.startswith("sk-"):
+        return False
+    return k.startswith("AIza") and len(k) >= 35
+
+
+def is_valid_openai_key(key: str) -> bool:
+    k = (key or "").strip()
+    if is_placeholder_key(k):
+        return False
+    return k.startswith("sk-") and len(k) >= 40
 
 
 def friendly_api_error(exc: Exception) -> str:
     msg = str(exc)
     hint = env_file_hint()
 
+    if (
+        "api key not valid" in msg.lower()
+        or "API_KEY_INVALID" in msg
+        or "invalid api key" in msg.lower()
+    ):
+        return (
+            "GEMINI_API_KEY không hợp lệ. Key Gemini phải bắt đầu bằng AIza... "
+            f"(KHÔNG dùng key OpenAI sk-proj). File: {hint} — tạo key tại "
+            "https://aistudio.google.com/apikey — hoặc chọn Nhà cung cấp "
+            "'Google Translate' và xóa/để trống GEMINI_API_KEY nếu chỉ dịch chữ."
+        )
     if "invalid_api_key" in msg or "Incorrect API key" in msg or "401" in msg:
         return (
             "API key OpenAI không đúng hoặc đã hết hạn. "
-            f"Sửa file: {hint} — dán key mới từ "
-            "https://platform.openai.com/api-keys (bấm Create new secret key). "
-            "Lưu file .env → tắt hẳn app (Task Manager) → mở lại."
+            f"Sửa file: {hint} — hoặc đổi sang Google Translate trong Cài đặt."
         )
     if "insufficient_quota" in msg or "billing" in msg.lower():
         return (

@@ -43,7 +43,7 @@ def get_translator_provider() -> str:
     env = (os.getenv("TRANSLATOR_PROVIDER") or "google").strip().lower()
     if env in ("openai", "gemini", "google"):
         return env
-    return "openai"
+    return "google"
 
 
 _reload_env()
