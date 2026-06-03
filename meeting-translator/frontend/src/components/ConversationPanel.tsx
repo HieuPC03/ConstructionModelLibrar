@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import type { LangCode, Utterance } from "../types";
+import type { LangCode, TranscriptSegment, Utterance } from "../types";
 import { useSessionMode } from "../SessionModeContext";
 import { useAppSettings } from "../AppSettingsContext";
 import type { CaptureMode } from "../hooks/useAudioCapture";
 import { useAudioCapture } from "../hooks/useAudioCapture";
 import { useRealtimeSession } from "../hooks/useRealtimeSession";
-import { exportTranscript, exportVideoToFolder } from "../api";
+import {
+  exportTranscript,
+  exportTranscriptSegments,
+  exportVideoToFolder,
+  translateCaptionOpenAI,
+} from "../api";
 import { copyText } from "../utils/clipboard";
 import { friendlyMediaError } from "../utils/mediaRecorder";
 
@@ -22,6 +27,7 @@ function statusLabel(
   if (status.startsWith("saved:")) return status.slice(6);
   if (status === "saveFailed") return tr("saveFailed");
   if (status === "opening") return tr("statusOpeningAudio");
+  if (status === "translatingSegment") return tr("translatingSegment");
   return status;
 }
 
@@ -46,6 +52,10 @@ export default function ConversationPanel() {
 
   const exportBaseDir = exportDir || recordingsDir;
 
+  const hasTranscriptContent = session.transcriptSegments.some((s) =>
+    s.original.trim()
+  );
+
   useEffect(() => {
     audio.refreshDevices();
   }, []);
@@ -53,7 +63,7 @@ export default function ConversationPanel() {
   useEffect(() => {
     const el = feedRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [session.utterances]);
+  }, [session.utterances, session.transcriptSegments]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -73,8 +83,6 @@ export default function ConversationPanel() {
   );
   const displayDevices =
     loopbackDevices.length > 0 ? loopbackDevices : audio.devices;
-
-  const latestLine = session.utterances.at(-1);
 
   const handlePlay = async () => {
     setStarting(true);
@@ -137,13 +145,23 @@ export default function ConversationPanel() {
     setExportOpen(false);
     try {
       if (kind === "txt") {
-        if (!session.utterances.length) return;
-        const msg = await exportTranscript(
-          session.utterances,
-          exportBaseDir,
-          `transcript-${Date.now()}.txt`
-        );
-        session.setStatus(`saved:${msg}`);
+        if (isTranslate) {
+          if (!session.utterances.length) return;
+          const msg = await exportTranscript(
+            session.utterances,
+            exportBaseDir,
+            `transcript-${Date.now()}.txt`
+          );
+          session.setStatus(`saved:${msg}`);
+        } else {
+          if (!hasTranscriptContent) return;
+          const msg = await exportTranscriptSegments(
+            session.transcriptSegments,
+            exportBaseDir,
+            `transcript-${Date.now()}.txt`
+          );
+          session.setStatus(`saved:${msg}`);
+        }
       } else {
         if (!session.sessionId) return;
         const msg = await exportVideoToFolder(
@@ -158,6 +176,43 @@ export default function ConversationPanel() {
     }
   };
 
+  const handleTranslateSegment = async (seg: TranscriptSegment) => {
+    const text = seg.original.trim();
+    if (!text || seg.translating) return;
+    session.beginNextSegmentAfterTranslate(seg.id);
+    try {
+      const result = await translateCaptionOpenAI(text, sourceLang, targetLang);
+      session.setSegmentTranslation(seg.id, result.translation);
+    } catch (e) {
+      session.setSegmentTranslateError(seg.id);
+      session.setStatus(`error:${(e as Error).message}`);
+    }
+  };
+
+  const copyAll = async () => {
+    let text: string;
+    if (isTranslate) {
+      text = session.utterances
+        .map((u) => {
+          const lines = [u.original];
+          if (u.translation) lines.push(u.translation);
+          return lines.join("\n");
+        })
+        .join("\n\n");
+    } else {
+      text = session.transcriptSegments
+        .map((s) => {
+          const parts = [`=== Đoạn ${s.index} ===`, s.original];
+          if (s.translation) parts.push("", s.translation);
+          return parts.join("\n");
+        })
+        .join("\n\n");
+    }
+    await copyText(text);
+    setCopyMsg(tr("copied"));
+    setTimeout(() => setCopyMsg(null), 2000);
+  };
+
   const copyUtterance = async (u: Utterance) => {
     const text = [u.original, isTranslate && u.translation ? u.translation : ""]
       .filter(Boolean)
@@ -167,18 +222,12 @@ export default function ConversationPanel() {
     setTimeout(() => setCopyMsg(null), 2000);
   };
 
-  const copyAll = async () => {
-    const text = session.utterances
-      .map((u) => {
-        const lines = [`[${u.original}]`];
-        if (isTranslate && u.translation) lines.push(u.translation);
-        return lines.join("\n");
-      })
-      .join("\n\n");
-    await copyText(text);
-    setCopyMsg(tr("copied"));
-    setTimeout(() => setCopyMsg(null), 2000);
-  };
+  const activeSeg = session.activeSegment;
+  const canTranslateActive =
+    !isTranslate &&
+    activeSeg &&
+    activeSeg.original.trim().length > 0 &&
+    !activeSeg.closed;
 
   return (
     <section className="panel">
@@ -209,13 +258,6 @@ export default function ConversationPanel() {
       <div className="hint-box">
         {isTranslate ? tr("hintRealtime") : tr("hintTranscript")}
       </div>
-
-      {session.isLive && latestLine && !isTranslate && (
-        <div className="live-caption-bar" aria-live="polite">
-          <span className="live-caption-label">{tr("liveCaption")}</span>
-          <p>{latestLine.original}</p>
-        </div>
-      )}
 
       <div className="panel-header">
         <div className="controls-row">
@@ -269,19 +311,17 @@ export default function ConversationPanel() {
               <option value="en">English</option>
             </select>
           </label>
-          {isTranslate && (
-            <label>
-              {tr("translateTo")}
-              <select
-                value={targetLang}
-                onChange={(e) => setTargetLang(e.target.value as LangCode)}
-              >
-                <option value="vi">Tiếng Việt</option>
-                <option value="ja">日本語</option>
-                <option value="en">English</option>
-              </select>
-            </label>
-          )}
+          <label>
+            {tr("translateTo")}
+            <select
+              value={targetLang}
+              onChange={(e) => setTargetLang(e.target.value as LangCode)}
+            >
+              <option value="vi">Tiếng Việt</option>
+              <option value="ja">日本語</option>
+              <option value="en">English</option>
+            </select>
+          </label>
         </div>
         <div className="controls-row">
           {!session.isLive ? (
@@ -297,13 +337,26 @@ export default function ConversationPanel() {
               {tr("stop")}
             </button>
           )}
+          {!isTranslate && session.isLive && (
+            <button
+              type="button"
+              className="secondary"
+              disabled={!canTranslateActive}
+              onClick={() =>
+                activeSeg && void handleTranslateSegment(activeSeg)
+              }
+            >
+              {tr("translateSegment")}
+            </button>
+          )}
           <div className="export-dropdown">
             <button
               type="button"
               className="secondary"
               disabled={
-                (session.utterances.length === 0 && !session.sessionId) ||
-                !exportBaseDir
+                ((!hasTranscriptContent && !isTranslate) ||
+                  (isTranslate && session.utterances.length === 0)) &&
+                !session.sessionId
               }
               onClick={() => setExportOpen((o) => !o)}
             >
@@ -313,7 +366,11 @@ export default function ConversationPanel() {
               <div className="export-menu">
                 <button
                   type="button"
-                  disabled={session.utterances.length === 0}
+                  disabled={
+                    isTranslate
+                      ? session.utterances.length === 0
+                      : !hasTranscriptContent
+                  }
                   onClick={() => void handleExport("txt")}
                 >
                   {tr("exportAsTxt")}
@@ -331,7 +388,11 @@ export default function ConversationPanel() {
           <button
             type="button"
             className="secondary"
-            disabled={session.utterances.length === 0}
+            disabled={
+              isTranslate
+                ? session.utterances.length === 0
+                : !hasTranscriptContent
+            }
             onClick={() => void copyAll()}
           >
             {tr("copyAll")}
@@ -354,10 +415,54 @@ export default function ConversationPanel() {
       )}
 
       <div className="conversation-feed" ref={feedRef}>
-        {session.utterances.length === 0 ? (
-          <p className="empty-hint">
-            {isTranslate ? tr("emptyRealtime") : tr("emptyTranscript")}
-          </p>
+        {!isTranslate ? (
+          session.transcriptSegments.length === 0 ? (
+            <p className="empty-hint">{tr("emptyTranscript")}</p>
+          ) : (
+            session.transcriptSegments.map((seg) => (
+              <article
+                key={seg.id}
+                className={`transcript-segment ${seg.closed ? "closed" : "active"} ${
+                  !seg.closed && session.isLive ? "recording" : ""
+                }`}
+              >
+                <div className="segment-header">
+                  <span className="segment-label">
+                    {tr("segment")} {seg.index}
+                    {!seg.closed && session.isLive && (
+                      <span className="badge live small">{tr("recordingNow")}</span>
+                    )}
+                    {seg.translating && (
+                      <span className="segment-status">{tr("translatingSegment")}</span>
+                    )}
+                  </span>
+                  {seg.closed && seg.original.trim() && (
+                    <button
+                      type="button"
+                      className="secondary copy-inline"
+                      onClick={() => void copyText(seg.original)}
+                    >
+                      {tr("copy")}
+                    </button>
+                  )}
+                </div>
+                {seg.original ? (
+                  <p className="segment-original">{seg.original}</p>
+                ) : (
+                  !seg.closed && (
+                    <p className="empty-hint segment-placeholder">
+                      {tr("segmentRecording")}
+                    </p>
+                  )
+                )}
+                {seg.translation && (
+                  <p className="segment-translation">{seg.translation}</p>
+                )}
+              </article>
+            ))
+          )
+        ) : session.utterances.length === 0 ? (
+          <p className="empty-hint">{tr("emptyRealtime")}</p>
         ) : (
           session.utterances.map((u: Utterance) => (
             <article
@@ -378,7 +483,7 @@ export default function ConversationPanel() {
                 </button>
               </div>
               {u.original && <p className="original">{u.original}</p>}
-              {isTranslate && u.translation && (
+              {u.translation && (
                 <p className="translation">{u.translation}</p>
               )}
             </article>

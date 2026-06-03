@@ -23,7 +23,7 @@ const vi = {
   meeting: "Phiên họp",
   live: "LIVE",
   hintTranscript:
-    "Live Caption dùng OpenAI (Whisper API). Cần OPENAI_API_KEY và quota. Khi quay màn hình: bật «Chia sẻ âm thanh».",
+    "Ghi một văn bản dài liên tục (OpenAI STT). Nút «Dịch đoạn» khóa đoạn hiện tại và mở đoạn mới — vẫn ghi trong lúc dịch. Cần OPENAI_API_KEY.",
   hintRealtime:
     "Dịch realtime dùng ChatGPT (OpenAI). Cần OPENAI_API_KEY. Nút Play / Stop.",
   source: "Nguồn",
@@ -75,6 +75,11 @@ const vi = {
   savedSession: "Đã lưu phiên",
   savedFiles: "Đã lưu video + văn bản",
   saveFailed: "Lưu thất bại (kiểm tra thư mục)",
+  translateSegment: "Dịch đoạn",
+  translatingSegment: "Đang dịch (ChatGPT)…",
+  segment: "Đoạn",
+  recordingNow: "đang ghi",
+  segmentRecording: "Nội dung đang được ghi vào đây…",
 };
 
 export type MessageKey = keyof typeof vi;
@@ -102,7 +107,7 @@ const ja: Record<MessageKey, string> = {
   meeting: "会議セッション",
   live: "LIVE",
   hintTranscript:
-    "Live CaptionはOpenAI（Whisper API）。OPENAI_API_KEYとquotaが必要。画面共有時は「音声を共有」をオン。",
+    "連続テキストを記録（OpenAI STT）。「段落を翻訳」で現在段落を固定し新段落へ。翻訳中も録音継続。OPENAI_API_KEY必須。",
   hintRealtime:
     "リアルタイム翻訳はChatGPT（OpenAI）。OPENAI_API_KEYが必要。Play / Stop。",
   source: "ソース",
@@ -154,6 +159,11 @@ const ja: Record<MessageKey, string> = {
   savedSession: "セッションを保存しました",
   savedFiles: "動画とテキストを保存しました",
   saveFailed: "保存に失敗しました（フォルダを確認）",
+  translateSegment: "段落を翻訳",
+  translatingSegment: "翻訳中（ChatGPT）…",
+  segment: "段落",
+  recordingNow: "録音中",
+  segmentRecording: "ここに続けて記録されます…",
 };
 
 export const messages = { vi, ja };

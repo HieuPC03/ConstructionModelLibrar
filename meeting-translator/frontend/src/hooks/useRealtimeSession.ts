@@ -1,7 +1,14 @@
 import { useCallback, useRef, useState } from "react";
-import type { LangCode, SessionMode, Speaker, Utterance } from "../types";
+import type {
+  LangCode,
+  SessionMode,
+  Speaker,
+  TranscriptSegment,
+  Utterance,
+} from "../types";
 import {
   exportTranscript,
+  exportTranscriptSegments,
   exportVideoToFolder,
   uploadRecording,
   wsUrl,
@@ -12,9 +19,33 @@ import {
 } from "../utils/mediaRecorder";
 
 const CHUNK_MS = 3000;
+const MODE_TRANSCRIPT: SessionMode = "transcript";
+
+function newSegment(index: number): TranscriptSegment {
+  return {
+    id: crypto.randomUUID(),
+    index,
+    original: "",
+    translation: "",
+    translating: false,
+    closed: false,
+  };
+}
+
+function appendChunkText(prev: string, chunk: string): string {
+  const t = chunk.trim();
+  if (!t) return prev;
+  if (!prev.trim()) return t;
+  const needsSpace = !prev.endsWith(" ") && !/^[,.;:!?)]/.test(t);
+  return needsSpace ? `${prev} ${t}` : `${prev}${t}`;
+}
 
 export function useRealtimeSession() {
   const [utterances, setUtterances] = useState<Utterance[]>([]);
+  const [transcriptSegments, setTranscriptSegments] = useState<TranscriptSegment[]>(
+    []
+  );
+  const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [status, setStatus] = useState("idle");
@@ -27,9 +58,26 @@ export function useRealtimeSession() {
   const chunkIntervalRef = useRef<number | null>(null);
   const audioMimeRef = useRef("audio/webm");
   const videoMimeRef = useRef("video/webm");
+  const sessionModeRef = useRef<SessionMode>("transcript");
+
+  const resetTranscript = useCallback(() => {
+    const first = newSegment(1);
+    setTranscriptSegments([first]);
+    setActiveSegmentId(first.id);
+  }, []);
 
   const appendUtterance = useCallback((u: Utterance) => {
     setUtterances((prev) => [...prev, u]);
+  }, []);
+
+  const appendTranscriptChunk = useCallback((text: string) => {
+    setTranscriptSegments((prev) =>
+      prev.map((s) =>
+        !s.closed
+          ? { ...s, original: appendChunkText(s.original, text) }
+          : s
+      )
+    );
   }, []);
 
   const sendAudioChunk = useCallback(
@@ -65,7 +113,7 @@ export function useRealtimeSession() {
             if (rec.state === "recording") rec.stop();
           }, CHUNK_MS);
         } catch {
-          /* skip chunk if recorder fails for this interval */
+          /* skip chunk */
         }
       };
 
@@ -86,7 +134,9 @@ export function useRealtimeSession() {
       remoteSpeaker: Speaker,
       videoStream?: MediaStream | null
     ) => {
+      sessionModeRef.current = sessionMode;
       setUtterances([]);
+      resetTranscript();
       setStatus("connecting");
       streamRef.current = stream;
 
@@ -108,13 +158,17 @@ export function useRealtimeSession() {
             sessionMode === "translate_realtime" ? "liveRealtime" : "liveTranscript"
           );
         } else if (data.type === "utterance" && data.original) {
-          appendUtterance({
-            id: data.id,
-            timestamp: data.timestamp,
-            speaker: data.speaker,
-            original: data.original,
-            translation: data.translation,
-          });
+          if (sessionModeRef.current === MODE_TRANSCRIPT) {
+            appendTranscriptChunk(data.original);
+          } else {
+            appendUtterance({
+              id: data.id,
+              timestamp: data.timestamp,
+              speaker: data.speaker,
+              original: data.original,
+              translation: data.translation || "",
+            });
+          }
         } else if (data.type === "error") {
           setStatus(`error:${data.message}`);
         } else if (data.type === "session_saved") {
@@ -152,8 +206,43 @@ export function useRealtimeSession() {
         }
       }
     },
-    [appendUtterance, startChunkPipeline]
+    [appendUtterance, appendTranscriptChunk, resetTranscript, startChunkPipeline]
   );
+
+  const beginNextSegmentAfterTranslate = useCallback((segmentId: string) => {
+    setTranscriptSegments((prev) => {
+      const nextIndex = prev.length ? Math.max(...prev.map((s) => s.index)) + 1 : 1;
+      const seg = newSegment(nextIndex);
+      setActiveSegmentId(seg.id);
+      return [
+        ...prev.map((s) =>
+          s.id === segmentId ? { ...s, closed: true, translating: true } : s
+        ),
+        seg,
+      ];
+    });
+  }, []);
+
+  const setSegmentTranslation = useCallback(
+    (segmentId: string, translation: string) => {
+      setTranscriptSegments((prev) =>
+        prev.map((s) =>
+          s.id === segmentId
+            ? { ...s, translation, translating: false }
+            : s
+        )
+      );
+    },
+    []
+  );
+
+  const setSegmentTranslateError = useCallback((segmentId: string) => {
+    setTranscriptSegments((prev) =>
+      prev.map((s) =>
+        s.id === segmentId ? { ...s, translating: false } : s
+      )
+    );
+  }, []);
 
   const abortSession = useCallback(() => {
     if (chunkIntervalRef.current) {
@@ -173,6 +262,8 @@ export function useRealtimeSession() {
     setSessionId(null);
     setIsLive(false);
     setUtterances([]);
+    setTranscriptSegments([]);
+    setActiveSegmentId(null);
     setStatus("idle");
   }, []);
 
@@ -219,49 +310,71 @@ export function useRealtimeSession() {
           ? new Blob(videoChunksRef.current, { type: videoMimeRef.current })
           : null;
 
+      const transcriptJson =
+        sessionModeRef.current === MODE_TRANSCRIPT
+          ? JSON.stringify({ segments: transcriptSegments }, null, 2)
+          : JSON.stringify(utterances, null, 2);
+
       if (sid && (audioBlob?.size || videoBlob?.size)) {
         try {
-          await uploadRecording(
-            sid,
-            audioBlob,
-            JSON.stringify(utterances, null, 2),
-            videoBlob
-          );
-          const parts: string[] = [];
-          const txtDir = exportDir || videoExportDir;
-          if (txtDir && utterances.length > 0) {
+          await uploadRecording(sid, audioBlob, transcriptJson, videoBlob);
+        } catch {
+          /* ignore */
+        }
+      }
+
+      const txtDir = exportDir || videoExportDir;
+      const parts: string[] = [];
+      try {
+        if (txtDir) {
+          if (
+            sessionModeRef.current === MODE_TRANSCRIPT &&
+            transcriptSegments.some((s) => s.original.trim())
+          ) {
+            const msg = await exportTranscriptSegments(
+              transcriptSegments,
+              txtDir,
+              `transcript-${sid?.slice(0, 8) || Date.now()}.txt`
+            );
+            parts.push(msg);
+          } else if (utterances.length > 0) {
             const msg = await exportTranscript(
               utterances,
               txtDir,
-              `transcript-${sid.slice(0, 8)}.txt`
+              `transcript-${sid?.slice(0, 8) || Date.now()}.txt`
             );
             parts.push(msg);
           }
-          const vidDir = videoExportDir || exportDir;
-          if (vidDir && videoBlob?.size) {
-            const ext = videoMimeRef.current.includes("mp4") ? "mp4" : "webm";
-            const vmsg = await exportVideoToFolder(
-              sid,
-              vidDir,
-              `meeting-${sid.slice(0, 8)}.${ext}`
-            );
-            parts.push(vmsg);
-          }
-          setStatus(parts.length ? `saved:${parts.join("; ")}` : "saved");
-        } catch {
-          setStatus("saveFailed");
         }
+        const vidDir = videoExportDir || exportDir;
+        if (vidDir && videoBlob?.size && sid) {
+          const ext = videoMimeRef.current.includes("mp4") ? "mp4" : "webm";
+          const vmsg = await exportVideoToFolder(
+            sid,
+            vidDir,
+            `meeting-${sid.slice(0, 8)}.${ext}`
+          );
+          parts.push(vmsg);
+        }
+        setStatus(parts.length ? `saved:${parts.join("; ")}` : "saved");
+      } catch {
+        setStatus("saveFailed");
       }
 
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
       setIsLive(false);
     },
-    [sessionId, utterances]
+    [sessionId, utterances, transcriptSegments]
   );
+
+  const activeSegment = transcriptSegments.find((s) => s.id === activeSegmentId);
 
   return {
     utterances,
+    transcriptSegments,
+    activeSegment,
+    activeSegmentId,
     sessionId,
     isLive,
     status,
@@ -269,5 +382,8 @@ export function useRealtimeSession() {
     stopSession,
     abortSession,
     setStatus,
+    beginNextSegmentAfterTranslate,
+    setSegmentTranslation,
+    setSegmentTranslateError,
   };
 }

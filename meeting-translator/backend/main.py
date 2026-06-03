@@ -73,6 +73,13 @@ class TextTranslateRequest(BaseModel):
     session_mode: str | None = Field(
         default=None, pattern="^(translate_realtime|transcript)$"
     )
+    use_openai: bool = False
+
+
+class TranscriptSegmentExport(BaseModel):
+    index: int = 1
+    original: str = ""
+    translation: str = ""
 
 
 class TextTranslateResponse(BaseModel):
@@ -298,6 +305,7 @@ async def test_provider_config() -> dict[str, Any]:
 class ExportRequest(BaseModel):
     session_id: str | None = None
     utterances: list[dict[str, Any]] | None = None
+    segments: list[TranscriptSegmentExport] | None = None
     save_dir: str | None = None
     filename: str = "meeting-transcript.txt"
 
@@ -305,7 +313,15 @@ class ExportRequest(BaseModel):
 @app.post("/api/export/text")
 async def export_text(body: ExportRequest) -> dict[str, str]:
     lines: list[str] = []
-    if body.utterances:
+    if body.segments:
+        for seg in body.segments:
+            lines.append(f"=== Đoạn {seg.index} ===")
+            lines.append(seg.original.strip())
+            if seg.translation.strip():
+                lines.append("")
+                lines.append(seg.translation.strip())
+            lines.append("")
+    elif body.utterances:
         for u in body.utterances:
             ts = u.get("timestamp", "")
             time_part = f" {ts}" if ts else ""
@@ -315,7 +331,7 @@ async def export_text(body: ExportRequest) -> dict[str, str]:
             if u.get("translation"):
                 lines.append(f"  → {u['translation']}")
             lines.append("")
-    content = "\n".join(lines) or "(trống)"
+    content = "\n".join(lines).strip() or "(trống)"
 
     out_dir = Path(body.save_dir) if body.save_dir else resolve_export_dir(recordings_dir())
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -328,7 +344,7 @@ async def export_text(body: ExportRequest) -> dict[str, str]:
 @app.post("/api/translate/text", response_model=TextTranslateResponse)
 async def translate_text_endpoint(body: TextTranslateRequest) -> TextTranslateResponse:
     mode = get_session_mode(body.session_mode)
-    via = text_translate_provider_for_mode(mode)
+    via = "openai" if body.use_openai else text_translate_provider_for_mode(mode)
     try:
         outcome = await translate_text(
             body.text,
@@ -343,9 +359,10 @@ async def translate_text_endpoint(body: TextTranslateRequest) -> TextTranslateRe
             status_code=400,
             detail=friendly_api_error(exc, provider_hint=via),
         ) from exc
+    label = PROVIDER_LABELS.get(via, via)
     return TextTranslateResponse(
         translation=outcome.text,
-        provider="Google Translate",
+        provider=label,
         notice=outcome.notice,
     )
 

@@ -12,6 +12,16 @@ export interface Utterance {
   translation: string;
 }
 
+/** Live Caption: một khối văn bản dài (đoạn 1, 2, …). */
+export interface TranscriptSegment {
+  id: string;
+  index: number;
+  original: string;
+  translation: string;
+  translating: boolean;
+  closed: boolean;
+}
+
 export interface AudioDeviceOption {
   deviceId: string;
   label: string;
