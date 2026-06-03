@@ -5,15 +5,14 @@ import {
   updateSettings,
   type AppSettings,
 } from "../api";
+import { useSessionMode } from "../SessionModeContext";
 
 export default function SettingsBar() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [recordingsDir, setRecordingsDir] = useState("");
   const [exportDir, setExportDir] = useState("");
   const [uiLang, setUiLang] = useState<"vi" | "ja">("vi");
-  const [sessionMode, setSessionMode] = useState<"translate_realtime" | "transcript">(
-    "transcript"
-  );
+  const { sessionMode, setSessionMode } = useSessionMode();
   const [testMsg, setTestMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -24,7 +23,6 @@ export default function SettingsBar() {
         setRecordingsDir(s.recordings_dir || "");
         setExportDir(s.export_dir || "");
         setUiLang(s.ui_language || "vi");
-        setSessionMode(s.session_mode || "transcript");
       })
       .catch(() => undefined);
   }, []);
@@ -82,6 +80,7 @@ export default function SettingsBar() {
               e.target.value as "translate_realtime" | "transcript"
             )
           }
+          title="Đổi chế độ cũng đổi API dịch văn bản (Gemini / ChatGPT)"
         >
           <option value="transcript">Ghi transcript (Gemini)</option>
           <option value="translate_realtime">Dịch realtime (ChatGPT)</option>

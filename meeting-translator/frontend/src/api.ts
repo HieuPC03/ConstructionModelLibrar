@@ -72,7 +72,8 @@ export async function updateSettings(
 export async function translateText(
   text: string,
   sourceLang: LangCode,
-  targetLang: LangCode
+  targetLang: LangCode,
+  sessionMode?: SessionMode
 ): Promise<string> {
   const res = await fetch(`${API_BASE}/api/translate/text`, {
     method: "POST",
@@ -81,6 +82,7 @@ export async function translateText(
       text,
       source_lang: sourceLang === "auto" ? "vi" : sourceLang,
       target_lang: targetLang === "auto" ? "ja" : targetLang,
+      session_mode: sessionMode,
     }),
   });
   const data = await res.json().catch(() => ({}));

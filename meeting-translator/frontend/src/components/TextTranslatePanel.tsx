@@ -1,21 +1,16 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { LangCode } from "../types";
-import { fetchSettings, translateText, type SessionMode } from "../api";
+import { translateText } from "../api";
+import { useSessionMode } from "../SessionModeContext";
 
 export default function TextTranslatePanel() {
-  const [sessionMode, setSessionMode] = useState<SessionMode>("transcript");
+  const { sessionMode } = useSessionMode();
   const [sourceLang, setSourceLang] = useState<LangCode>("vi");
   const [targetLang, setTargetLang] = useState<LangCode>("ja");
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchSettings()
-      .then((s) => setSessionMode(s.session_mode || "transcript"))
-      .catch(() => undefined);
-  }, []);
 
   const apiLabel =
     sessionMode === "translate_realtime" ? "ChatGPT" : "Gemini";
@@ -32,7 +27,12 @@ export default function TextTranslatePanel() {
     setLoading(true);
     setError(null);
     try {
-      const result = await translateText(input, sourceLang, targetLang);
+      const result = await translateText(
+        input,
+        sourceLang,
+        targetLang,
+        sessionMode
+      );
       setOutput(result);
     } catch (e) {
       setError((e as Error).message);

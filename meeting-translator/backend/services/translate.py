@@ -41,7 +41,13 @@ async def translate_text(
     if provider == "openai":
         return await _translate_openai(prompt)
     if provider == "gemini":
-        return await _translate_gemini(prompt)
+        try:
+            return await _translate_gemini(prompt)
+        except Exception as gemini_err:
+            try:
+                return await _translate_google(text, source_lang, target_lang)
+            except Exception:
+                raise gemini_err
     if provider == "google":
         return await _translate_google(text, source_lang, target_lang)
 
@@ -51,7 +57,10 @@ async def translate_text(
         msg = str(openai_err).lower()
         if "insufficient_quota" in msg or "billing" in msg or "429" in msg:
             if is_valid_gemini_key(get_gemini_api_key()):
-                return await _translate_gemini(prompt)
+                try:
+                    return await _translate_gemini(prompt)
+                except Exception:
+                    pass
             return await _translate_google(text, source_lang, target_lang)
         raise
 

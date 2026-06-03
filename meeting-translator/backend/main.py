@@ -64,6 +64,9 @@ class TextTranslateRequest(BaseModel):
     text: str
     source_lang: str = Field(pattern="^(vi|ja|en)$")
     target_lang: str = Field(pattern="^(vi|ja|en)$")
+    session_mode: str | None = Field(
+        default=None, pattern="^(translate_realtime|transcript)$"
+    )
 
 
 class TextTranslateResponse(BaseModel):
@@ -252,7 +255,7 @@ async def export_text(body: ExportRequest) -> dict[str, str]:
 
 @app.post("/api/translate/text", response_model=TextTranslateResponse)
 async def translate_text_endpoint(body: TextTranslateRequest) -> TextTranslateResponse:
-    mode = get_session_mode()
+    mode = get_session_mode(body.session_mode)
     via = text_translate_provider_for_mode(mode)
     try:
         result = await translate_text(
@@ -264,8 +267,16 @@ async def translate_text_endpoint(body: TextTranslateRequest) -> TextTranslateRe
     except Exception as exc:
         from fastapi import HTTPException
 
-        raise HTTPException(status_code=400, detail=friendly_api_error(exc)) from exc
-    label = "ChatGPT (OpenAI)" if via == "openai" else "Google Gemini"
+        raise HTTPException(
+            status_code=400,
+            detail=friendly_api_error(exc, provider_hint=via),
+        ) from exc
+    if via == "openai":
+        label = "ChatGPT (OpenAI)"
+    elif via == "google":
+        label = "Google Translate"
+    else:
+        label = "Google Gemini"
     return TextTranslateResponse(translation=result, provider=label)
 
 

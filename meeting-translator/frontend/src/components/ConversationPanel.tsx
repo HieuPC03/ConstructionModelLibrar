@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import type { LangCode, SessionMode, Utterance } from "../types";
+import type { LangCode, Utterance } from "../types";
+import { useSessionMode } from "../SessionModeContext";
 import type { CaptureMode } from "../hooks/useAudioCapture";
 import { useAudioCapture } from "../hooks/useAudioCapture";
 import { useRealtimeSession } from "../hooks/useRealtimeSession";
-import { exportTranscript, fetchSettings, updateSettings } from "../api";
+import { exportTranscript, fetchSettings } from "../api";
 
 export default function ConversationPanel() {
   const feedRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [sessionMode, setSessionMode] = useState<SessionMode>("transcript");
+  const { sessionMode, setSessionMode } = useSessionMode();
   const [sourceLang, setSourceLang] = useState<LangCode>("auto");
   const [targetLang, setTargetLang] = useState<LangCode>("vi");
   const [captureMode, setCaptureMode] = useState<CaptureMode>("screen");
@@ -27,7 +28,6 @@ export default function ConversationPanel() {
     fetchSettings()
       .then((s) => {
         setExportDir(s.export_dir || s.recordings_dir || "");
-        setSessionMode(s.session_mode || "transcript");
         if (s.meeting_pair === "ja-vi") {
           setSourceLang("ja");
           setTargetLang("vi");
@@ -54,11 +54,6 @@ export default function ConversationPanel() {
       video.srcObject = null;
     }
   }, [session.isLive, captureMode, audio]);
-
-  const onModeChange = async (mode: SessionMode) => {
-    setSessionMode(mode);
-    await updateSettings({ session_mode: mode }).catch(() => undefined);
-  };
 
   const loopbackDevices = audio.devices.filter((d) =>
     /stereo mix|loopback|what u hear|monitor|blackhole|vb-audio|cable output|mix/i.test(
@@ -124,7 +119,7 @@ export default function ConversationPanel() {
         <button
           type="button"
           className={isTranslate ? "mode-btn active" : "mode-btn secondary"}
-          onClick={() => onModeChange("translate_realtime")}
+          onClick={() => setSessionMode("translate_realtime")}
           disabled={session.isLive}
         >
           Dịch realtime · ChatGPT
@@ -132,7 +127,7 @@ export default function ConversationPanel() {
         <button
           type="button"
           className={!isTranslate ? "mode-btn active" : "mode-btn secondary"}
-          onClick={() => onModeChange("transcript")}
+          onClick={() => setSessionMode("transcript")}
           disabled={session.isLive}
         >
           Ghi transcript · Gemini

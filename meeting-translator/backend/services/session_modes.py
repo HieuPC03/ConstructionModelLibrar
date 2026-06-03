@@ -20,4 +20,16 @@ def stt_engine_for_mode(mode: str) -> str:
 
 
 def text_translate_provider_for_mode(mode: str) -> str:
-    return "openai" if mode == SESSION_TRANSLATE else "gemini"
+    """Transcript mode → Gemini; realtime ChatGPT mode → OpenAI."""
+    if mode == SESSION_TRANSCRIPT:
+        return "gemini"
+    return "openai"
+
+
+def resolve_text_translate_provider(
+    session_mode: str | None = None,
+    request_mode: str | None = None,
+) -> str:
+    """Pick provider for POST /api/translate/text (request body wins over saved settings)."""
+    mode = get_session_mode(request_mode or session_mode)
+    return text_translate_provider_for_mode(mode)

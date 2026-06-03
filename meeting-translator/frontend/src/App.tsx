@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import ConversationPanel from "./components/ConversationPanel";
 import SettingsBar from "./components/SettingsBar";
 import TextTranslatePanel from "./components/TextTranslatePanel";
+import { SessionModeProvider } from "./SessionModeContext";
 import { checkHealth } from "./api";
 
 export default function App() {
@@ -37,19 +38,21 @@ export default function App() {
                 : "Đang kết nối…"}
         </span>
       </header>
-      <SettingsBar />
-      {configWarning && (
-        <div
-          className="status-bar error"
-          style={{ borderTop: "none", borderBottom: "1px solid var(--border)" }}
-        >
-          {configWarning}
-        </div>
-      )}
-      <main className="split-layout">
-        <ConversationPanel />
-        <TextTranslatePanel />
-      </main>
+      <SessionModeProvider>
+        <SettingsBar />
+        {configWarning && (
+          <div
+            className="status-bar error"
+            style={{ borderTop: "none", borderBottom: "1px solid var(--border)" }}
+          >
+            {configWarning}
+          </div>
+        )}
+        <main className="split-layout">
+          <ConversationPanel />
+          <TextTranslatePanel />
+        </main>
+      </SessionModeProvider>
     </>
   );
 }
