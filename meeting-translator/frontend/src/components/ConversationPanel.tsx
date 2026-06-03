@@ -5,18 +5,13 @@ import { useAudioCapture } from "../hooks/useAudioCapture";
 import { useRealtimeSession } from "../hooks/useRealtimeSession";
 import { exportTranscript, fetchSettings } from "../api";
 
-interface Props {
-  provider: string;
-}
-
-export default function ConversationPanel({ provider }: Props) {
+export default function ConversationPanel() {
   const feedRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [sourceLang, setSourceLang] = useState<LangCode>("auto");
-  const [targetLang, setTargetLang] = useState<LangCode>("vi");
   const [captureMode, setCaptureMode] = useState<CaptureMode>("screen");
   const [loopbackId, setLoopbackId] = useState("");
-  const [includeMic, setIncludeMic] = useState(true);
+  const [includeMic, setIncludeMic] = useState(false);
   const [micId] = useState("");
   const [starting, setStarting] = useState(false);
   const [exportDir, setExportDir] = useState("");
@@ -28,14 +23,8 @@ export default function ConversationPanel({ provider }: Props) {
     audio.refreshDevices();
     fetchSettings()
       .then((s) => {
-        setExportDir(s.export_dir || "");
-        if (s.meeting_pair === "ja-vi") {
-          setSourceLang("ja");
-          setTargetLang("vi");
-        } else {
-          setSourceLang(s.default_source_lang || "auto");
-          setTargetLang(s.default_target_lang || "vi");
-        }
+        setExportDir(s.export_dir || s.recordings_dir || "");
+        setSourceLang(s.default_source_lang || "auto");
       })
       .catch(() => undefined);
   }, []);
@@ -64,16 +53,6 @@ export default function ConversationPanel({ provider }: Props) {
   const displayDevices =
     loopbackDevices.length > 0 ? loopbackDevices : audio.devices;
 
-  const applyPair = (pair: "vi-ja" | "ja-vi") => {
-    if (pair === "vi-ja") {
-      setSourceLang("vi");
-      setTargetLang("ja");
-    } else {
-      setSourceLang("ja");
-      setTargetLang("vi");
-    }
-  };
-
   const handleStart = async () => {
     setStarting(true);
     session.setStatus("Đang mở nguồn âm thanh…");
@@ -84,7 +63,7 @@ export default function ConversationPanel({ provider }: Props) {
         includeMic,
         micId || undefined
       );
-      await session.startSession(stream, sourceLang, targetLang, "remote");
+      await session.startSession(stream, sourceLang, "remote");
     } catch (e) {
       session.setStatus((e as Error).message);
     } finally {
@@ -112,29 +91,22 @@ export default function ConversationPanel({ provider }: Props) {
   };
 
   return (
-    <section className="panel">
+    <section className="panel panel-full">
       <div className="panel-header">
-        <h2>Hội thoại realtime</h2>
-        {session.isLive && <span className="badge live">LIVE</span>}
+        <h2>Ghi chữ trực tiếp (phụ đề / transcript)</h2>
+        {session.isLive && <span className="badge live">ĐANG GHI</span>}
       </div>
 
       <div className="hint-box">
-        <strong>Đeo tai nghe — không cần loa ngoài, không cần micro cuộc họp:</strong> app
-        bắt tiếng <em>phát vào tai nghe</em> (giống phụ đề Win+Ctrl+L), không thu qua loa
-        vật lý. Khuyến nghị: <em>Quay màn hình + âm thanh</em> → chọn cửa sổ Zoom/Teams,
-        tick chia sẻ âm thanh. Hoặc Stereo Mix / VB-Cable nếu máy có loopback.
+        <strong>Chỉ ghi văn bản</strong> — không dịch realtime. Bắt lời từ cuộc họp (tai nghe /
+        quay màn hình) và lưu thành file .txt. Cần <em>GEMINI_API_KEY</em> (AIza...) trong .env
+        để nhận dạng giọng nói.
       </div>
 
       <div className="panel-header">
         <div className="controls-row">
-          <button type="button" className="secondary" onClick={() => applyPair("vi-ja")}>
-            Việt → 日本語
-          </button>
-          <button type="button" className="secondary" onClick={() => applyPair("ja-vi")}>
-            日本語 → Việt
-          </button>
           <label>
-            Nguồn
+            Nguồn âm
             <select
               value={captureMode}
               onChange={(e) => setCaptureMode(e.target.value as CaptureMode)}
@@ -167,10 +139,10 @@ export default function ConversationPanel({ provider }: Props) {
               checked={includeMic}
               onChange={(e) => setIncludeMic(e.target.checked)}
             />
-            Thêm micro
+            Thêm micro (bạn nói)
           </label>
           <label>
-            Nói
+            Ngôn ngữ nói
             <select
               value={sourceLang}
               onChange={(e) => setSourceLang(e.target.value as LangCode)}
@@ -181,22 +153,11 @@ export default function ConversationPanel({ provider }: Props) {
               <option value="en">English</option>
             </select>
           </label>
-          <label>
-            Dịch sang
-            <select
-              value={targetLang}
-              onChange={(e) => setTargetLang(e.target.value as LangCode)}
-            >
-              <option value="vi">Tiếng Việt</option>
-              <option value="ja">日本語</option>
-              <option value="en">English</option>
-            </select>
-          </label>
         </div>
         <div className="controls-row">
           {!session.isLive ? (
             <button onClick={handleStart} disabled={starting}>
-              {starting ? "Đang bắt đầu…" : "Bắt đầu dịch"}
+              {starting ? "Đang bắt đầu…" : "Bắt đầu ghi chữ"}
             </button>
           ) : (
             <button className="danger" onClick={handleStop}>
@@ -209,7 +170,7 @@ export default function ConversationPanel({ provider }: Props) {
             disabled={session.utterances.length === 0}
             onClick={handleExport}
           >
-            Xuất văn bản
+            Xuất file .txt
           </button>
           <button className="secondary" type="button" onClick={audio.refreshDevices}>
             Làm mới thiết bị
@@ -226,7 +187,7 @@ export default function ConversationPanel({ provider }: Props) {
       <div className="conversation-feed" ref={feedRef}>
         {session.utterances.length === 0 ? (
           <p className="empty-hint">
-            Hội thoại + bản dịch hiện tại đây. Dịch qua ChatGPT ({provider}).
+            Văn bản cuộc họp hiện tại đây khi có âm thanh (giống phụ đề Win+Ctrl+L).
           </p>
         ) : (
           session.utterances.map((u: Utterance) => (
@@ -239,9 +200,6 @@ export default function ConversationPanel({ provider }: Props) {
                 {new Date(u.timestamp).toLocaleTimeString()}
               </div>
               {u.original && <p className="original">{u.original}</p>}
-              {u.translation && (
-                <p className="translation">{u.translation}</p>
-              )}
             </article>
           ))
         )}

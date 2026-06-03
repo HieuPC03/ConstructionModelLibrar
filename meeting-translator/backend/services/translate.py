@@ -9,6 +9,7 @@ from services.config import (
     get_openai_api_key,
     get_translator_provider,
 )
+from services.errors import is_valid_gemini_key, is_valid_openai_key
 
 VI_JA_SYSTEM = """You are a professional Vietnamese–Japanese interpreter for business meetings.
 Translate accurately, preserve tone (formal です/ます for Japanese when appropriate), and keep names unchanged.
@@ -50,8 +51,8 @@ async def translate_text(text: str, source_lang: str, target_lang: str) -> str:
 
 async def _translate_openai(prompt: str) -> str:
     api_key = get_openai_api_key()
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY chưa có — đổi nhà cung cấp sang Gemini hoặc Google Translate")
+    if not is_valid_openai_key(api_key):
+        raise ValueError("OPENAI_API_KEY không hợp lệ — chọn Google Translate trong Cài đặt")
 
     from openai import AsyncOpenAI
 

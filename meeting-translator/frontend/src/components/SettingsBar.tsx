@@ -83,9 +83,9 @@ export default function SettingsBar() {
           }
           title="OpenAI hết quota → chọn Google Translate hoặc Gemini"
         >
-          <option value="google">Google Translate (miễn phí, khuyến nghị)</option>
-          <option value="gemini">Google Gemini (cần API key)</option>
-          <option value="openai">ChatGPT / OpenAI (cần billing)</option>
+          <option value="gemini">Google Gemini — ghi chữ + STT (khuyến nghị)</option>
+          <option value="google">Google (chỉ hỗ trợ hạn chế)</option>
+          <option value="openai">OpenAI (cần billing)</option>
         </select>
       </label>
       <label className="settings-field">

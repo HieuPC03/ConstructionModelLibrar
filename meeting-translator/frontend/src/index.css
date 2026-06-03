@@ -109,6 +109,17 @@ textarea {
   min-height: calc(100vh - 52px);
 }
 
+.main-single {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 52px);
+}
+
+.panel-full {
+  flex: 1;
+  border-right: none;
+}
+
 @media (max-width: 900px) {
   .split-layout {
     grid-template-columns: 1fr;

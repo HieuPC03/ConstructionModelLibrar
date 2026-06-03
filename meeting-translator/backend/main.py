@@ -218,9 +218,11 @@ async def export_text(body: ExportRequest) -> dict[str, str]:
     lines: list[str] = []
     if body.utterances:
         for u in body.utterances:
-            lines.append(f"[{u.get('speaker', '?')}] {u.get('original', '')}")
-            if u.get("translation"):
-                lines.append(f"  → {u['translation']}")
+            ts = u.get("timestamp", "")
+            time_part = f" {ts}" if ts else ""
+            lines.append(
+                f"[{u.get('speaker', '?')}{time_part}] {u.get('original', '')}"
+            )
             lines.append("")
     content = "\n".join(lines) or "(trống)"
 
@@ -255,15 +257,11 @@ async def transcribe_endpoint(
 ) -> dict[str, Any]:
     data = await audio.read()
     text = await transcribe_audio(data, audio.filename or "chunk.webm", source_lang)
-    translation = ""
-    if text:
-        translation = await translate_text(text, source_lang if source_lang != "auto" else "en", target_lang)
     return {
         "speaker": speaker,
         "original": text,
-        "translation": translation,
+        "translation": "",
         "source_lang": source_lang,
-        "target_lang": target_lang,
     }
 
 
@@ -318,17 +316,13 @@ async def session_websocket(websocket: WebSocket) -> None:
                     text = await transcribe_audio(
                         data, meta.get("filename", "chunk.webm"), source_lang
                     )
-                    translation = ""
-                    if text:
-                        src = source_lang if source_lang != "auto" else "en"
-                        translation = await translate_text(text, src, target_lang)
 
                     entry = {
                         "id": str(uuid.uuid4()),
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                         "speaker": speaker,
                         "original": text,
-                        "translation": translation,
+                        "translation": "",
                     }
                     transcript_log.append(entry)
                     await websocket.send_json({"type": "utterance", **entry})

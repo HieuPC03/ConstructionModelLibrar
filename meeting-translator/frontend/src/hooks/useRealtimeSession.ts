@@ -68,7 +68,6 @@ export function useRealtimeSession() {
     async (
       stream: MediaStream,
       sourceLang: LangCode,
-      targetLang: LangCode,
       remoteSpeaker: Speaker
     ) => {
       setUtterances([]);
@@ -89,7 +88,7 @@ export function useRealtimeSession() {
         if (data.type === "ready") {
           setSessionId(data.session_id);
           setIsLive(true);
-          setStatus("Đang dịch realtime");
+          setStatus("Đang ghi chữ…");
         } else if (data.type === "utterance" && data.original) {
           appendUtterance({
             id: data.id,
@@ -107,7 +106,7 @@ export function useRealtimeSession() {
 
       const meta = {
         source_lang: sourceLang,
-        target_lang: targetLang,
+        transcribe_only: "true",
         speaker: remoteSpeaker,
       };
       startChunkPipeline(stream, meta);

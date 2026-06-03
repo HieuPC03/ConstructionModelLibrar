@@ -12,6 +12,7 @@ build-cache/
 frontend/dist/
 dist/stage-*/
 dist/release-download/
+dist/v1.2-staging/
 # Giữ file zip bản phát hành trong git để tải trực tiếp
 # dist/*.zip — không ignore (zip được commit)
 .DS_Store
