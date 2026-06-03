@@ -7,6 +7,7 @@ import { useAudioCapture } from "../hooks/useAudioCapture";
 import { useRealtimeSession } from "../hooks/useRealtimeSession";
 import { exportTranscript, exportVideoToFolder, warmupOfflineStt } from "../api";
 import { copyText } from "../utils/clipboard";
+import { friendlyMediaError } from "../utils/mediaRecorder";
 
 function statusLabel(
   status: string,
@@ -78,6 +79,7 @@ export default function ConversationPanel() {
 
   const handlePlay = async () => {
     setStarting(true);
+    audio.clearError();
     session.setStatus("opening");
     try {
       if (!isTranslate) {
@@ -100,7 +102,7 @@ export default function ConversationPanel() {
         videoStream
       );
     } catch (e) {
-      session.setStatus(`error:${(e as Error).message}`);
+      session.setStatus(`error:${friendlyMediaError(e)}`);
     } finally {
       setStarting(false);
     }
@@ -378,7 +380,9 @@ export default function ConversationPanel() {
       >
         {statusLabel(session.status, tr)}
         {session.sessionId && ` · ${session.sessionId.slice(0, 8)}`}
-        {audio.error && ` · ${audio.error}`}
+        {audio.error &&
+          !session.status.startsWith("error:") &&
+          ` · ${audio.error}`}
         {copyMsg && ` · ${copyMsg}`}
       </div>
     </section>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AudioDeviceOption } from "../types";
+import { friendlyMediaError } from "../utils/mediaRecorder";
 
 export type CaptureMode = "loopback" | "display" | "screen" | "mic";
 
@@ -143,9 +144,9 @@ export function useAudioCapture() {
         return dest.stream;
       } catch (e) {
         stopAll();
-        const msg = (e as Error).message;
+        const msg = friendlyMediaError(e);
         setError(msg);
-        throw e;
+        throw new Error(msg);
       }
     },
     [stopAll]
@@ -162,9 +163,12 @@ export function useAudioCapture() {
     return combined.getTracks().length > 0 ? combined : null;
   }, []);
 
+  const clearError = useCallback(() => setError(null), []);
+
   return {
     devices,
     error,
+    clearError,
     refreshDevices,
     startCapture,
     stopAll,

@@ -1,13 +1,16 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.5.1
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.5.2
 ============================================
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.5.1
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.5.2
 
 File cài:
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.1/Meeting-Translator-Setup-1.5.1.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.2/Meeting-Translator-Setup-1.5.2.exe
 
 Gói đầy đủ (.exe + .bat):
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.1/Meeting-Translator-v1.5.1-Full-Package.zip
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.2/Meeting-Translator-v1.5.2-Full-Package.zip
+
+Tính năng v1.5.2:
+- Sửa lỗi «Not supported» khi bấm Play (ghi âm Windows/Electron)
 
 Tính năng v1.5.1:
 - Live Caption OFFLINE: Whisper trên máy (không cần GEMINI_API_KEY)

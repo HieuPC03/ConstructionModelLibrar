@@ -6,18 +6,12 @@ import {
   uploadRecording,
   wsUrl,
 } from "../api";
+import {
+  createMediaRecorder,
+  tryCreateVideoRecorder,
+} from "../utils/mediaRecorder";
 
 const CHUNK_MS = 3000;
-
-function pickVideoMime(): string {
-  const candidates = [
-    "video/webm;codecs=vp9,opus",
-    "video/webm;codecs=vp8,opus",
-    "video/webm",
-    "video/mp4",
-  ];
-  return candidates.find((m) => MediaRecorder.isTypeSupported(m)) || "video/webm";
-}
 
 export function useRealtimeSession() {
   const [utterances, setUtterances] = useState<Utterance[]>([]);
@@ -31,6 +25,7 @@ export function useRealtimeSession() {
   const videoChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const chunkIntervalRef = useRef<number | null>(null);
+  const audioMimeRef = useRef("audio/webm");
   const videoMimeRef = useRef("video/webm");
 
   const appendUtterance = useCallback((u: Utterance) => {
@@ -49,30 +44,33 @@ export function useRealtimeSession() {
 
   const startChunkPipeline = useCallback(
     (stream: MediaStream, meta: Record<string, string>) => {
-      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
-
       const pump = () => {
-        const rec = new MediaRecorder(stream, { mimeType: mime });
-        const chunks: Blob[] = [];
-        rec.ondataavailable = (e) => {
-          if (e.data.size > 0) chunks.push(e.data);
-        };
-        rec.onstop = () => {
-          if (chunks.length > 0) {
-            const blob = new Blob(chunks, { type: mime });
-            if (blob.size > 800) {
-              sendAudioChunk(blob, { ...meta, filename: "chunk.webm" });
+        try {
+          const { recorder: rec, mimeType } = createMediaRecorder(stream);
+          const chunks: Blob[] = [];
+          rec.ondataavailable = (e) => {
+            if (e.data.size > 0) chunks.push(e.data);
+          };
+          rec.onstop = () => {
+            if (chunks.length > 0) {
+              const blob = new Blob(chunks, { type: mimeType });
+              if (blob.size > 800) {
+                const ext = mimeType.includes("ogg") ? "chunk.ogg" : "chunk.webm";
+                sendAudioChunk(blob, { ...meta, filename: ext });
+              }
             }
-          }
-        };
-        rec.start();
-        setTimeout(() => {
-          if (rec.state === "recording") rec.stop();
-        }, CHUNK_MS);
+          };
+          rec.start();
+          setTimeout(() => {
+            if (rec.state === "recording") rec.stop();
+          }, CHUNK_MS);
+        } catch {
+          /* skip chunk if recorder fails for this interval */
+        }
       };
 
+      const { mimeType } = createMediaRecorder(stream);
+      audioMimeRef.current = mimeType;
       pump();
       chunkIntervalRef.current = window.setInterval(pump, CHUNK_MS);
     },
@@ -132,11 +130,9 @@ export function useRealtimeSession() {
       };
       startChunkPipeline(stream, meta);
 
-      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
       recordChunksRef.current = [];
-      const fullRec = new MediaRecorder(stream, { mimeType: mime });
+      const { recorder: fullRec, mimeType } = createMediaRecorder(stream);
+      audioMimeRef.current = mimeType;
       fullRec.ondataavailable = (e) => {
         if (e.data.size > 0) recordChunksRef.current.push(e.data);
       };
@@ -144,15 +140,16 @@ export function useRealtimeSession() {
       recorderRef.current = fullRec;
 
       if (videoStream && videoStream.getTracks().length > 0) {
-        const vm = pickVideoMime();
-        videoMimeRef.current = vm;
-        videoChunksRef.current = [];
-        const vRec = new MediaRecorder(videoStream, { mimeType: vm });
-        vRec.ondataavailable = (e) => {
-          if (e.data.size > 0) videoChunksRef.current.push(e.data);
-        };
-        vRec.start(1000);
-        videoRecorderRef.current = vRec;
+        const videoRec = tryCreateVideoRecorder(videoStream);
+        if (videoRec) {
+          videoMimeRef.current = videoRec.mimeType;
+          videoChunksRef.current = [];
+          videoRec.recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) videoChunksRef.current.push(e.data);
+          };
+          videoRec.recorder.start(1000);
+          videoRecorderRef.current = videoRec.recorder;
+        }
       }
     },
     [appendUtterance, startChunkPipeline]
@@ -215,7 +212,7 @@ export function useRealtimeSession() {
       const sid = sessionId;
       const audioBlob =
         recordChunksRef.current.length > 0
-          ? new Blob(recordChunksRef.current, { type: "audio/webm" })
+          ? new Blob(recordChunksRef.current, { type: audioMimeRef.current })
           : null;
       const videoBlob =
         videoChunksRef.current.length > 0
