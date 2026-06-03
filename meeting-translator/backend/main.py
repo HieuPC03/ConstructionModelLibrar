@@ -30,7 +30,13 @@ from services.errors import (
     is_valid_gemini_key,
     is_valid_openai_key,
 )
-from services.settings_store import load_settings, resolve_export_dir, resolve_recordings_dir, save_settings
+from services.settings_store import (
+    load_settings,
+    reset_settings,
+    resolve_export_dir,
+    resolve_recordings_dir,
+    save_settings,
+)
 from services.session_modes import (
     SESSION_TRANSLATE,
     SESSION_TRANSCRIPT,
@@ -178,6 +184,18 @@ async def patch_settings(body: SettingsUpdate) -> dict[str, Any]:
     data = body.model_dump(exclude_none=True)
     saved = save_settings(data)
     return {**saved, "recordings_dir_active": str(recordings_dir())}
+
+
+@app.post("/api/settings/reset")
+async def reset_settings_endpoint() -> dict[str, Any]:
+    saved = reset_settings()
+    return {
+        **saved,
+        "recordings_dir_active": str(recordings_dir()),
+        "session_mode": get_session_mode(),
+        "translator_provider": get_translator_provider(),
+        "message": "Đã đặt lại cài đặt mặc định",
+    }
 
 
 @app.post("/api/config/test")

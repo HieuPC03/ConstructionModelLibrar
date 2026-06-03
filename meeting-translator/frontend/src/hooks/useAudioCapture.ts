@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AudioDeviceOption } from "../types";
 
 export type CaptureMode = "loopback" | "display" | "screen" | "mic";
@@ -20,21 +20,47 @@ export function useAudioCapture() {
   const mixedRef = useRef<MediaStream | null>(null);
   const screenVideoRef = useRef<MediaStream | null>(null);
 
-  const refreshDevices = useCallback(async () => {
+  const refreshDevices = useCallback(async (): Promise<AudioDeviceOption[]> => {
+    setError(null);
+    if (!navigator.mediaDevices?.enumerateDevices) {
+      const msg = "Trình duyệt không hỗ trợ liệt kê thiết bị âm thanh.";
+      setError(msg);
+      return [];
+    }
+    let temp: MediaStream | null = null;
     try {
-      let stream: MediaStream | null = null;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch {
-        /* permission optional for enumerate */
+      const pre = await navigator.mediaDevices.enumerateDevices();
+      const inputs = pre.filter((d) => d.kind === "audioinput");
+      const needsLabel = inputs.length > 0 && inputs.every((d) => !d.label);
+      if (needsLabel) {
+        try {
+          temp = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (permErr) {
+          setError(
+            `Cần quyền micro để hiện tên thiết bị: ${(permErr as Error).message}`
+          );
+        }
       }
       const list = await listAudioInputs();
       setDevices(list);
-      stream?.getTracks().forEach((t) => t.stop());
+      return list;
     } catch (e) {
       setError((e as Error).message);
+      return [];
+    } finally {
+      temp?.getTracks().forEach((t) => t.stop());
     }
   }, []);
+
+  useEffect(() => {
+    const md = navigator.mediaDevices;
+    if (!md?.addEventListener) return;
+    const onChange = () => {
+      refreshDevices().catch(() => undefined);
+    };
+    md.addEventListener("devicechange", onChange);
+    return () => md.removeEventListener("devicechange", onChange);
+  }, [refreshDevices]);
 
   const stopAll = useCallback(() => {
     streamsRef.current.forEach((s) =>

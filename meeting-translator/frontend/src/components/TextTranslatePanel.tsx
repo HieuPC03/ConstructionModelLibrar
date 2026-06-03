@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { LangCode } from "../types";
-import { translateText } from "../api";
+import { APP_RESET_EVENT, translateText } from "../api";
 import { useSessionMode } from "../SessionModeContext";
 
 export default function TextTranslatePanel() {
@@ -14,6 +14,18 @@ export default function TextTranslatePanel() {
 
   const apiLabel =
     sessionMode === "translate_realtime" ? "ChatGPT" : "Gemini";
+
+  useEffect(() => {
+    const onReset = () => {
+      setSourceLang("vi");
+      setTargetLang("ja");
+      setInput("");
+      setOutput("");
+      setError(null);
+    };
+    window.addEventListener(APP_RESET_EVENT, onReset);
+    return () => window.removeEventListener(APP_RESET_EVENT, onReset);
+  }, []);
 
   const swap = () => {
     setSourceLang(targetLang === "auto" ? "vi" : targetLang);

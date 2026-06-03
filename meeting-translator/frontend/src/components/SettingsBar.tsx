@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  APP_RESET_EVENT,
   fetchSettings,
   testApiKey,
   updateSettings,
@@ -16,16 +17,25 @@ export default function SettingsBar() {
   const [testMsg, setTestMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  const loadFromServer = () => {
     fetchSettings()
       .then((s) => {
         setSettings(s);
         setRecordingsDir(s.recordings_dir || "");
         setExportDir(s.export_dir || "");
         setUiLang(s.ui_language || "vi");
+        setSessionMode(s.session_mode || "transcript");
+        setTestMsg(null);
       })
       .catch(() => undefined);
-  }, []);
+  };
+
+  useEffect(() => {
+    loadFromServer();
+    const onReset = () => loadFromServer();
+    window.addEventListener(APP_RESET_EVENT, onReset);
+    return () => window.removeEventListener(APP_RESET_EVENT, onReset);
+  }, [setSessionMode]);
 
   const save = async () => {
     setSaving(true);

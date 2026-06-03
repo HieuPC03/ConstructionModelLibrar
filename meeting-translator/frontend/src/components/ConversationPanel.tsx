@@ -9,7 +9,7 @@ import { exportTranscript, fetchSettings } from "../api";
 export default function ConversationPanel() {
   const feedRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { sessionMode, setSessionMode } = useSessionMode();
+  const { sessionMode, setSessionMode, resetToDefaults } = useSessionMode();
   const [sourceLang, setSourceLang] = useState<LangCode>("auto");
   const [targetLang, setTargetLang] = useState<LangCode>("vi");
   const [captureMode, setCaptureMode] = useState<CaptureMode>("screen");
@@ -17,6 +17,7 @@ export default function ConversationPanel() {
   const [includeMic, setIncludeMic] = useState(true);
   const [micId] = useState("");
   const [starting, setStarting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [exportDir, setExportDir] = useState("");
 
   const isTranslate = sessionMode === "translate_realtime";
@@ -92,6 +93,41 @@ export default function ConversationPanel() {
   const handleStop = async () => {
     await session.stopSession(exportDir);
     audio.stopAll();
+  };
+
+  const applyUiDefaults = () => {
+    setCaptureMode("screen");
+    setLoopbackId("");
+    setIncludeMic(true);
+    setSourceLang("auto");
+    setTargetLang("vi");
+    setExportDir("");
+  };
+
+  const handleRefreshReset = async () => {
+    if (session.isLive) {
+      const ok = window.confirm(
+        "Đang ghi phiên. Đặt lại sẽ dừng và xóa nội dung hiện tại. Tiếp tục?"
+      );
+      if (!ok) return;
+      session.abortSession();
+      audio.stopAll();
+    }
+    setRefreshing(true);
+    try {
+      await resetToDefaults();
+      applyUiDefaults();
+      const list = await audio.refreshDevices();
+      session.setStatus(
+        list.length > 0
+          ? `Đã đặt lại mặc định · ${list.length} thiết bị âm thanh`
+          : "Đã đặt lại mặc định · chưa thấy thiết bị (cấp quyền micro nếu cần)"
+      );
+    } catch (e) {
+      session.setStatus((e as Error).message);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleExport = async () => {
@@ -238,8 +274,14 @@ export default function ConversationPanel() {
           >
             Xuất .txt
           </button>
-          <button className="secondary" type="button" onClick={audio.refreshDevices}>
-            Làm mới thiết bị
+          <button
+            className="secondary"
+            type="button"
+            disabled={refreshing || starting}
+            title="Làm mới danh sách thiết bị và đặt lại app về mặc định"
+            onClick={() => void handleRefreshReset()}
+          >
+            {refreshing ? "Đang đặt lại…" : "Làm mới & đặt lại"}
           </button>
         </div>
       </div>

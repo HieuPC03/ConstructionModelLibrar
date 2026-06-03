@@ -56,6 +56,15 @@ export async function fetchSettings(): Promise<AppSettings> {
   return res.json();
 }
 
+export const APP_RESET_EVENT = "meeting-translator-reset";
+
+export async function resetSettings(): Promise<AppSettings> {
+  const res = await fetch(`${API_BASE}/api/settings/reset`, { method: "POST" });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(parseApiError(data, "Đặt lại cài đặt thất bại"));
+  return data as AppSettings;
+}
+
 export async function updateSettings(
   patch: Partial<AppSettings>
 ): Promise<AppSettings> {

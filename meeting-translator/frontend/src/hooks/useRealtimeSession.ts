@@ -132,6 +132,38 @@ export function useRealtimeSession() {
     [appendUtterance, startChunkPipeline]
   );
 
+  const abortSession = useCallback(() => {
+    if (chunkIntervalRef.current) {
+      clearInterval(chunkIntervalRef.current);
+      chunkIntervalRef.current = null;
+    }
+    const ws = wsRef.current;
+    if (ws) {
+      try {
+        ws.close();
+      } catch {
+        /* ignore */
+      }
+    }
+    wsRef.current = null;
+    const rec = recorderRef.current;
+    if (rec && rec.state !== "inactive") {
+      try {
+        rec.stop();
+      } catch {
+        /* ignore */
+      }
+    }
+    recorderRef.current = null;
+    recordChunksRef.current = [];
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setSessionId(null);
+    setIsLive(false);
+    setUtterances([]);
+    setStatus("Chưa bắt đầu");
+  }, []);
+
   const stopSession = useCallback(async (exportDir?: string) => {
     if (chunkIntervalRef.current) {
       clearInterval(chunkIntervalRef.current);
@@ -191,6 +223,7 @@ export function useRealtimeSession() {
     status,
     startSession,
     stopSession,
+    abortSession,
     setStatus,
   };
 }

@@ -37,6 +37,15 @@ def load_settings() -> dict[str, Any]:
         return dict(_DEFAULT)
 
 
+def reset_settings() -> dict[str, Any]:
+    """Ghi đè settings.json bằng giá trị mặc định."""
+    merged = dict(_DEFAULT)
+    path = _settings_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
+    return merged
+
+
 def save_settings(data: dict[str, Any]) -> dict[str, Any]:
     merged = load_settings()
     for key in _DEFAULT:
