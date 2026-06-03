@@ -119,8 +119,10 @@ export default function ConversationPanel({ provider }: Props) {
       </div>
 
       <div className="hint-box">
-        <strong>Quay màn hình + dịch:</strong> chọn <em>Quay màn hình</em>, chia sẻ cửa sổ
-        Zoom/Teams (bật âm thanh). <strong>Tai nghe:</strong> dùng Stereo Mix / Loopback.
+        <strong>Đeo tai nghe — không cần loa ngoài, không cần micro cuộc họp:</strong> app
+        bắt tiếng <em>phát vào tai nghe</em> (giống phụ đề Win+Ctrl+L), không thu qua loa
+        vật lý. Khuyến nghị: <em>Quay màn hình + âm thanh</em> → chọn cửa sổ Zoom/Teams,
+        tick chia sẻ âm thanh. Hoặc Stereo Mix / VB-Cable nếu máy có loopback.
       </div>
 
       <div className="panel-header">
