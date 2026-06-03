@@ -5,12 +5,7 @@ import { useAppSettings } from "../AppSettingsContext";
 import type { CaptureMode } from "../hooks/useAudioCapture";
 import { useAudioCapture } from "../hooks/useAudioCapture";
 import { useRealtimeSession } from "../hooks/useRealtimeSession";
-import {
-  exportTranscript,
-  exportVideoToFolder,
-  getOfflineSttStatus,
-  warmupOfflineStt,
-} from "../api";
+import { exportTranscript, exportVideoToFolder } from "../api";
 import { copyText } from "../utils/clipboard";
 import { friendlyMediaError } from "../utils/mediaRecorder";
 
@@ -27,8 +22,6 @@ function statusLabel(
   if (status.startsWith("saved:")) return status.slice(6);
   if (status === "saveFailed") return tr("saveFailed");
   if (status === "opening") return tr("statusOpeningAudio");
-  if (status === "loadingWhisper") return tr("loadingWhisper");
-  if (status === "loadingWhisperDownload") return tr("loadingWhisperDownload");
   return status;
 }
 
@@ -45,13 +38,13 @@ export default function ConversationPanel() {
   const [starting, setStarting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const isTranslate = sessionMode === "translate_realtime";
   const audio = useAudioCapture();
   const session = useRealtimeSession();
 
-  const saveTxtDir = exportDir;
-  const saveVideoDir = recordingsDir || exportDir;
+  const exportBaseDir = exportDir || recordingsDir;
 
   useEffect(() => {
     audio.refreshDevices();
@@ -88,17 +81,6 @@ export default function ConversationPanel() {
     audio.clearError();
     session.setStatus("opening");
     try {
-      if (!isTranslate) {
-        try {
-          const st = await getOfflineSttStatus();
-          session.setStatus(
-            st.bundled === "true" ? "loadingWhisper" : "loadingWhisperDownload"
-          );
-        } catch {
-          session.setStatus("loadingWhisper");
-        }
-        await warmupOfflineStt();
-      }
       const mixMic = captureMode === "screen" ? true : includeMic;
       const stream = await audio.startCapture(
         captureMode,
@@ -122,7 +104,7 @@ export default function ConversationPanel() {
   };
 
   const handleStop = async () => {
-    await session.stopSession(saveTxtDir, saveVideoDir);
+    await session.stopSession(exportBaseDir, exportBaseDir);
     audio.stopAll();
   };
 
@@ -147,31 +129,32 @@ export default function ConversationPanel() {
     }
   };
 
-  const handleExportTxt = async () => {
-    if (!session.utterances.length || !saveTxtDir) return;
-    try {
-      const msg = await exportTranscript(
-        session.utterances,
-        saveTxtDir,
-        `transcript-${Date.now()}.txt`
-      );
-      session.setStatus(`saved:${msg}`);
-    } catch (e) {
-      session.setStatus(`error:${(e as Error).message}`);
+  const handleExport = async (kind: "txt" | "video") => {
+    if (!exportBaseDir) {
+      session.setStatus(`error:${tr("exportNeedDir")}`);
+      return;
     }
-  };
-
-  const handleExportVideo = async () => {
-    if (!session.sessionId || !saveVideoDir) return;
+    setExportOpen(false);
     try {
-      const msg = await exportVideoToFolder(
-        session.sessionId,
-        saveVideoDir,
-        `meeting-${Date.now()}.mp4`
-      );
-      session.setStatus(`saved:${msg}`);
+      if (kind === "txt") {
+        if (!session.utterances.length) return;
+        const msg = await exportTranscript(
+          session.utterances,
+          exportBaseDir,
+          `transcript-${Date.now()}.txt`
+        );
+        session.setStatus(`saved:${msg}`);
+      } else {
+        if (!session.sessionId) return;
+        const msg = await exportVideoToFolder(
+          session.sessionId,
+          exportBaseDir,
+          `meeting-${Date.now()}.mp4`
+        );
+        session.setStatus(`saved:${msg}`);
+      }
     } catch (e) {
-      session.setStatus(`error:${(e as Error).message}`);
+      session.setStatus(`error:${friendlyMediaError(e)}`);
     }
   };
 
@@ -314,22 +297,37 @@ export default function ConversationPanel() {
               {tr("stop")}
             </button>
           )}
-          <button
-            type="button"
-            className="secondary"
-            disabled={session.utterances.length === 0 || !saveTxtDir}
-            onClick={() => void handleExportTxt()}
-          >
-            {tr("exportTxt")}
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            disabled={!session.sessionId || !saveVideoDir}
-            onClick={() => void handleExportVideo()}
-          >
-            {tr("exportVideo")}
-          </button>
+          <div className="export-dropdown">
+            <button
+              type="button"
+              className="secondary"
+              disabled={
+                (session.utterances.length === 0 && !session.sessionId) ||
+                !exportBaseDir
+              }
+              onClick={() => setExportOpen((o) => !o)}
+            >
+              {tr("exportData")} ▾
+            </button>
+            {exportOpen && (
+              <div className="export-menu">
+                <button
+                  type="button"
+                  disabled={session.utterances.length === 0}
+                  onClick={() => void handleExport("txt")}
+                >
+                  {tr("exportAsTxt")}
+                </button>
+                <button
+                  type="button"
+                  disabled={!session.sessionId}
+                  onClick={() => void handleExport("video")}
+                >
+                  {tr("exportAsVideo")}
+                </button>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             className="secondary"

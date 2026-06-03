@@ -54,6 +54,17 @@ export default function TextTranslatePanel() {
     setTimeout(() => setCopyMsg(null), 2000);
   };
 
+  const handlePaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) setInput(text);
+      setCopyMsg(tr("pasted"));
+      setTimeout(() => setCopyMsg(null), 2000);
+    } catch {
+      setError("Không đọc được clipboard. Cho phép quyền dán hoặc dán thủ công (Ctrl+V).");
+    }
+  };
+
   return (
     <section className="panel">
       <div className="panel-header">
@@ -121,15 +132,19 @@ export default function TextTranslatePanel() {
           onChange={(e) => setInput(e.target.value)}
           rows={5}
         />
-        <button
-          type="button"
-          className="secondary"
-          style={{ marginBottom: "0.5rem" }}
-          disabled={!input.trim()}
-          onClick={() => void handleCopy(input)}
-        >
-          {tr("copy")} ({tr("from")})
-        </button>
+        <div className="text-actions-row">
+          <button type="button" className="secondary" onClick={() => void handlePaste()}>
+            {tr("paste")}
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={!input.trim()}
+            onClick={() => void handleCopy(input)}
+          >
+            {tr("copy")} ({tr("from")})
+          </button>
+        </div>
 
         <div className="translation-result">
           {error ? (

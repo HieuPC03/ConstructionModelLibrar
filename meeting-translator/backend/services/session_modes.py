@@ -16,10 +16,8 @@ def get_session_mode(override: str | None = None) -> str:
 
 
 def stt_engine_for_mode(mode: str) -> str:
-    """Live Caption: local Whisper. Realtime translate: OpenAI cloud."""
-    if mode == SESSION_TRANSLATE:
-        return "openai"
-    return "offline"
+    """Live Caption và dịch realtime: OpenAI (Whisper API / ChatGPT)."""
+    return "openai"
 
 
 def text_translate_provider_for_mode(mode: str) -> str:

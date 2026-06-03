@@ -7,20 +7,16 @@ echo.
 echo OpenAI HET QUOTA? Chon Google Translate (khong can key):
 echo   TRANSLATOR_PROVIDER=google
 echo.
-echo Live Caption: OFFLINE tren may — KHONG can GEMINI_API_KEY
-echo   (can FFmpeg + lan dau tai Whisper ~500MB)
-echo.
-echo Dich realtime (tieng noi): can OpenAI:
+echo Live Caption + Dich realtime: can OpenAI (ChatGPT / Whisper API):
 echo   OPENAI_API_KEY=sk-proj-...  https://platform.openai.com/api-key
 echo.
 set "ENV_DIR=%APPDATA%\meeting-translator-desktop"
 if not exist "%ENV_DIR%" mkdir "%ENV_DIR%"
 if not exist "%ENV_DIR%\.env" (
-  echo TRANSLATOR_PROVIDER=google> "%ENV_DIR%\.env"
+  echo TRANSLATOR_PROVIDER=openai> "%ENV_DIR%\.env"
   echo OPENAI_API_KEY=>> "%ENV_DIR%\.env"
   echo GEMINI_API_KEY=>> "%ENV_DIR%\.env"
   echo GEMINI_MODEL=gemini-2.0-flash>> "%ENV_DIR%\.env"
-  echo WHISPER_OFFLINE_MODEL=small>> "%ENV_DIR%\.env"
 )
 echo File: %ENV_DIR%\.env
 echo.

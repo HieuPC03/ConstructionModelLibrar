@@ -12,6 +12,60 @@ const VIDEO_MIME_CANDIDATES = [
   "video/mp4",
 ];
 
+export function canUseMediaRecorder(
+  stream: MediaStream,
+  mimeCandidates: string[] = AUDIO_MIME_CANDIDATES
+): boolean {
+  if (!stream.getAudioTracks().length && !stream.getVideoTracks().length) {
+    return false;
+  }
+  for (const mime of mimeCandidates) {
+    if (mime && !MediaRecorder.isTypeSupported(mime)) continue;
+    try {
+      const recorder = mime
+        ? new MediaRecorder(stream, { mimeType: mime })
+        : new MediaRecorder(stream);
+      if (recorder.state === "recording") recorder.stop();
+      return true;
+    } catch {
+      continue;
+    }
+  }
+  try {
+    new MediaRecorder(stream);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Chọn luồng âm thanh ghi được (tránh AudioContext không tương thích Windows/Electron). */
+export function pickRecordableAudioStream(streams: MediaStream[]): MediaStream {
+  const withAudio = streams.filter((s) => s.getAudioTracks().length > 0);
+  if (!withAudio.length) {
+    throw new Error(
+      "Không có âm thanh. Khi quay màn hình, bật «Chia sẻ âm thanh» trong hộp thoại Windows."
+    );
+  }
+  for (const s of withAudio) {
+    if (canUseMediaRecorder(s)) return s;
+  }
+  if (withAudio.length === 1) return withAudio[0];
+
+  const ctx = new AudioContext();
+  const dest = ctx.createMediaStreamDestination();
+  withAudio.forEach((s) => {
+    ctx.createMediaStreamSource(s).connect(dest);
+  });
+  if (canUseMediaRecorder(dest.stream)) return dest.stream;
+
+  const fallback = withAudio[0];
+  if (canUseMediaRecorder(fallback)) return fallback;
+  throw new Error(
+    "Không ghi được âm thanh từ nguồn này. Thử «Chia sẻ tab / màn hình» và bật âm thanh, hoặc «Chỉ micro»."
+  );
+}
+
 export function createMediaRecorder(
   stream: MediaStream,
   mimeCandidates: string[] = AUDIO_MIME_CANDIDATES
@@ -35,7 +89,7 @@ export function createMediaRecorder(
     return { recorder, mimeType: recorder.mimeType || "audio/webm" };
   } catch {
     throw new Error(
-      "Không ghi được âm thanh (MediaRecorder). Thử «Chỉ micro», hoặc «Quay màn hình» và bật «Chia sẻ âm thanh» trong hộp thoại Windows."
+      "Không ghi được âm thanh. Thử «Chỉ micro» hoặc chia sẻ màn hình kèm âm thanh."
     );
   }
 }
@@ -43,6 +97,7 @@ export function createMediaRecorder(
 export function tryCreateVideoRecorder(
   stream: MediaStream
 ): { recorder: MediaRecorder; mimeType: string } | null {
+  if (!canUseMediaRecorder(stream, VIDEO_MIME_CANDIDATES)) return null;
   try {
     return createMediaRecorder(stream, VIDEO_MIME_CANDIDATES);
   } catch {
@@ -54,7 +109,7 @@ export function friendlyMediaError(err: unknown): string {
   const msg = (err as Error)?.message || String(err);
   if (/not supported/i.test(msg)) {
     return (
-      "Trình duyệt không hỗ trợ định dạng ghi âm. Thử «Chỉ micro» hoặc chia sẻ màn hình kèm âm thanh."
+      "Không ghi được âm thanh từ nguồn này. Khi quay màn hình: bật «Chia sẻ âm thanh». Hoặc thử «Chỉ micro»."
     );
   }
   return msg;

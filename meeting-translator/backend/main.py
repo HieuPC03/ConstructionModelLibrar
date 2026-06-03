@@ -96,22 +96,14 @@ def _provider_health() -> tuple[bool, str, str, str | None]:
     label = PROVIDER_LABELS.get(provider, provider)
 
     if provider == "google":
-        from services.stt_offline import get_offline_model_name, offline_model_status
-
-        stt_info = offline_model_status()
-        stt = f"Whisper offline ({get_offline_model_name()})"
-        hints: list[str] = [
-            "Live Caption: nhận dạng giọng trên máy (không cần GEMINI_API_KEY).",
+        stt = "Google Translate (chữ)"
+        hints = [
             "Dịch văn bản: Google Translate (không cần key).",
+            f"Live Caption / dịch realtime: cần OPENAI_API_KEY trong {config_path}",
         ]
-        if stt_info.get("ffmpeg", "true") == "false":
-            hints.insert(
-                0,
-                "Live Caption cần FFmpeg — dùng bản cài đầy đủ hoặc cài https://ffmpeg.org",
-            )
-        if not is_valid_openai_key(get_openai_api_key()):
-            hints.append(f"Dịch realtime (ChatGPT): thêm OPENAI_API_KEY vào {config_path}")
-        return True, label, stt, " ".join(hints)
+        if is_valid_openai_key(get_openai_api_key()):
+            return True, label, f"{stt} + OpenAI STT", " ".join(hints)
+        return False, label, stt, " ".join(hints)
 
     if provider == "gemini":
         gkey = get_gemini_api_key()
@@ -252,20 +244,16 @@ async def test_provider_config() -> dict[str, Any]:
     via = text_translate_provider_for_mode(mode)
     try:
         if mode == SESSION_TRANSCRIPT:
-            from services.stt_offline import (
-                ensure_offline_model,
-                get_offline_model_name,
-                is_whisper_prebundled,
-            )
-
-            await ensure_offline_model()
-            name = get_offline_model_name()
-            extra = " (model kèm installer)" if is_whisper_prebundled(name) else ""
+            if not is_valid_openai_key(get_openai_api_key()):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Live Caption cần OPENAI_API_KEY trong {env_file_hint()}",
+                )
             return {
                 "ok": True,
                 "message": (
-                    f"Live Caption offline OK — Whisper '{name}'{extra}, "
-                    "không cần GEMINI_API_KEY"
+                    f"Live Caption OK — OpenAI STT ({OPENAI_STT_MODEL}). "
+                    "Cần quota API OpenAI."
                 ),
             }
         if via == "google":

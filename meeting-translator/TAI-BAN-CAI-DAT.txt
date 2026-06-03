@@ -1,18 +1,17 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator
-====================================
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.6.0
+============================================
 
-Trang releases (file luôn có sau khi CI xong):
+Trang releases:
 https://github.com/HieuPC03/ConstructionModelLibrar/releases
 
---- v1.5.6+ BẢN PORTABLE (Whisper gói sẵn, khuyên dùng) ---
-Giai nen zip → chay CHAY-PORTABLE.bat hoặc Meeting Translator.exe
+File cài (sau khi CI publish — thường ~10 phút):
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.6.0/Meeting-Translator-Setup-1.6.0.exe
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.6/Meeting-Translator-v1.5.6-Portable.zip
-
-(Nếu link 404: CI chưa xong — xem tab Actions trên GitHub)
-
---- Bản Setup .exe nhỏ hơn (v1.5.2, tải được ngay) ---
+Tạm thời (nếu v1.6.0 chưa có):
 https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.2/Meeting-Translator-Setup-1.5.2.exe
-(Live Caption: tải Whisper ~500MB lần đầu khi Play)
 
-Lưu ý: v1.5.3 / v1.5.4 / v1.5.5 không có file trên GitHub → 404.
+v1.6.0 mới:
+- Live Caption + dịch realtime: OpenAI (ChatGPT / Whisper API) — cần OPENAI_API_KEY
+- Một nút «Xuất dữ liệu» (txt hoặc video)
+- Nút Dán ở dịch văn bản
+- Sửa lỗi ghi âm khi quay màn hình

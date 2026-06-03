@@ -26,7 +26,7 @@ concurrency:
 jobs:
   build-windows-installer:
     runs-on: windows-latest
-    timeout-minutes: 180
+    timeout-minutes: 90
     defaults:
       run:
         working-directory: meeting-translator
@@ -38,40 +38,17 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Cache Whisper model (build)
-        uses: actions/cache@v4
-        with:
-          path: meeting-translator/runtime/whisper-models
-          key: whisper-small-${{ hashFiles('meeting-translator/backend/requirements.txt', 'meeting-translator/scripts/download_whisper_model.py') }}
-          restore-keys: |
-            whisper-small-
-
-      - name: Bundle Python, FFmpeg, Whisper
+      - name: Bundle Python and FFmpeg
         shell: pwsh
-        timeout-minutes: 45
+        timeout-minutes: 25
         run: |
           ./scripts/bundle-python.ps1
           ./scripts/bundle-ffmpeg.ps1
-          ./scripts/bundle-whisper.ps1 -Model "small"
 
-      - name: Build portable package (Whisper bundled)
+      - name: Build installer (NSIS)
         shell: pwsh
-        timeout-minutes: 50
-        run: ./pack-portable.ps1 -SkipRuntimeBundle
-
-      - name: Build NSIS Setup.exe (optional)
-        shell: pwsh
-        timeout-minutes: 90
-        continue-on-error: true
-        run: |
-          Push-Location desktop
-          $env:CSC_IDENTITY_AUTO_DISCOVERY = "false"
-          npm run dist:win
-          Pop-Location
-          $exe = Get-ChildItem dist\desktop -Filter "Meeting-Translator-Setup-*.exe" | Select-Object -First 1
-          if ($exe) {
-            Copy-Item $exe.FullName -Destination "dist\$($exe.Name)" -Force
-          }
+        timeout-minutes: 45
+        run: ./pack-desktop.ps1 -SkipRuntimeBundle
 
       - name: Read version
         id: ver
@@ -88,13 +65,11 @@ jobs:
         shell: pwsh
         run: |
           $v = "${{ steps.ver.outputs.version }}"
-          $portable = "dist\Meeting-Translator-v$v-Portable.zip"
           $setup = "dist\Meeting-Translator-Setup-$v.exe"
-          if (-not (Test-Path $portable) -and -not (Test-Path $setup)) {
-            throw "Khong co Portable.zip hay Setup.exe — khong the phat hanh"
+          if (-not (Test-Path $setup)) {
+            throw "Khong co Setup.exe — khong the phat hanh"
           }
-          if (Test-Path $portable) { Write-Host "OK: $portable" }
-          if (Test-Path $setup) { Write-Host "OK: $setup" }
+          Write-Host "OK: $setup"
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
@@ -102,7 +77,6 @@ jobs:
           name: Meeting-Translator-v${{ steps.ver.outputs.version }}
           path: |
             meeting-translator/dist/Meeting-Translator-Setup-*.exe
-            meeting-translator/dist/Meeting-Translator-v*-Portable.zip
             meeting-translator/dist/Meeting-Translator-v*-Full-Package.zip
             meeting-translator/dist/Meeting-Translator-v*-BAT-scripts.zip
             meeting-translator/dist/desktop/Meeting-Translator-Setup-*.exe
@@ -118,7 +92,6 @@ jobs:
           prerelease: true
           generate_release_notes: true
           files: |
-            meeting-translator/dist/Meeting-Translator-v${{ steps.ver.outputs.version }}-Portable.zip
             meeting-translator/dist/Meeting-Translator-Setup-${{ steps.ver.outputs.version }}.exe
             meeting-translator/dist/Meeting-Translator-v${{ steps.ver.outputs.version }}-Full-Package.zip
             meeting-translator/dist/Meeting-Translator-v${{ steps.ver.outputs.version }}-BAT-scripts.zip

@@ -12,20 +12,16 @@ export default function SettingsBar() {
     setTheme,
     exportDir,
     setExportDir,
-    recordingsDir,
-    setRecordingsDir,
     saveSettings,
     settings,
   } = useAppSettings();
   const { sessionMode, setSessionMode } = useSessionMode();
   const [testMsg, setTestMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [whisperModel, setWhisperModel] = useState("small");
 
   useEffect(() => {
     setSessionMode(settings?.session_mode || "transcript");
-    setWhisperModel(settings?.whisper_offline_model || "small");
-  }, [settings?.session_mode, settings?.whisper_offline_model, setSessionMode]);
+  }, [settings?.session_mode, setSessionMode]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -33,10 +29,9 @@ export default function SettingsBar() {
       await updateSettings({
         session_mode: sessionMode,
         export_dir: exportDir,
-        recordings_dir: recordingsDir,
+        recordings_dir: exportDir,
         ui_language: lang,
         theme,
-        whisper_offline_model: whisperModel as "tiny" | "base" | "small" | "medium",
       });
       await saveSettings();
       setTestMsg(tr("saved"));
@@ -47,11 +42,9 @@ export default function SettingsBar() {
     }
   };
 
-  const pickFolder = async (target: "recordings" | "export") => {
+  const pickFolder = async () => {
     const dir = await window.desktopApp?.pickFolder?.();
-    if (!dir) return;
-    if (target === "recordings") setRecordingsDir(dir);
-    else setExportDir(dir);
+    if (dir) setExportDir(dir);
   };
 
   const runTest = async () => {
@@ -88,20 +81,6 @@ export default function SettingsBar() {
         </select>
       </label>
       <label className="settings-field">
-        {tr("whisperModel")}
-        <select
-          value={whisperModel}
-          onChange={(e) => setWhisperModel(e.target.value)}
-          title={tr("whisperModelHint")}
-        >
-          <option value="tiny">tiny (~75MB)</option>
-          <option value="base">base (~150MB)</option>
-          <option value="small">small (gói sẵn ~500MB)</option>
-          <option value="medium">medium (~1.5GB)</option>
-        </select>
-        <span className="field-hint">{tr("whisperModelHint")}</span>
-      </label>
-      <label className="settings-field">
         {tr("theme")}
         <select value={theme} onChange={(e) => setTheme(e.target.value as ThemeId)}>
           <option value="dark">{tr("themeDark")}</option>
@@ -110,29 +89,15 @@ export default function SettingsBar() {
         </select>
       </label>
       <label className="settings-field settings-path">
-        {tr("saveRecordings")}
-        <input
-          type="text"
-          value={recordingsDir}
-          onChange={(e) => setRecordingsDir(e.target.value)}
-          placeholder={settings?.recordings_dir_active ?? "AppData"}
-        />
-        {window.desktopApp?.pickFolder && (
-          <button type="button" className="secondary" onClick={() => pickFolder("recordings")}>
-            {tr("pick")}
-          </button>
-        )}
-      </label>
-      <label className="settings-field settings-path">
-        {tr("saveText")}
+        {tr("exportFolder")}
         <input
           type="text"
           value={exportDir}
           onChange={(e) => setExportDir(e.target.value)}
-          placeholder=".txt / .mp4"
+          placeholder={settings?.recordings_dir_active ?? "AppData"}
         />
         {window.desktopApp?.pickFolder && (
-          <button type="button" className="secondary" onClick={() => pickFolder("export")}>
+          <button type="button" className="secondary" onClick={() => void pickFolder()}>
             {tr("pick")}
           </button>
         )}

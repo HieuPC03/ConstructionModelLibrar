@@ -12,7 +12,7 @@ _DEFAULT: dict[str, Any] = {
     "default_source_lang": "auto",
     "default_target_lang": "vi",
     "meeting_pair": "vi-ja",
-    "translator_provider": "google",
+    "translator_provider": "openai",
     "session_mode": "transcript",
     "theme": "dark",
     "whisper_offline_model": "small",

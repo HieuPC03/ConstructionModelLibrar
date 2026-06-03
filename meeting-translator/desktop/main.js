@@ -52,7 +52,7 @@ function ensureUserConfig() {
     } else {
       fs.writeFileSync(
         ud.env,
-        "TRANSLATOR_PROVIDER=google\nOPENAI_API_KEY=\nGEMINI_API_KEY=\nWHISPER_OFFLINE_MODEL=small\n",
+        "TRANSLATOR_PROVIDER=openai\nOPENAI_API_KEY=\nGEMINI_API_KEY=\n",
         "utf8"
       );
     }

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AudioDeviceOption } from "../types";
-import { friendlyMediaError } from "../utils/mediaRecorder";
+import {
+  friendlyMediaError,
+  pickRecordableAudioStream,
+} from "../utils/mediaRecorder";
 
 export type CaptureMode = "loopback" | "display" | "screen" | "mic";
 
@@ -82,7 +85,7 @@ export function useAudioCapture() {
     ): Promise<MediaStream> => {
       stopAll();
       setError(null);
-      const streams: MediaStream[] = [];
+      const audioStreams: MediaStream[] = [];
 
       try {
         let mixMic = includeMic;
@@ -95,7 +98,7 @@ export function useAudioCapture() {
             screenVideoRef.current = new MediaStream(display.getVideoTracks());
           }
           if (display.getAudioTracks().length > 0) {
-            streams.push(new MediaStream(display.getAudioTracks()));
+            audioStreams.push(new MediaStream(display.getAudioTracks()));
           }
           if (mode === "screen") {
             mixMic = true;
@@ -109,7 +112,7 @@ export function useAudioCapture() {
               autoGainControl: false,
             },
           });
-          streams.push(loop);
+          audioStreams.push(loop);
         }
 
         if (mixMic) {
@@ -118,30 +121,24 @@ export function useAudioCapture() {
               ? { deviceId: { exact: micDeviceId } }
               : true,
           });
-          streams.push(mic);
+          audioStreams.push(mic);
         }
 
-        if (streams.length === 0) {
+        if (mode === "mic" && audioStreams.length === 0) {
+          const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioStreams.push(mic);
+        }
+
+        if (audioStreams.length === 0) {
           throw new Error(
-            "Không có nguồn âm thanh. Chọn Stereo Mix / loopback hoặc chia sẻ tab cuộc họp."
+            "Không có nguồn âm thanh. Chọn Stereo Mix / loopback, bật «Chia sẻ âm thanh» khi quay màn hình, hoặc «Chỉ micro»."
           );
         }
 
-        streamsRef.current = streams;
-
-        if (streams.length === 1) {
-          mixedRef.current = streams[0];
-          return streams[0];
-        }
-
-        const ctx = new AudioContext();
-        const dest = ctx.createMediaStreamDestination();
-        streams.forEach((s) => {
-          const source = ctx.createMediaStreamSource(s);
-          source.connect(dest);
-        });
-        mixedRef.current = dest.stream;
-        return dest.stream;
+        streamsRef.current = audioStreams;
+        const recordable = pickRecordableAudioStream(audioStreams);
+        mixedRef.current = recordable;
+        return recordable;
       } catch (e) {
         stopAll();
         const msg = friendlyMediaError(e);
@@ -152,7 +149,6 @@ export function useAudioCapture() {
     [stopAll]
   );
 
-  /** Video + mixed audio for screen recording (mp4/webm). */
   const getCompositeRecordStream = useCallback((): MediaStream | null => {
     const video = screenVideoRef.current;
     const audio = mixedRef.current;
