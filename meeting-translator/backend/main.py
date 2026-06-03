@@ -30,7 +30,13 @@ from services.errors import (
     is_valid_gemini_key,
     is_valid_openai_key,
 )
-from services.settings_store import load_settings, resolve_export_dir, resolve_recordings_dir, save_settings
+from services.settings_store import (
+    load_settings,
+    reset_settings,
+    resolve_export_dir,
+    resolve_recordings_dir,
+    save_settings,
+)
 from services.session_modes import (
     SESSION_TRANSLATE,
     SESSION_TRANSCRIPT,
@@ -64,11 +70,15 @@ class TextTranslateRequest(BaseModel):
     text: str
     source_lang: str = Field(pattern="^(vi|ja|en)$")
     target_lang: str = Field(pattern="^(vi|ja|en)$")
+    session_mode: str | None = Field(
+        default=None, pattern="^(translate_realtime|transcript)$"
+    )
 
 
 class TextTranslateResponse(BaseModel):
     translation: str
     provider: str
+    notice: str | None = None
 
 
 class HealthResponse(BaseModel):
@@ -177,6 +187,18 @@ async def patch_settings(body: SettingsUpdate) -> dict[str, Any]:
     return {**saved, "recordings_dir_active": str(recordings_dir())}
 
 
+@app.post("/api/settings/reset")
+async def reset_settings_endpoint() -> dict[str, Any]:
+    saved = reset_settings()
+    return {
+        **saved,
+        "recordings_dir_active": str(recordings_dir()),
+        "session_mode": get_session_mode(),
+        "translator_provider": get_translator_provider(),
+        "message": "Đã đặt lại cài đặt mặc định",
+    }
+
+
 @app.post("/api/config/test")
 async def test_provider_config() -> dict[str, Any]:
     from fastapi import HTTPException
@@ -185,12 +207,12 @@ async def test_provider_config() -> dict[str, Any]:
     via = text_translate_provider_for_mode(mode)
     try:
         if via == "google":
-            result = await translate_text("xin chào", "vi", "ja")
-            if not result:
+            outcome = await translate_text("xin chào", "vi", "ja")
+            if not outcome.text:
                 raise ValueError("Google Translate không trả kết quả")
             return {
                 "ok": True,
-                "message": f"Google Translate OK (ví dụ: xin chào → {result})",
+                "message": f"Google Translate OK (ví dụ: xin chào → {outcome.text})",
             }
         if via == "gemini":
             if not is_valid_gemini_key(get_gemini_api_key()):
@@ -198,8 +220,11 @@ async def test_provider_config() -> dict[str, Any]:
                     status_code=400,
                     detail=f"GEMINI_API_KEY không hợp lệ trong {env_file_hint()}",
                 )
-            result = await translate_text("test", "en", "vi", provider_override="gemini")
-            return {"ok": True, "message": f"Gemini OK (thử dịch: {result})"}
+            outcome = await translate_text("test", "en", "vi", provider_override="gemini")
+            msg = f"Gemini OK (thử dịch: {outcome.text})"
+            if outcome.notice:
+                msg += f" — {outcome.notice}"
+            return {"ok": True, "message": msg}
         if mode == SESSION_TRANSLATE and not is_valid_openai_key(get_openai_api_key()):
             raise HTTPException(
                 status_code=400,
@@ -252,10 +277,10 @@ async def export_text(body: ExportRequest) -> dict[str, str]:
 
 @app.post("/api/translate/text", response_model=TextTranslateResponse)
 async def translate_text_endpoint(body: TextTranslateRequest) -> TextTranslateResponse:
-    mode = get_session_mode()
+    mode = get_session_mode(body.session_mode)
     via = text_translate_provider_for_mode(mode)
     try:
-        result = await translate_text(
+        outcome = await translate_text(
             body.text,
             body.source_lang,
             body.target_lang,
@@ -264,9 +289,15 @@ async def translate_text_endpoint(body: TextTranslateRequest) -> TextTranslateRe
     except Exception as exc:
         from fastapi import HTTPException
 
-        raise HTTPException(status_code=400, detail=friendly_api_error(exc)) from exc
-    label = "ChatGPT (OpenAI)" if via == "openai" else "Google Gemini"
-    return TextTranslateResponse(translation=result, provider=label)
+        raise HTTPException(
+            status_code=400,
+            detail=friendly_api_error(exc, provider_hint=via),
+        ) from exc
+    return TextTranslateResponse(
+        translation=outcome.text,
+        provider=outcome.provider,
+        notice=outcome.notice,
+    )
 
 
 @app.post("/api/transcribe")
@@ -345,12 +376,13 @@ async def session_websocket(websocket: WebSocket) -> None:
                     translation = ""
                     if text and session_mode == SESSION_TRANSLATE:
                         src = source_lang if source_lang != "auto" else "en"
-                        translation = await translate_text(
+                        tr = await translate_text(
                             text,
                             src,
                             target_lang,
                             provider_override="openai",
                         )
+                        translation = tr.text
 
                     entry = {
                         "id": str(uuid.uuid4()),

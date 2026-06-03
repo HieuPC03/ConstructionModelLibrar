@@ -1,24 +1,36 @@
 import { useEffect, useState } from "react";
 import type { LangCode } from "../types";
-import { fetchSettings, translateText, type SessionMode } from "../api";
+import { APP_RESET_EVENT, translateText } from "../api";
+import { useSessionMode } from "../SessionModeContext";
 
 export default function TextTranslatePanel() {
-  const [sessionMode, setSessionMode] = useState<SessionMode>("transcript");
+  const { sessionMode } = useSessionMode();
   const [sourceLang, setSourceLang] = useState<LangCode>("vi");
   const [targetLang, setTargetLang] = useState<LangCode>("ja");
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchSettings()
-      .then((s) => setSessionMode(s.session_mode || "transcript"))
-      .catch(() => undefined);
-  }, []);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [activeProvider, setActiveProvider] = useState<string | null>(null);
 
   const apiLabel =
-    sessionMode === "translate_realtime" ? "ChatGPT" : "Gemini";
+    activeProvider ??
+    (sessionMode === "translate_realtime" ? "ChatGPT" : "Gemini");
+
+  useEffect(() => {
+    const onReset = () => {
+      setSourceLang("vi");
+      setTargetLang("ja");
+      setInput("");
+      setOutput("");
+      setError(null);
+      setNotice(null);
+      setActiveProvider(null);
+    };
+    window.addEventListener(APP_RESET_EVENT, onReset);
+    return () => window.removeEventListener(APP_RESET_EVENT, onReset);
+  }, []);
 
   const swap = () => {
     setSourceLang(targetLang === "auto" ? "vi" : targetLang);
@@ -31,12 +43,22 @@ export default function TextTranslatePanel() {
     if (!input.trim()) return;
     setLoading(true);
     setError(null);
+    setNotice(null);
     try {
-      const result = await translateText(input, sourceLang, targetLang);
-      setOutput(result);
+      const result = await translateText(
+        input,
+        sourceLang,
+        targetLang,
+        sessionMode
+      );
+      setOutput(result.translation);
+      setActiveProvider(result.provider);
+      setNotice(result.notice);
     } catch (e) {
       setError((e as Error).message);
       setOutput("");
+      setNotice(null);
+      setActiveProvider(null);
     } finally {
       setLoading(false);
     }
@@ -52,7 +74,8 @@ export default function TextTranslatePanel() {
       <div className="hint-box">
         Dịch thủ công qua{" "}
         <strong>{sessionMode === "translate_realtime" ? "ChatGPT" : "Gemini"}</strong>{" "}
-        (theo chế độ phiên bên trái).
+        (theo chế độ phiên bên trái). Nếu Gemini hết quota, app tự chuyển sang{" "}
+        <strong>Google Translate</strong> và hiện thông báo.
       </div>
 
       <div className="text-translate-body">
@@ -113,6 +136,20 @@ export default function TextTranslatePanel() {
           onChange={(e) => setInput(e.target.value)}
           rows={6}
         />
+
+        {notice && (
+          <div
+            className="hint-box"
+            style={{
+              marginBottom: "0.5rem",
+              borderColor: "var(--accent)",
+              color: "var(--accent)",
+            }}
+            role="status"
+          >
+            {notice}
+          </div>
+        )}
 
         <div className="translation-result">
           {error ? (

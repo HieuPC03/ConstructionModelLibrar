@@ -52,9 +52,10 @@ def is_valid_openai_key(key: str) -> bool:
     return k.startswith("sk-") and len(k) >= 40
 
 
-def friendly_api_error(exc: Exception) -> str:
+def friendly_api_error(exc: Exception, provider_hint: str | None = None) -> str:
     msg = str(exc)
     hint = env_file_hint()
+    provider_hint = (provider_hint or "").lower()
 
     if (
         "api key not valid" in msg.lower()
@@ -73,12 +74,24 @@ def friendly_api_error(exc: Exception) -> str:
             "API key OpenAI không đúng hoặc đã hết hạn. "
             f"Sửa file: {hint} — hoặc đổi sang Google Translate trong Cài đặt."
         )
-    if "insufficient_quota" in msg or "billing" in msg.lower():
+    lower = msg.lower()
+    if "insufficient_quota" in lower or "billing" in lower:
+        if "openai" in lower or "sk-proj" in lower or provider_hint == "openai":
+            return (
+                "OpenAI hết quota / chưa bật billing (https://platform.openai.com/account/billing). "
+                "Chọn chế độ «Ghi transcript (Gemini)» để dịch văn bản bằng Gemini, "
+                "hoặc thêm GEMINI_API_KEY vào .env (https://aistudio.google.com/apikey)."
+            )
+        if "gemini" in lower or "generative" in lower or "google" in lower:
+            return (
+                "Gemini/Google hết quota hoặc tạm thời không dùng được. "
+                f"Kiểm tra GEMINI_API_KEY trong {hint} — "
+                "https://aistudio.google.com/apikey — hoặc thử lại sau."
+            )
         return (
-            "OpenAI hết quota / chưa bật billing (https://platform.openai.com/account/billing). "
-            "Trong app: Cài đặt → Nhà cung cấp → chọn Google Gemini hoặc Google Translate, "
-            "thêm GEMINI_API_KEY vào .env (Gemini: https://aistudio.google.com/apikey), "
-            "khởi động lại app."
+            "Hết quota API. Dịch văn bản: chọn «Ghi transcript (Gemini)», "
+            f"thêm GEMINI_API_KEY vào {hint} (https://aistudio.google.com/apikey), "
+            "khởi động lại app. (Không cần OpenAI billing.)"
         )
     if "OPENAI_API_KEY" in msg:
         return f"{msg} — File cấu hình: {hint}"

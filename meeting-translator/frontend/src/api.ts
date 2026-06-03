@@ -56,6 +56,15 @@ export async function fetchSettings(): Promise<AppSettings> {
   return res.json();
 }
 
+export const APP_RESET_EVENT = "meeting-translator-reset";
+
+export async function resetSettings(): Promise<AppSettings> {
+  const res = await fetch(`${API_BASE}/api/settings/reset`, { method: "POST" });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(parseApiError(data, "Đặt lại cài đặt thất bại"));
+  return data as AppSettings;
+}
+
 export async function updateSettings(
   patch: Partial<AppSettings>
 ): Promise<AppSettings> {
@@ -69,11 +78,18 @@ export async function updateSettings(
   return data;
 }
 
+export type TextTranslateResult = {
+  translation: string;
+  provider: string;
+  notice: string | null;
+};
+
 export async function translateText(
   text: string,
   sourceLang: LangCode,
-  targetLang: LangCode
-): Promise<string> {
+  targetLang: LangCode,
+  sessionMode?: SessionMode
+): Promise<TextTranslateResult> {
   const res = await fetch(`${API_BASE}/api/translate/text`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -81,11 +97,16 @@ export async function translateText(
       text,
       source_lang: sourceLang === "auto" ? "vi" : sourceLang,
       target_lang: targetLang === "auto" ? "ja" : targetLang,
+      session_mode: sessionMode,
     }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(parseApiError(data, "Dịch thất bại"));
-  return data.translation as string;
+  return {
+    translation: data.translation as string,
+    provider: (data.provider as string) || "Google Gemini",
+    notice: (data.notice as string | null) ?? null,
+  };
 }
 
 export function wsUrl(): string {
