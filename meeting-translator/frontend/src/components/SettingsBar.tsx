@@ -20,10 +20,12 @@ export default function SettingsBar() {
   const { sessionMode, setSessionMode } = useSessionMode();
   const [testMsg, setTestMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [whisperModel, setWhisperModel] = useState("small");
 
   useEffect(() => {
     setSessionMode(settings?.session_mode || "transcript");
-  }, [settings?.session_mode, setSessionMode]);
+    setWhisperModel(settings?.whisper_offline_model || "small");
+  }, [settings?.session_mode, settings?.whisper_offline_model, setSessionMode]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -34,6 +36,7 @@ export default function SettingsBar() {
         recordings_dir: recordingsDir,
         ui_language: lang,
         theme,
+        whisper_offline_model: whisperModel as "tiny" | "base" | "small" | "medium",
       });
       await saveSettings();
       setTestMsg(tr("saved"));
@@ -82,6 +85,19 @@ export default function SettingsBar() {
         <select value={lang} onChange={(e) => setLang(e.target.value as "vi" | "ja")}>
           <option value="vi">Tiếng Việt</option>
           <option value="ja">日本語</option>
+        </select>
+      </label>
+      <label className="settings-field">
+        {tr("whisperModel")}
+        <select
+          value={whisperModel}
+          onChange={(e) => setWhisperModel(e.target.value)}
+          title="tiny=nhe, small=can bang, medium=chat hon"
+        >
+          <option value="tiny">tiny (~75MB)</option>
+          <option value="base">base (~150MB)</option>
+          <option value="small">small (~500MB)</option>
+          <option value="medium">medium (~1.5GB)</option>
         </select>
       </label>
       <label className="settings-field">

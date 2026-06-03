@@ -30,6 +30,10 @@ async def transcribe_audio(
         return await _transcribe_openai(audio_bytes, filename, language)
     if engine == "gemini":
         return await _transcribe_gemini(audio_bytes, filename, language)
+    if engine == "offline":
+        from services.stt_offline import transcribe_offline
+
+        return await transcribe_offline(audio_bytes, filename, language)
 
     provider = get_translator_provider()
     if provider == "gemini":

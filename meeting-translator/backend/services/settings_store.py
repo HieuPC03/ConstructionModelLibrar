@@ -15,6 +15,7 @@ _DEFAULT: dict[str, Any] = {
     "translator_provider": "gemini",
     "session_mode": "transcript",
     "theme": "dark",
+    "whisper_offline_model": "small",
 }
 
 

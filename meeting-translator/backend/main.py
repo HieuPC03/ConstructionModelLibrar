@@ -163,6 +163,9 @@ class SettingsUpdate(BaseModel):
         default=None, pattern="^(translate_realtime|transcript)$"
     )
     theme: str | None = Field(default=None, pattern="^(dark|light|ocean)$")
+    whisper_offline_model: str | None = Field(
+        default=None, pattern="^(tiny|base|small|medium)$"
+    )
 
 
 @app.get("/api/settings")
@@ -178,7 +181,14 @@ async def get_settings() -> dict[str, Any]:
         "session_mode": get_session_mode(),
         "text_translate_via": text_translate_provider_for_mode(get_session_mode()),
         "live_stt_via": stt_engine_for_mode(get_session_mode()),
+        "whisper_offline": _offline_stt_info(),
     }
+
+
+def _offline_stt_info() -> dict[str, str]:
+    from services.stt_offline import get_offline_model_name, offline_model_status
+
+    return {**offline_model_status(), "model_default": get_offline_model_name()}
 
 
 @app.patch("/api/settings")
@@ -200,6 +210,27 @@ async def reset_settings_endpoint() -> dict[str, Any]:
     }
 
 
+@app.post("/api/stt/offline/warmup")
+async def warmup_offline_stt() -> dict[str, Any]:
+    """Tải model Whisper local (lần đầu có thể mất vài phút)."""
+    from services.stt_offline import ensure_offline_model, offline_model_status
+
+    try:
+        await ensure_offline_model()
+        return {"ok": True, "message": "Whisper offline sẵn sàng", **offline_model_status()}
+    except Exception as exc:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail=friendly_api_error(exc)) from exc
+
+
+@app.get("/api/stt/offline/status")
+async def offline_stt_status() -> dict[str, str]:
+    from services.stt_offline import offline_model_status
+
+    return offline_model_status()
+
+
 @app.post("/api/config/test")
 async def test_provider_config() -> dict[str, Any]:
     from fastapi import HTTPException
@@ -207,6 +238,17 @@ async def test_provider_config() -> dict[str, Any]:
     mode = get_session_mode()
     via = text_translate_provider_for_mode(mode)
     try:
+        if mode == SESSION_TRANSCRIPT:
+            from services.stt_offline import ensure_offline_model, get_offline_model_name
+
+            await ensure_offline_model()
+            return {
+                "ok": True,
+                "message": (
+                    f"Live Caption offline OK — Whisper '{get_offline_model_name()}' "
+                    "(không cần GEMINI_API_KEY)"
+                ),
+            }
         if via == "google":
             outcome = await translate_text("xin chào", "vi", "ja")
             if not outcome.text:

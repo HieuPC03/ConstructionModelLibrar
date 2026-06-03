@@ -25,14 +25,16 @@ Push-Location $Root
 
 # 1) Python embed + pip (cho may cai khong co Python)
 if (-not $SkipPythonBundle) {
-    Write-Host "[1/5] Dong goi Python runtime..." -ForegroundColor Yellow
+    Write-Host "[1/6] Dong goi Python runtime..." -ForegroundColor Yellow
     & "$Root\scripts\bundle-python.ps1" -Root $Root
+    Write-Host "[1b/6] FFmpeg (offline STT)..." -ForegroundColor Yellow
+    & "$Root\scripts\bundle-ffmpeg.ps1" -Root $Root
 } else {
-    Write-Host "[1/5] Bo qua bundle Python (dev)" -ForegroundColor DarkYellow
+    Write-Host "[1/6] Bo qua bundle Python (dev)" -ForegroundColor DarkYellow
 }
 
 # 2) Frontend
-Write-Host "[2/5] Build giao dien..." -ForegroundColor Yellow
+Write-Host "[2/6] Build giao dien..." -ForegroundColor Yellow
 Push-Location "$Root\frontend"
 if (-not (Test-Path "node_modules")) { npm install }
 npm run build
@@ -40,20 +42,20 @@ if (-not (Test-Path "dist\index.html")) { throw "Frontend build that bai" }
 Pop-Location
 
 # 3) Electron deps
-Write-Host "[3/5] Cai Electron builder..." -ForegroundColor Yellow
+Write-Host "[3/6] Cai Electron builder..." -ForegroundColor Yellow
 Push-Location "$Root\desktop"
 if (-not (Test-Path "node_modules")) { npm install }
 Pop-Location
 
 # 4) Build Setup.exe
-Write-Host "[4/5] Tao file cai dat NSIS (.exe)..." -ForegroundColor Yellow
+Write-Host "[4/6] Tao file cai dat NSIS (.exe)..." -ForegroundColor Yellow
 Push-Location "$Root\desktop"
 $env:CSC_IDENTITY_AUTO_DISCOVERY = "false"
 npm run dist:win
 Pop-Location
 
 # 5) Copy huong dan cung goi cai
-Write-Host "[5/5] Hoan thien thu muc phat hanh..." -ForegroundColor Yellow
+Write-Host "[5/6] Hoan thien thu muc phat hanh..." -ForegroundColor Yellow
 $OutDir = Join-Path $Root "dist\desktop"
 $ReleaseDir = Join-Path $Root "dist\release"
 New-Item -ItemType Directory -Force -Path $ReleaseDir | Out-Null

@@ -16,7 +16,10 @@ def get_session_mode(override: str | None = None) -> str:
 
 
 def stt_engine_for_mode(mode: str) -> str:
-    return "openai" if mode == SESSION_TRANSLATE else "gemini"
+    """Live Caption: local Whisper. Realtime translate: OpenAI cloud."""
+    if mode == SESSION_TRANSLATE:
+        return "openai"
+    return "offline"
 
 
 def text_translate_provider_for_mode(mode: str) -> str:

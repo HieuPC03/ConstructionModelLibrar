@@ -112,6 +112,7 @@ function startPythonBackend() {
     MEETING_TRANSLATOR_DATA: ud.root,
     MEETING_TRANSLATOR_ENV: ud.env,
     RECORDINGS_DIR: ud.recordings,
+    RESOURCES_PATH: resourcesPath(),
   };
 
   pythonProcess = spawn(

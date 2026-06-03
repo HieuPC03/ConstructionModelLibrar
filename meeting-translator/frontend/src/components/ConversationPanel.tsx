@@ -5,7 +5,7 @@ import { useAppSettings } from "../AppSettingsContext";
 import type { CaptureMode } from "../hooks/useAudioCapture";
 import { useAudioCapture } from "../hooks/useAudioCapture";
 import { useRealtimeSession } from "../hooks/useRealtimeSession";
-import { exportTranscript, exportVideoToFolder } from "../api";
+import { exportTranscript, exportVideoToFolder, warmupOfflineStt } from "../api";
 import { copyText } from "../utils/clipboard";
 
 function statusLabel(
@@ -21,6 +21,7 @@ function statusLabel(
   if (status.startsWith("saved:")) return status.slice(6);
   if (status === "saveFailed") return tr("saveFailed");
   if (status === "opening") return tr("statusOpeningAudio");
+  if (status === "loadingWhisper") return tr("loadingWhisper");
   return status;
 }
 
@@ -79,6 +80,10 @@ export default function ConversationPanel() {
     setStarting(true);
     session.setStatus("opening");
     try {
+      if (!isTranslate) {
+        session.setStatus("loadingWhisper");
+        await warmupOfflineStt();
+      }
       const mixMic = captureMode === "screen" ? true : includeMic;
       const stream = await audio.startCapture(
         captureMode,

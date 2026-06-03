@@ -8,6 +8,7 @@ on:
       - cursor/fix-text-translate-gemini-6e16
       - cursor/package-v1.4.2-6e16
       - cursor/app-v1.5-features-6e16
+      - cursor/offline-live-caption-6e16
       - main
     paths:
       - "meeting-translator/**"
@@ -43,7 +44,7 @@ jobs:
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Meeting-Translator-v1.5.0
+          name: Meeting-Translator-v1.5.1
           path: |
             meeting-translator/dist/Meeting-Translator-Setup-*.exe
             meeting-translator/dist/Meeting-Translator-v*-Full-Package.zip

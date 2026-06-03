@@ -23,6 +23,13 @@ export async function checkHealth(): Promise<{
   return res.json();
 }
 
+export async function warmupOfflineStt(): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/stt/offline/warmup`, { method: "POST" });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(parseApiError(data, "Tải Whisper offline thất bại"));
+  return (data as { message?: string }).message ?? "OK";
+}
+
 export async function testApiKey(): Promise<string> {
   const res = await fetch(`${API_BASE}/api/config/test`, { method: "POST" });
   const data = await res.json().catch(() => ({}));
@@ -49,6 +56,8 @@ export type AppSettings = {
   recordings_dir_active?: string;
   provider?: string;
   theme?: "dark" | "light" | "ocean";
+  whisper_offline_model?: string;
+  whisper_offline?: Record<string, string>;
 };
 
 export async function fetchSettings(): Promise<AppSettings> {

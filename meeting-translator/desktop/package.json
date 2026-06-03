@@ -1,6 +1,6 @@
 {
   "name": "meeting-translator-desktop",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Meeting Translator — ứng dụng desktop offline (cửa sổ riêng)",
   "main": "main.js",
   "author": "Meeting Translator",
@@ -48,6 +48,11 @@
       {
         "from": "../backend/.env.example",
         "to": "backend/.env.example"
+      },
+      {
+        "from": "../runtime/ffmpeg",
+        "to": "runtime/ffmpeg",
+        "filter": ["**/*"]
       }
     ],
     "win": {
