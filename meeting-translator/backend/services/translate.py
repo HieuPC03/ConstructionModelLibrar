@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 
 from services.config import (
     GEMINI_MODEL,
@@ -17,9 +18,72 @@ Output ONLY the translation, no explanations."""
 
 _GOOGLE_LANG = {"vi": "vi", "ja": "ja", "en": "en"}
 
+GEMINI_FALLBACK_NOTICE = (
+    "Gemini hết quota hoặc tạm thời không khả dụng. "
+    "Đã tự chuyển sang Google Translate (miễn phí, không cần API key)."
+)
+
+
+@dataclass
+class TranslateResult:
+    text: str
+    provider: str
+    notice: str | None = None
+
 
 def _lang_name(code: str) -> str:
     return {"vi": "Vietnamese", "ja": "Japanese", "en": "English"}.get(code, code)
+
+
+def _gemini_should_fallback_to_google(exc: Exception) -> bool:
+    """Chỉ fallback khi quota/rate limit/lỗi tạm thời — không che lỗi key sai."""
+    msg = str(exc).lower()
+    if any(
+        p in msg
+        for p in (
+            "invalid api key",
+            "api_key_invalid",
+            "api key not valid",
+            "permission denied",
+            "unauthenticated",
+        )
+    ):
+        return False
+    return any(
+        p in msg
+        for p in (
+            "quota",
+            "billing",
+            "429",
+            "rate limit",
+            "ratelimit",
+            "resource exhausted",
+            "resource_exhausted",
+            "too many requests",
+            "limit exceeded",
+            "exceeded your",
+            "overload",
+            "unavailable",
+            "503",
+            "capacity",
+        )
+    )
+
+
+async def _gemini_with_google_fallback(
+    prompt: str, text: str, source_lang: str, target_lang: str
+) -> TranslateResult:
+    try:
+        translated = await _translate_gemini(prompt)
+        return TranslateResult(translated, "Google Gemini", None)
+    except Exception as gemini_err:
+        if not _gemini_should_fallback_to_google(gemini_err):
+            raise
+        try:
+            translated = await _translate_google(text, source_lang, target_lang)
+            return TranslateResult(translated, "Google Translate", GEMINI_FALLBACK_NOTICE)
+        except Exception:
+            raise gemini_err
 
 
 async def translate_text(
@@ -27,11 +91,11 @@ async def translate_text(
     source_lang: str,
     target_lang: str,
     provider_override: str | None = None,
-) -> str:
+) -> TranslateResult:
     if not text.strip():
-        return ""
+        return TranslateResult("", provider_override or get_translator_provider(), None)
     if source_lang == target_lang:
-        return text
+        return TranslateResult(text, provider_override or get_translator_provider(), None)
 
     provider = (provider_override or get_translator_provider()).lower()
     prompt = (
@@ -39,29 +103,33 @@ async def translate_text(
     )
 
     if provider == "openai":
-        return await _translate_openai(prompt)
+        translated = await _translate_openai(prompt)
+        return TranslateResult(translated, "ChatGPT (OpenAI)", None)
     if provider == "gemini":
-        try:
-            return await _translate_gemini(prompt)
-        except Exception as gemini_err:
-            try:
-                return await _translate_google(text, source_lang, target_lang)
-            except Exception:
-                raise gemini_err
+        return await _gemini_with_google_fallback(prompt, text, source_lang, target_lang)
     if provider == "google":
-        return await _translate_google(text, source_lang, target_lang)
+        translated = await _translate_google(text, source_lang, target_lang)
+        return TranslateResult(translated, "Google Translate", None)
 
     try:
-        return await _translate_openai(prompt)
+        translated = await _translate_openai(prompt)
+        return TranslateResult(translated, "ChatGPT (OpenAI)", None)
     except Exception as openai_err:
         msg = str(openai_err).lower()
         if "insufficient_quota" in msg or "billing" in msg or "429" in msg:
             if is_valid_gemini_key(get_gemini_api_key()):
                 try:
-                    return await _translate_gemini(prompt)
+                    return await _gemini_with_google_fallback(
+                        prompt, text, source_lang, target_lang
+                    )
                 except Exception:
                     pass
-            return await _translate_google(text, source_lang, target_lang)
+            translated = await _translate_google(text, source_lang, target_lang)
+            return TranslateResult(
+                translated,
+                "Google Translate",
+                "OpenAI hết quota. Đã tự chuyển sang Google Translate (miễn phí).",
+            )
         raise
 
 

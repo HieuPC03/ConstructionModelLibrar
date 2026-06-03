@@ -11,9 +11,12 @@ export default function TextTranslatePanel() {
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [activeProvider, setActiveProvider] = useState<string | null>(null);
 
   const apiLabel =
-    sessionMode === "translate_realtime" ? "ChatGPT" : "Gemini";
+    activeProvider ??
+    (sessionMode === "translate_realtime" ? "ChatGPT" : "Gemini");
 
   useEffect(() => {
     const onReset = () => {
@@ -22,6 +25,8 @@ export default function TextTranslatePanel() {
       setInput("");
       setOutput("");
       setError(null);
+      setNotice(null);
+      setActiveProvider(null);
     };
     window.addEventListener(APP_RESET_EVENT, onReset);
     return () => window.removeEventListener(APP_RESET_EVENT, onReset);
@@ -38,6 +43,7 @@ export default function TextTranslatePanel() {
     if (!input.trim()) return;
     setLoading(true);
     setError(null);
+    setNotice(null);
     try {
       const result = await translateText(
         input,
@@ -45,10 +51,14 @@ export default function TextTranslatePanel() {
         targetLang,
         sessionMode
       );
-      setOutput(result);
+      setOutput(result.translation);
+      setActiveProvider(result.provider);
+      setNotice(result.notice);
     } catch (e) {
       setError((e as Error).message);
       setOutput("");
+      setNotice(null);
+      setActiveProvider(null);
     } finally {
       setLoading(false);
     }
@@ -64,7 +74,8 @@ export default function TextTranslatePanel() {
       <div className="hint-box">
         Dịch thủ công qua{" "}
         <strong>{sessionMode === "translate_realtime" ? "ChatGPT" : "Gemini"}</strong>{" "}
-        (theo chế độ phiên bên trái).
+        (theo chế độ phiên bên trái). Nếu Gemini hết quota, app tự chuyển sang{" "}
+        <strong>Google Translate</strong> và hiện thông báo.
       </div>
 
       <div className="text-translate-body">
@@ -125,6 +136,20 @@ export default function TextTranslatePanel() {
           onChange={(e) => setInput(e.target.value)}
           rows={6}
         />
+
+        {notice && (
+          <div
+            className="hint-box"
+            style={{
+              marginBottom: "0.5rem",
+              borderColor: "var(--accent)",
+              color: "var(--accent)",
+            }}
+            role="status"
+          >
+            {notice}
+          </div>
+        )}
 
         <div className="translation-result">
           {error ? (

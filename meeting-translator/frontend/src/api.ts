@@ -78,12 +78,18 @@ export async function updateSettings(
   return data;
 }
 
+export type TextTranslateResult = {
+  translation: string;
+  provider: string;
+  notice: string | null;
+};
+
 export async function translateText(
   text: string,
   sourceLang: LangCode,
   targetLang: LangCode,
   sessionMode?: SessionMode
-): Promise<string> {
+): Promise<TextTranslateResult> {
   const res = await fetch(`${API_BASE}/api/translate/text`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -96,7 +102,11 @@ export async function translateText(
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(parseApiError(data, "Dịch thất bại"));
-  return data.translation as string;
+  return {
+    translation: data.translation as string,
+    provider: (data.provider as string) || "Google Gemini",
+    notice: (data.notice as string | null) ?? null,
+  };
 }
 
 export function wsUrl(): string {
