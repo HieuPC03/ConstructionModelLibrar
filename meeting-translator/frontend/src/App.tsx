@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import ConversationPanel from "./components/ConversationPanel";
 import SettingsBar from "./components/SettingsBar";
 import TextTranslatePanel from "./components/TextTranslatePanel";
+import { AppSettingsProvider, useAppSettings } from "./AppSettingsContext";
 import { SessionModeProvider } from "./SessionModeContext";
 import { checkHealth } from "./api";
 
-export default function App() {
+function AppInner() {
+  const { tr } = useAppSettings();
   const [provider, setProvider] = useState("…");
   const [backendOk, setBackendOk] = useState<boolean | null>(null);
   const [configWarning, setConfigWarning] = useState<string | null>(null);
@@ -15,11 +17,7 @@ export default function App() {
       .then((h) => {
         setProvider(h.provider || "Google Translate");
         setBackendOk(true);
-        if (h.api_key_ok === false && h.message) {
-          setConfigWarning(h.message);
-        } else {
-          setConfigWarning(null);
-        }
+        setConfigWarning(h.api_key_ok === false && h.message ? h.message : null);
       })
       .catch(() => setBackendOk(false));
   }, []);
@@ -27,32 +25,40 @@ export default function App() {
   return (
     <>
       <header className="app-header">
-        <h1>Meeting Translator</h1>
+        <h1>{tr("appTitle")}</h1>
         <span className="badge">
           {window.desktopApp?.isDesktop
-            ? "Desktop app"
+            ? tr("desktop")
             : backendOk === false
-              ? "Backend offline"
+              ? tr("offline")
               : backendOk
                 ? `API · ${provider}`
-                : "Đang kết nối…"}
+                : tr("connecting")}
         </span>
       </header>
-      <SessionModeProvider>
-        <SettingsBar />
-        {configWarning && (
-          <div
-            className="status-bar error"
-            style={{ borderTop: "none", borderBottom: "1px solid var(--border)" }}
-          >
-            {configWarning}
-          </div>
-        )}
-        <main className="split-layout">
-          <ConversationPanel />
-          <TextTranslatePanel />
-        </main>
-      </SessionModeProvider>
+      <SettingsBar />
+      {configWarning && (
+        <div
+          className="status-bar error"
+          style={{ borderTop: "none", borderBottom: "1px solid var(--border)" }}
+        >
+          {configWarning}
+        </div>
+      )}
+      <main className="split-layout">
+        <ConversationPanel />
+        <TextTranslatePanel />
+      </main>
     </>
+  );
+}
+
+export default function App() {
+  return (
+    <AppSettingsProvider>
+      <SessionModeProvider>
+        <AppInner />
+      </SessionModeProvider>
+    </AppSettingsProvider>
   );
 }

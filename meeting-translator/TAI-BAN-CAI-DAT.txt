@@ -1,18 +1,18 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator (Windows)
-==============================================
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.5.0
+============================================
 
-BẢN MỚI NHẤT: v1.4.2
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.4.2
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.5.0
 
-File cài (~123 MB):
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.4.2/Meeting-Translator-Setup-1.4.2.exe
+File cài:
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.0/Meeting-Translator-Setup-1.5.0.exe
 
-Gói đầy đủ (.exe + tất cả .bat):
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.4.2/Meeting-Translator-v1.4.2-Full-Package.zip
+Gói đầy đủ (.exe + .bat):
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.0/Meeting-Translator-v1.5.0-Full-Package.zip
 
-Sau khi tải:
-  1. Giải nén (nếu dùng zip) hoặc chạy CAI-BANG-EXE.bat / file .exe
-  2. CAU-HINH-API-KEY.bat — GEMINI_API_KEY=AQ.... hoặc AIza....
-  3. MO-APP.bat — mở app
-
-API key không có trong file cài — cấu hình sau khi cài.
+Tính năng v1.5.0:
+- Giao diện Tiếng Việt / 日本語
+- Đổi màu (Tối / Sáng / Xanh biển)
+- Live Caption + quay màn hình (video .mp4/.webm + .txt)
+- Dịch realtime: ChatGPT (Play / Stop)
+- Dịch văn bản: Google Translate
+- Sao chép transcript

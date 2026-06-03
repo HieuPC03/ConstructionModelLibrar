@@ -48,6 +48,7 @@ export type AppSettings = {
   config_path?: string;
   recordings_dir_active?: string;
   provider?: string;
+  theme?: "dark" | "light" | "ocean";
 };
 
 export async function fetchSettings(): Promise<AppSettings> {
@@ -87,8 +88,7 @@ export type TextTranslateResult = {
 export async function translateText(
   text: string,
   sourceLang: LangCode,
-  targetLang: LangCode,
-  sessionMode?: SessionMode
+  targetLang: LangCode
 ): Promise<TextTranslateResult> {
   const res = await fetch(`${API_BASE}/api/translate/text`, {
     method: "POST",
@@ -97,14 +97,14 @@ export async function translateText(
       text,
       source_lang: sourceLang === "auto" ? "vi" : sourceLang,
       target_lang: targetLang === "auto" ? "ja" : targetLang,
-      session_mode: sessionMode,
+      session_mode: "transcript",
     }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(parseApiError(data, "Dịch thất bại"));
   return {
     translation: data.translation as string,
-    provider: (data.provider as string) || "Google Gemini",
+    provider: (data.provider as string) || "Google Translate",
     notice: (data.notice as string | null) ?? null,
   };
 }
@@ -122,18 +122,44 @@ export function wsUrl(): string {
 
 export async function uploadRecording(
   sessionId: string,
-  blob: Blob,
-  transcript: string
+  audioBlob: Blob | null,
+  transcript: string,
+  videoBlob?: Blob | null
 ): Promise<void> {
   const form = new FormData();
   form.append("session_id", sessionId);
-  form.append("audio", blob, "recording.webm");
   form.append("transcript_json", transcript);
+  if (audioBlob && audioBlob.size > 0) {
+    form.append("audio", audioBlob, "recording-audio.webm");
+  }
+  if (videoBlob && videoBlob.size > 0) {
+    const ext = videoBlob.type.includes("mp4") ? "mp4" : "webm";
+    form.append("video", videoBlob, `recording-video.${ext}`);
+  }
   const res = await fetch(`${API_BASE}/api/recordings/upload`, {
     method: "POST",
     body: form,
   });
   if (!res.ok) throw new Error("Lưu bản ghi thất bại");
+}
+
+export async function exportVideoToFolder(
+  sessionId: string,
+  saveDir: string,
+  filename: string
+): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/export/video`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      session_id: sessionId,
+      save_dir: saveDir || undefined,
+      filename,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(parseApiError(data, "Lưu video thất bại"));
+  return (data as { message: string }).message;
 }
 
 export async function exportTranscript(

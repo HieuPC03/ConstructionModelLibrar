@@ -14,6 +14,7 @@ _DEFAULT: dict[str, Any] = {
     "meeting_pair": "vi-ja",
     "translator_provider": "gemini",
     "session_mode": "transcript",
+    "theme": "dark",
 }
 
 

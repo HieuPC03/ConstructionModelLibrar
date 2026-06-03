@@ -90,10 +90,8 @@ export function useAudioCapture() {
             video: true,
             audio: true,
           });
-          if (mode === "screen" && display.getVideoTracks().length > 0) {
+          if (display.getVideoTracks().length > 0) {
             screenVideoRef.current = new MediaStream(display.getVideoTracks());
-          } else {
-            display.getVideoTracks().forEach((t) => t.stop());
           }
           if (display.getAudioTracks().length > 0) {
             streams.push(new MediaStream(display.getAudioTracks()));
@@ -153,6 +151,17 @@ export function useAudioCapture() {
     [stopAll]
   );
 
+  /** Video + mixed audio for screen recording (mp4/webm). */
+  const getCompositeRecordStream = useCallback((): MediaStream | null => {
+    const video = screenVideoRef.current;
+    const audio = mixedRef.current;
+    if (!video?.getVideoTracks().length) return null;
+    const combined = new MediaStream();
+    video.getVideoTracks().forEach((t) => combined.addTrack(t));
+    audio?.getAudioTracks().forEach((t) => combined.addTrack(t));
+    return combined.getTracks().length > 0 ? combined : null;
+  }, []);
+
   return {
     devices,
     error,
@@ -161,5 +170,6 @@ export function useAudioCapture() {
     stopAll,
     getMixedStream: () => mixedRef.current,
     getScreenVideoStream: () => screenVideoRef.current,
+    getCompositeRecordStream,
   };
 }

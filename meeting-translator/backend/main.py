@@ -54,7 +54,7 @@ def recordings_dir() -> Path:
 app = FastAPI(
     title="Meeting Realtime Translator",
     description="Dịch họp realtime — capture âm thanh hệ thống, ghi hội thoại, dịch Việt–Nhật",
-    version="1.4.2",
+    version="1.5.0",
 )
 
 app.add_middleware(
@@ -162,6 +162,7 @@ class SettingsUpdate(BaseModel):
     session_mode: str | None = Field(
         default=None, pattern="^(translate_realtime|transcript)$"
     )
+    theme: str | None = Field(default=None, pattern="^(dark|light|ocean)$")
 
 
 @app.get("/api/settings")
@@ -295,7 +296,7 @@ async def translate_text_endpoint(body: TextTranslateRequest) -> TextTranslateRe
         ) from exc
     return TextTranslateResponse(
         translation=outcome.text,
-        provider=outcome.provider,
+        provider="Google Translate",
         notice=outcome.notice,
     )
 
@@ -440,27 +441,67 @@ async def _save_session(
 @app.post("/api/recordings/upload")
 async def upload_recording(
     session_id: str = Form(...),
-    audio: UploadFile = File(...),
+    audio: UploadFile | None = File(None),
+    video: UploadFile | None = File(None),
     transcript_json: str = Form("[]"),
 ) -> dict[str, str]:
     out_dir = recordings_dir() / session_id
     out_dir.mkdir(parents=True, exist_ok=True)
+    result: dict[str, str] = {"session_id": session_id}
 
-    ext = Path(audio.filename or "recording.webm").suffix or ".webm"
-    audio_path = out_dir / f"recording{ext}"
-    content = await audio.read()
-    async with aiofiles.open(audio_path, "wb") as f:
-        await f.write(content)
+    if audio and audio.filename:
+        ext = Path(audio.filename).suffix or ".webm"
+        audio_path = out_dir / f"recording-audio{ext}"
+        content = await audio.read()
+        async with aiofiles.open(audio_path, "wb") as f:
+            await f.write(content)
+        result["audio_path"] = str(audio_path)
+
+    if video and video.filename:
+        ext = Path(video.filename).suffix.lower()
+        if ext not in (".mp4", ".webm", ".mkv"):
+            ext = ".webm"
+        video_path = out_dir / f"recording-video{ext}"
+        content = await video.read()
+        async with aiofiles.open(video_path, "wb") as f:
+            await f.write(content)
+        result["video_path"] = str(video_path)
 
     transcript_path = out_dir / "transcript_client.json"
     async with aiofiles.open(transcript_path, "w", encoding="utf-8") as f:
         await f.write(transcript_json)
+    result["transcript_path"] = str(transcript_path)
+    return result
 
-    return {
-        "session_id": session_id,
-        "audio_path": str(audio_path),
-        "transcript_path": str(transcript_path),
-    }
+
+class ExportVideoRequest(BaseModel):
+    session_id: str
+    save_dir: str | None = None
+    filename: str = "meeting-recording.mp4"
+
+
+@app.post("/api/export/video")
+async def export_video_to_folder(body: ExportVideoRequest) -> dict[str, str]:
+    """Copy session video file to user-chosen folder (.mp4 or .webm)."""
+    session_dir = recordings_dir() / body.session_id
+    if not session_dir.exists():
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Session not found")
+    videos = list(session_dir.glob("recording-video.*"))
+    if not videos:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="No video recording for session")
+    src = videos[0]
+    out_dir = Path(body.save_dir) if body.save_dir else resolve_export_dir(recordings_dir())
+    out_dir.mkdir(parents=True, exist_ok=True)
+    safe = "".join(c for c in body.filename if c.isalnum() or c in "._- ") or "meeting-recording.mp4"
+    if not safe.lower().endswith((".mp4", ".webm")):
+        safe += src.suffix
+    dest = out_dir / safe
+    dest.write_bytes(src.read_bytes())
+    return {"path": str(dest), "message": f"Đã lưu video → {dest}"}
 
 
 @app.get("/api/recordings")
@@ -474,13 +515,16 @@ async def list_recordings() -> list[dict[str, Any]]:
             continue
         transcript = path / "transcript.json"
         client_transcript = path / "transcript_client.json"
-        audio_files = list(path.glob("recording.*"))
+        audio_files = list(path.glob("recording-audio.*")) + list(path.glob("recording.*"))
+        video_files = list(path.glob("recording-video.*"))
         sessions.append(
             {
                 "session_id": path.name,
                 "has_transcript": transcript.exists() or client_transcript.exists(),
                 "has_audio": len(audio_files) > 0,
+                "has_video": len(video_files) > 0,
                 "audio_file": audio_files[0].name if audio_files else None,
+                "video_file": video_files[0].name if video_files else None,
             }
         )
     return sessions

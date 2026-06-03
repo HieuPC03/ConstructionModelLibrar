@@ -1,53 +1,42 @@
 import { useEffect, useState } from "react";
-import {
-  APP_RESET_EVENT,
-  fetchSettings,
-  testApiKey,
-  updateSettings,
-  type AppSettings,
-} from "../api";
+import { testApiKey, updateSettings } from "../api";
+import { useAppSettings, type ThemeId } from "../AppSettingsContext";
 import { useSessionMode } from "../SessionModeContext";
 
 export default function SettingsBar() {
-  const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [recordingsDir, setRecordingsDir] = useState("");
-  const [exportDir, setExportDir] = useState("");
-  const [uiLang, setUiLang] = useState<"vi" | "ja">("vi");
+  const {
+    tr,
+    lang,
+    setLang,
+    theme,
+    setTheme,
+    exportDir,
+    setExportDir,
+    recordingsDir,
+    setRecordingsDir,
+    saveSettings,
+    settings,
+  } = useAppSettings();
   const { sessionMode, setSessionMode } = useSessionMode();
   const [testMsg, setTestMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const loadFromServer = () => {
-    fetchSettings()
-      .then((s) => {
-        setSettings(s);
-        setRecordingsDir(s.recordings_dir || "");
-        setExportDir(s.export_dir || "");
-        setUiLang(s.ui_language || "vi");
-        setSessionMode(s.session_mode || "transcript");
-        setTestMsg(null);
-      })
-      .catch(() => undefined);
-  };
-
   useEffect(() => {
-    loadFromServer();
-    const onReset = () => loadFromServer();
-    window.addEventListener(APP_RESET_EVENT, onReset);
-    return () => window.removeEventListener(APP_RESET_EVENT, onReset);
-  }, [setSessionMode]);
+    setSessionMode(settings?.session_mode || "transcript");
+  }, [settings?.session_mode, setSessionMode]);
 
-  const save = async () => {
+  const handleSave = async () => {
     setSaving(true);
     try {
-      const s = await updateSettings({
-        recordings_dir: recordingsDir,
-        export_dir: exportDir,
-        ui_language: uiLang,
+      await updateSettings({
         session_mode: sessionMode,
+        export_dir: exportDir,
+        recordings_dir: recordingsDir,
+        ui_language: lang,
+        theme,
       });
-      setSettings(s);
-      setTestMsg("Đã lưu nhà cung cấp và đường dẫn.");
+      await saveSettings();
+      setTestMsg(tr("saved"));
     } catch (e) {
       setTestMsg((e as Error).message);
     } finally {
@@ -62,15 +51,10 @@ export default function SettingsBar() {
     else setExportDir(dir);
   };
 
-  const openConfig = () => {
-    window.desktopApp?.openConfigFolder?.();
-  };
-
   const runTest = async () => {
-    setTestMsg("Đang kiểm tra…");
+    setTestMsg("…");
     try {
-      const msg = await testApiKey();
-      setTestMsg(msg);
+      setTestMsg(await testApiKey());
     } catch (e) {
       setTestMsg((e as Error).message);
     }
@@ -78,11 +62,9 @@ export default function SettingsBar() {
 
   return (
     <div className="settings-bar">
-      <span className="settings-title">
-        {uiLang === "ja" ? "設定" : "Cài đặt"}
-      </span>
+      <span className="settings-title">{tr("settings")}</span>
       <label className="settings-field">
-        {uiLang === "ja" ? "モード" : "Chế độ mặc định"}
+        {tr("defaultMode")}
         <select
           value={sessionMode}
           onChange={(e) =>
@@ -90,76 +72,66 @@ export default function SettingsBar() {
               e.target.value as "translate_realtime" | "transcript"
             )
           }
-          title="Đổi chế độ cũng đổi API dịch văn bản (Gemini / ChatGPT)"
         >
-          <option value="transcript">Ghi transcript (Gemini)</option>
-          <option value="translate_realtime">Dịch realtime (ChatGPT)</option>
+          <option value="transcript">{tr("modeTranscript")}</option>
+          <option value="translate_realtime">{tr("modeRealtime")}</option>
         </select>
       </label>
       <label className="settings-field">
-        {uiLang === "ja" ? "言語" : "Ngôn ngữ app"}
-        <select
-          value={uiLang}
-          onChange={(e) => setUiLang(e.target.value as "vi" | "ja")}
-        >
+        {tr("uiLang")}
+        <select value={lang} onChange={(e) => setLang(e.target.value as "vi" | "ja")}>
           <option value="vi">Tiếng Việt</option>
           <option value="ja">日本語</option>
         </select>
       </label>
+      <label className="settings-field">
+        {tr("theme")}
+        <select value={theme} onChange={(e) => setTheme(e.target.value as ThemeId)}>
+          <option value="dark">{tr("themeDark")}</option>
+          <option value="light">{tr("themeLight")}</option>
+          <option value="ocean">{tr("themeOcean")}</option>
+        </select>
+      </label>
       <label className="settings-field settings-path">
-        {uiLang === "ja" ? "録音保存" : "Lưu hội thoại"}
+        {tr("saveRecordings")}
         <input
           type="text"
           value={recordingsDir}
           onChange={(e) => setRecordingsDir(e.target.value)}
-          placeholder={settings?.recordings_dir_active ?? "Mặc định AppData"}
+          placeholder={settings?.recordings_dir_active ?? "AppData"}
         />
         {window.desktopApp?.pickFolder && (
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => pickFolder("recordings")}
-          >
-            Chọn…
+          <button type="button" className="secondary" onClick={() => pickFolder("recordings")}>
+            {tr("pick")}
           </button>
         )}
       </label>
       <label className="settings-field settings-path">
-        {uiLang === "ja" ? "テキスト保存" : "Lưu văn bản"}
+        {tr("saveText")}
         <input
           type="text"
           value={exportDir}
           onChange={(e) => setExportDir(e.target.value)}
-          placeholder="Thư mục xuất file .txt"
+          placeholder=".txt / .mp4"
         />
         {window.desktopApp?.pickFolder && (
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => pickFolder("export")}
-          >
-            Chọn…
+          <button type="button" className="secondary" onClick={() => pickFolder("export")}>
+            {tr("pick")}
           </button>
         )}
       </label>
-      <button type="button" className="secondary" onClick={save} disabled={saving}>
-        {saving ? "…" : "Lưu"}
+      <button type="button" className="secondary" onClick={() => void handleSave()} disabled={saving}>
+        {saving ? "…" : tr("save")}
       </button>
-      <button type="button" className="secondary" onClick={runTest}>
-        Test API
+      <button type="button" className="secondary" onClick={() => void runTest()}>
+        {tr("testApi")}
       </button>
       {window.desktopApp?.openConfigFolder && (
-        <button type="button" className="secondary" onClick={openConfig}>
-          Mở .env
+        <button type="button" className="secondary" onClick={() => window.desktopApp?.openConfigFolder?.()}>
+          {tr("openEnv")}
         </button>
       )}
-      {testMsg && (
-        <span
-          className={`settings-msg ${testMsg.includes("thất") || testMsg.includes("không") || testMsg.includes("Lỗi") || testMsg.includes("quota") || testMsg.includes("Thiếu") ? "err" : ""}`}
-        >
-          {testMsg}
-        </span>
-      )}
+      {testMsg && <span className="settings-msg">{testMsg}</span>}
     </div>
   );
 }

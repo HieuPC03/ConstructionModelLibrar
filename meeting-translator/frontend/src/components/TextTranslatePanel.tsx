@@ -1,22 +1,18 @@
 import { useEffect, useState } from "react";
 import type { LangCode } from "../types";
 import { APP_RESET_EVENT, translateText } from "../api";
-import { useSessionMode } from "../SessionModeContext";
+import { useAppSettings } from "../AppSettingsContext";
+import { copyText } from "../utils/clipboard";
 
 export default function TextTranslatePanel() {
-  const { sessionMode } = useSessionMode();
+  const { tr } = useAppSettings();
   const [sourceLang, setSourceLang] = useState<LangCode>("vi");
   const [targetLang, setTargetLang] = useState<LangCode>("ja");
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [activeProvider, setActiveProvider] = useState<string | null>(null);
-
-  const apiLabel =
-    activeProvider ??
-    (sessionMode === "translate_realtime" ? "ChatGPT" : "Gemini");
+  const [copyMsg, setCopyMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const onReset = () => {
@@ -25,8 +21,6 @@ export default function TextTranslatePanel() {
       setInput("");
       setOutput("");
       setError(null);
-      setNotice(null);
-      setActiveProvider(null);
     };
     window.addEventListener(APP_RESET_EVENT, onReset);
     return () => window.removeEventListener(APP_RESET_EVENT, onReset);
@@ -43,40 +37,31 @@ export default function TextTranslatePanel() {
     if (!input.trim()) return;
     setLoading(true);
     setError(null);
-    setNotice(null);
     try {
-      const result = await translateText(
-        input,
-        sourceLang,
-        targetLang,
-        sessionMode
-      );
+      const result = await translateText(input, sourceLang, targetLang);
       setOutput(result.translation);
-      setActiveProvider(result.provider);
-      setNotice(result.notice);
     } catch (e) {
       setError((e as Error).message);
       setOutput("");
-      setNotice(null);
-      setActiveProvider(null);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleCopy = async (text: string) => {
+    await copyText(text);
+    setCopyMsg(tr("copied"));
+    setTimeout(() => setCopyMsg(null), 2000);
+  };
+
   return (
     <section className="panel">
       <div className="panel-header">
-        <h2>Dịch văn bản</h2>
-        <span className="badge">{apiLabel}</span>
+        <h2>{tr("textTranslate")}</h2>
+        <span className="badge">{tr("googleTranslate")}</span>
       </div>
 
-      <div className="hint-box">
-        Dịch thủ công qua{" "}
-        <strong>{sessionMode === "translate_realtime" ? "ChatGPT" : "Gemini"}</strong>{" "}
-        (theo chế độ phiên bên trái). Nếu Gemini hết quota, app tự chuyển sang{" "}
-        <strong>Google Translate</strong> và hiện thông báo.
-      </div>
+      <div className="hint-box">{tr("textHint")}</div>
 
       <div className="text-translate-body">
         <div className="lang-swap">
@@ -88,7 +73,7 @@ export default function TextTranslatePanel() {
               setTargetLang("ja");
             }}
           >
-            Việt → Nhật
+            {tr("viToJa")}
           </button>
           <button
             type="button"
@@ -98,10 +83,10 @@ export default function TextTranslatePanel() {
               setTargetLang("vi");
             }}
           >
-            Nhật → Việt
+            {tr("jaToVi")}
           </button>
           <label>
-            Từ
+            {tr("from")}
             <select
               value={sourceLang}
               onChange={(e) => setSourceLang(e.target.value as LangCode)}
@@ -111,11 +96,11 @@ export default function TextTranslatePanel() {
               <option value="en">English</option>
             </select>
           </label>
-          <button type="button" className="secondary" onClick={swap} title="Đổi chiều">
+          <button type="button" className="secondary" onClick={swap} title="⇄">
             ⇄
           </button>
           <label>
-            Sang
+            {tr("to")}
             <select
               value={targetLang}
               onChange={(e) => setTargetLang(e.target.value as LangCode)}
@@ -125,31 +110,26 @@ export default function TextTranslatePanel() {
               <option value="en">English</option>
             </select>
           </label>
-          <button onClick={handleTranslate} disabled={loading || !input.trim()}>
-            {loading ? "Đang dịch…" : "Dịch"}
+          <button onClick={() => void handleTranslate()} disabled={loading || !input.trim()}>
+            {loading ? tr("translating") : tr("translate")}
           </button>
         </div>
 
         <textarea
-          placeholder="Nhập văn bản…"
+          placeholder={tr("inputPlaceholder")}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          rows={6}
+          rows={5}
         />
-
-        {notice && (
-          <div
-            className="hint-box"
-            style={{
-              marginBottom: "0.5rem",
-              borderColor: "var(--accent)",
-              color: "var(--accent)",
-            }}
-            role="status"
-          >
-            {notice}
-          </div>
-        )}
+        <button
+          type="button"
+          className="secondary"
+          style={{ marginBottom: "0.5rem" }}
+          disabled={!input.trim()}
+          onClick={() => void handleCopy(input)}
+        >
+          {tr("copy")} ({tr("from")})
+        </button>
 
         <div className="translation-result">
           {error ? (
@@ -157,11 +137,24 @@ export default function TextTranslatePanel() {
           ) : output ? (
             output
           ) : (
-            <span style={{ color: "var(--muted)" }}>
-              Kết quả dịch ({apiLabel})…
-            </span>
+            <span style={{ color: "var(--muted)" }}>{tr("resultPlaceholder")}</span>
           )}
         </div>
+        {output && (
+          <button
+            type="button"
+            className="secondary"
+            style={{ marginTop: "0.5rem" }}
+            onClick={() => void handleCopy(output)}
+          >
+            {tr("copy")} ({tr("to")})
+          </button>
+        )}
+        {copyMsg && (
+          <span className="copy-toast" style={{ color: "var(--success)" }}>
+            {copyMsg}
+          </span>
+        )}
       </div>
     </section>
   );

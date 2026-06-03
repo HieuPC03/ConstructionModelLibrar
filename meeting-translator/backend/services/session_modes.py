@@ -20,10 +20,8 @@ def stt_engine_for_mode(mode: str) -> str:
 
 
 def text_translate_provider_for_mode(mode: str) -> str:
-    """Transcript mode → Gemini; realtime ChatGPT mode → OpenAI."""
-    if mode == SESSION_TRANSCRIPT:
-        return "gemini"
-    return "openai"
+    """Manual text panel always uses Google Translate (free)."""
+    return "google"
 
 
 def resolve_text_translate_provider(
