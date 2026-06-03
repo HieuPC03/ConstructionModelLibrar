@@ -1,0 +1,37 @@
+name: Build Meeting Translator Installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cursor/meeting-realtime-translator-6e16
+      - main
+    paths:
+      - "meeting-translator/**"
+
+jobs:
+  build-windows-installer:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: meeting-translator
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build installer
+        shell: pwsh
+        run: ./pack-desktop.ps1
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Meeting-Translator-Windows-Setup
+          path: |
+            meeting-translator/dist/desktop/Meeting-Translator-Setup-*.exe
+            meeting-translator/dist/release/**
+          if-no-files-found: error

@@ -1,52 +1,55 @@
 ═══════════════════════════════════════════════════════════════
-  MEETING TRANSLATOR — Ứng dụng DESKTOP (không dùng trình duyệt)
+  MEETING TRANSLATOR — Bản cài đặt trên máy tính (Windows)
 ═══════════════════════════════════════════════════════════════
 
-■ KHUYẾN NGHỊ: CÀI APP DESKTOP (.exe)
+■ CÁCH 1 — CÀI TỪ FILE .EXE (khuyến nghị)
 ──────────────────────────────────────────────────────────────
-  Sau khi cài, mở cửa sổ riêng — KHÔNG cần Chrome/Edge.
+  File cài:  Meeting-Translator-Setup-1.0.0.exe
 
-  Bước 1 — Giải nén thư mục hoặc clone repo
-  Bước 2 — Chạy:  install-desktop.bat
-  Bước 3 — Sửa API key tại:
-            %APPDATA%\meeting-translator-desktop\.env
-            (lần chạy desktop lần đầu tự tạo; hoặc backend\.env khi dev)
-  Bước 4 — Chạy:  CHAY-DESKTOP.bat
+  Sau khi tạo bản cài (xem mục Tạo file cài bên dưới), file nằm tại:
+    meeting-translator\dist\release\
+    hoặc
+    meeting-translator\dist\desktop\
 
-  Tạo file cài Setup.exe (chạy trên Windows):
-    pack-desktop.ps1
+  Các bước:
+    1. Double-click Meeting-Translator-Setup-1.0.0.exe
+    2. Chọn thư mục cài → Install → Finish
+    3. Mở app từ Desktop hoặc Start Menu
+    4. Điền API key lần đầu:
+         %APPDATA%\meeting-translator-desktop\.env
 
-  File .exe sau khi build:
-    meeting-translator\dist\desktop\Meeting-Translator-Setup-1.0.0.exe
+  Không cần cài Python / Node.js trên máy người dùng.
 
-■ ĐƯỜNG DẪN
+■ CÁCH 2 — TẠO FILE CÀI TRÊN MÁY BẠN (developer)
 ──────────────────────────────────────────────────────────────
-  Thư mục app:     meeting-translator\
-  Chạy desktop:    CHAY-DESKTOP.bat
-  Cài lần đầu:     install-desktop.bat
-  Zip portable:    dist\Meeting-Translator-v1.0.0.zip
+  Yêu cầu: Windows 10/11, Node.js 18+, Internet
 
-  Dữ liệu trên máy bạn (sau khi chạy desktop):
-    %APPDATA%\meeting-translator-desktop\
-      .env              ← API key OpenAI / Gemini
-      recordings\       ← Bản ghi hội thoại + transcript
+  Double-click:
+    TAO-BAN-CAI-DAT.bat
 
-■ YÊU CẦU
+  Hoặc PowerShell:
+    cd meeting-translator
+    .\pack-desktop.ps1
+
+  Kết quả:
+    dist\release\Meeting-Translator-Setup-1.0.0.exe
+    dist\release\HUONG_DAN_CAI_DAT.txt
+    dist\release\DOC-DAI.txt
+
+■ CÁCH 3 — TẢI BẢN CÀI TỪ GITHUB (Actions)
 ──────────────────────────────────────────────────────────────
-  - Windows 10/11
-  - Python 3.10+ (PATH)
-  - Node.js 18 LTS
-  - Internet khi dịch (OpenAI Whisper + GPT/Gemini)
-  - OPENAI_API_KEY bắt buộc
+  Repo → Actions → "Build Meeting Translator Installer"
+  → Run workflow → tải artifact "Meeting-Translator-Windows-Setup"
 
-■ TAI NGHE / LOOPBACK
+■ DỮ LIỆU TRÊN MÁY BẠN
 ──────────────────────────────────────────────────────────────
-  Trong app desktop, cột trái:
-    Loopback / Stereo Mix  hoặc  Chia sẻ tab cuộc họp
-  Bật "Thêm micro" để ghi cả lời bạn nói.
+  %APPDATA%\meeting-translator-desktop\
+    .env           ← OPENAI_API_KEY, GEMINI_API_KEY
+    recordings\    ← Âm thanh + transcript đã lưu
 
-■ PHIÊN BẢN TRÌNH DUYỆT (không khuyến nghị)
+■ GỠ CÀI
 ──────────────────────────────────────────────────────────────
-  CHAY.bat + http://127.0.0.1:5173 — chỉ dùng khi debug.
+  Windows Settings → Apps → Meeting Translator → Uninstall
+  (Dữ liệu %APPDATA% giữ lại trừ khi xóa thủ công)
 
 ═══════════════════════════════════════════════════════════════

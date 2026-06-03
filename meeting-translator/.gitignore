@@ -6,6 +6,9 @@ __pycache__/
 frontend/node_modules/
 desktop/node_modules/
 dist/desktop/
+dist/release/
+runtime/python/
+build-cache/
 frontend/dist/
 dist/stage-*/
 # Giữ file zip bản phát hành trong git để tải trực tiếp

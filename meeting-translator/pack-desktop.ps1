@@ -1,47 +1,108 @@
-# Dong goi ung dung DESKTOP Windows (.exe installer)
-# Chay tren Windows sau khi co Python + Node.js
+# Dong goi ban CAI DAT Windows (.exe) — khong can Python tren may nguoi dung
+# Chay: .\pack-desktop.ps1  hoac double-click TAO-BAN-CAI-DAT.bat
+param(
+    [switch]$SkipPythonBundle
+)
+
 $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
 
-Write-Host "=== Meeting Translator - Desktop Installer ===" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host " Meeting Translator - Dong goi cai dat" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+
+if ($PSVersionTable.PSVersion.Major -lt 5) {
+    throw "Can PowerShell 5+"
+}
+
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    throw "Chua co Node.js. Cai tu https://nodejs.org"
+}
 
 Push-Location $Root
 
-if (-not (Test-Path "backend\.venv")) {
-    Write-Host "Cai Python backend..."
-    Push-Location "$Root\backend"
-    python -m venv .venv
-    & ".\.venv\Scripts\Activate.ps1"
-    pip install -q -r requirements.txt
-    Pop-Location
+# 1) Python embed + pip (cho may cai khong co Python)
+if (-not $SkipPythonBundle) {
+    Write-Host "[1/5] Dong goi Python runtime..." -ForegroundColor Yellow
+    & "$Root\scripts\bundle-python.ps1" -Root $Root
+} else {
+    Write-Host "[1/5] Bo qua bundle Python (dev)" -ForegroundColor DarkYellow
 }
 
-if (-not (Test-Path "frontend\node_modules")) {
-    Push-Location "$Root\frontend"
-    npm install
-    Pop-Location
-}
-
-Write-Host "Build frontend production..."
+# 2) Frontend
+Write-Host "[2/5] Build giao dien..." -ForegroundColor Yellow
 Push-Location "$Root\frontend"
+if (-not (Test-Path "node_modules")) { npm install }
 npm run build
+if (-not (Test-Path "dist\index.html")) { throw "Frontend build that bai" }
 Pop-Location
 
-Write-Host "Build Windows Setup.exe (Electron)..."
+# 3) Electron deps
+Write-Host "[3/5] Cai Electron builder..." -ForegroundColor Yellow
 Push-Location "$Root\desktop"
+if (-not (Test-Path "node_modules")) { npm install }
+Pop-Location
+
+# 4) Build Setup.exe
+Write-Host "[4/5] Tao file cai dat NSIS (.exe)..." -ForegroundColor Yellow
+Push-Location "$Root\desktop"
+$env:CSC_IDENTITY_AUTO_DISCOVERY = "false"
 npm run dist:win
 Pop-Location
 
+# 5) Copy huong dan cung goi cai
+Write-Host "[5/5] Hoan thien thu muc phat hanh..." -ForegroundColor Yellow
 $OutDir = Join-Path $Root "dist\desktop"
-Write-Host ""
-Write-Host "HOAN TAT - File cai dat desktop:" -ForegroundColor Green
-Get-ChildItem $OutDir -Filter "*.exe" -Recurse | ForEach-Object {
-    Write-Host "  $($_.FullName)" -ForegroundColor Yellow
-    Write-Host "  Kich thuoc: $([math]::Round($_.Length/1MB, 2)) MB"
+$ReleaseDir = Join-Path $Root "dist\release"
+New-Item -ItemType Directory -Force -Path $ReleaseDir | Out-Null
+
+$SetupExe = Get-ChildItem $OutDir -Filter "Meeting-Translator-Setup-*.exe" -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1
+
+if ($SetupExe) {
+    Copy-Item $SetupExe.FullName -Destination $ReleaseDir -Force
+    Copy-Item "$Root\HUONG_DAN_CAI_DAT.txt" -Destination $ReleaseDir -Force
+    $readme = @"
+MEETING TRANSLATOR - Ban cai dat
+================================
+
+1. Chay file: $($SetupExe.Name)
+2. Chon thu muc cai dat (Next > Install)
+3. Mo Start Menu > Meeting Translator
+4. Lan dau: dien OPENAI_API_KEY trong:
+   %APPDATA%\meeting-translator-desktop\.env
+
+Khong can cai Python hay Node.js tren may nguoi dung.
+Can Internet khi dung tinh nang dich.
+"@
+    Set-Content -Path (Join-Path $ReleaseDir "DOC-DAI.txt") -Value $readme -Encoding UTF8
 }
 
 Write-Host ""
-Write-Host "Sau khi cai, du lieu luu tai:" -ForegroundColor Cyan
-Write-Host "  %APPDATA%\meeting-translator-desktop\"
-Write-Host "  (API key: .env | ban ghi: recordings\)"
+Write-Host "========================================" -ForegroundColor Green
+Write-Host " HOAN TAT" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Green
+
+if ($SetupExe) {
+    $mb = [math]::Round($SetupExe.Length / 1MB, 2)
+    Write-Host ""
+    Write-Host "File cai dat (chinh):" -ForegroundColor White
+    Write-Host "  $($SetupExe.FullName)" -ForegroundColor Yellow
+    Write-Host "  $mb MB" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "Thu muc phat hanh (copy cho nguoi dung):" -ForegroundColor White
+    Write-Host "  $ReleaseDir" -ForegroundColor Yellow
+    Get-ChildItem $ReleaseDir | ForEach-Object { Write-Host "    - $($_.Name)" }
+} else {
+    Write-Host "Khong tim thay Setup.exe trong $OutDir" -ForegroundColor Red
+    Get-ChildItem $OutDir -ErrorAction SilentlyContinue
+}
+
+Write-Host ""
+Write-Host "Nguoi dung cai xong: shortcut Desktop + Start Menu" -ForegroundColor Cyan
+Write-Host "Du lieu: %APPDATA%\meeting-translator-desktop\" -ForegroundColor Cyan
+
 Pop-Location

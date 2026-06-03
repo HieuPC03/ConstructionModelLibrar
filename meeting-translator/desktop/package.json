@@ -27,6 +27,11 @@
     ],
     "extraResources": [
       {
+        "from": "../runtime/python",
+        "to": "runtime/python",
+        "filter": ["**/*"]
+      },
+      {
         "from": "../backend",
         "to": "backend",
         "filter": [
@@ -57,10 +62,15 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "installerLanguages": ["vi", "en"],
-      "language": "1033",
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerLanguages": ["vi_VN", "en_US"],
+      "language": "1066",
       "shortcutName": "Meeting Translator",
-      "artifactName": "Meeting-Translator-Setup-${version}.${ext}"
+      "artifactName": "Meeting-Translator-Setup-${version}.${ext}",
+      "include": "installer.nsh",
+      "deleteAppDataOnUninstall": false
     }
   }
 }

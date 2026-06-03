@@ -61,6 +61,14 @@ function ensureUserConfig() {
 }
 
 function resolvePython() {
+  const bundledWin = path.join(
+    resourcesPath(),
+    "runtime",
+    "python",
+    "python.exe"
+  );
+  if (fs.existsSync(bundledWin)) return bundledWin;
+
   const venvWin = path.join(backendDir(), ".venv", "Scripts", "python.exe");
   const venvUnix = path.join(backendDir(), ".venv", "bin", "python3");
   if (fs.existsSync(venvWin)) return venvWin;
@@ -126,8 +134,8 @@ function startPythonBackend() {
 
   pythonProcess.on("error", (err) => {
     dialog.showErrorBox(
-      "Lỗi Python",
-      `Không chạy được backend.\n\nCài Python 3.10+ và chạy install-desktop.bat\n\n${err.message}`
+      "Lỗi khởi động",
+      `Không chạy được backend.\n\n${err.message}\n\nNếu cài từ source: chạy install-desktop.bat`
     );
     app.quit();
   });

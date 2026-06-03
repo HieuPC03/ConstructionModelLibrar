@@ -19,8 +19,9 @@
 |-----|-----------|
 | Chạy app (cửa sổ riêng) | **`CHAY-DESKTOP.bat`** |
 | Cài lần đầu | **`install-desktop.bat`** |
-| Tạo file Setup.exe | **`pack-desktop.ps1`** (trên Windows) |
-| File cài sau build | `dist/desktop/Meeting-Translator-Setup-1.0.0.exe` |
+| **Tạo bản cài .exe** | Double-click **`TAO-BAN-CAI-DAT.bat`** |
+| File cài sau build | `dist/release/Meeting-Translator-Setup-1.0.0.exe` |
+| Script nâng cao | `pack-desktop.ps1` (gói Python + Electron, không cần Python trên máy người dùng) |
 | Dữ liệu trên máy bạn | `%APPDATA%\meeting-translator-desktop\` (`.env`, `recordings\`) |
 
 ```text
