@@ -76,7 +76,7 @@ Compress-Archive -Path "$Stage\*" -DestinationPath $FullZip -Force
 Remove-Item -Recurse -Force $Stage
 
 Write-Host ""
-Write-Host "Phat hanh v$Version:" -ForegroundColor Green
+Write-Host "Phat hanh v${Version}:" -ForegroundColor Green
 Get-ChildItem $Dist -File | Where-Object {
     $_.Name -match "1\.4\.2|BAT-scripts"
 } | ForEach-Object {
