@@ -37,14 +37,21 @@ jobs:
         shell: pwsh
         run: ./pack-desktop.ps1
 
-      - name: Package v1.4.2 release
+      - name: Read version
+        id: ver
         shell: pwsh
-        run: ./pack-v1.4.2.ps1 -Version "1.5.1"
+        run: |
+          $v = (Get-Content VERSION.txt -Raw).Trim()
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Package release zip
+        shell: pwsh
+        run: ./pack-v1.4.2.ps1 -Version "${{ steps.ver.outputs.version }}"
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Meeting-Translator-v1.5.1
+          name: Meeting-Translator-v${{ steps.ver.outputs.version }}
           path: |
             meeting-translator/dist/Meeting-Translator-Setup-*.exe
             meeting-translator/dist/Meeting-Translator-v*-Full-Package.zip
@@ -57,20 +64,20 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/meeting-translator-v') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: meeting-translator-v1.5.1
-          name: Meeting Translator v1.5.1
+          tag_name: meeting-translator-v${{ steps.ver.outputs.version }}
+          name: Meeting Translator v${{ steps.ver.outputs.version }}
           prerelease: true
           generate_release_notes: true
           files: |
-            dist/Meeting-Translator-Setup-1.5.1.exe
-            dist/Meeting-Translator-v1.5.1-Full-Package.zip
-            dist/Meeting-Translator-v1.5.1-BAT-scripts.zip
-            dist/Meeting-Translator-BAT-scripts.zip
-            CAI-BANG-EXE.bat
-            MO-APP.bat
-            CAU-HINH-API-KEY.bat
-            BAT-HUONG-DAN.txt
-            TAI-BAN-CAI-DAT.txt
-            HUONG_DAN_CAI_DAT.txt
+            meeting-translator/dist/Meeting-Translator-Setup-${{ steps.ver.outputs.version }}.exe
+            meeting-translator/dist/Meeting-Translator-v${{ steps.ver.outputs.version }}-Full-Package.zip
+            meeting-translator/dist/Meeting-Translator-v${{ steps.ver.outputs.version }}-BAT-scripts.zip
+            meeting-translator/dist/Meeting-Translator-BAT-scripts.zip
+            meeting-translator/CAI-BANG-EXE.bat
+            meeting-translator/MO-APP.bat
+            meeting-translator/CAU-HINH-API-KEY.bat
+            meeting-translator/BAT-HUONG-DAN.txt
+            meeting-translator/TAI-BAN-CAI-DAT.txt
+            meeting-translator/HUONG_DAN_CAI_DAT.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
