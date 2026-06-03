@@ -52,7 +52,7 @@ function ensureUserConfig() {
     } else {
       fs.writeFileSync(
         ud.env,
-        "# Dan key OpenAI: https://platform.openai.com/api-keys\nTRANSLATOR_PROVIDER=openai\nOPENAI_API_KEY=\n",
+        "TRANSLATOR_PROVIDER=google\nOPENAI_API_KEY=\nGEMINI_API_KEY=\nGEMINI_MODEL=gemini-2.0-flash\n",
         "utf8"
       );
     }

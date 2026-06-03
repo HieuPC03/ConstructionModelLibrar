@@ -12,7 +12,7 @@ export default function App() {
   useEffect(() => {
     checkHealth()
       .then((h) => {
-        setProvider(h.provider || "ChatGPT");
+        setProvider(h.provider || "Google Translate");
         setBackendOk(true);
         if (h.api_key_ok === false && h.message) {
           setConfigWarning(h.message);

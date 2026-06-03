@@ -30,6 +30,8 @@ export async function testApiKey(): Promise<string> {
   return (data as { message?: string }).message ?? "OK";
 }
 
+export type TranslatorProvider = "openai" | "gemini" | "google";
+
 export type AppSettings = {
   recordings_dir: string;
   export_dir: string;
@@ -37,8 +39,10 @@ export type AppSettings = {
   default_source_lang: LangCode;
   default_target_lang: LangCode;
   meeting_pair: "vi-ja" | "ja-vi";
+  translator_provider?: TranslatorProvider;
   config_path?: string;
   recordings_dir_active?: string;
+  provider?: string;
 };
 
 export async function fetchSettings(): Promise<AppSettings> {

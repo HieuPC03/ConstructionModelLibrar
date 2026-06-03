@@ -4,6 +4,7 @@ import {
   testApiKey,
   updateSettings,
   type AppSettings,
+  type TranslatorProvider,
 } from "../api";
 
 export default function SettingsBar() {
@@ -11,6 +12,7 @@ export default function SettingsBar() {
   const [recordingsDir, setRecordingsDir] = useState("");
   const [exportDir, setExportDir] = useState("");
   const [uiLang, setUiLang] = useState<"vi" | "ja">("vi");
+  const [provider, setProvider] = useState<TranslatorProvider>("google");
   const [testMsg, setTestMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -21,6 +23,9 @@ export default function SettingsBar() {
         setRecordingsDir(s.recordings_dir || "");
         setExportDir(s.export_dir || "");
         setUiLang(s.ui_language || "vi");
+        setProvider(
+          (s.translator_provider as TranslatorProvider) || "google"
+        );
       })
       .catch(() => undefined);
   }, []);
@@ -32,9 +37,10 @@ export default function SettingsBar() {
         recordings_dir: recordingsDir,
         export_dir: exportDir,
         ui_language: uiLang,
+        translator_provider: provider,
       });
       setSettings(s);
-      setTestMsg("Đã lưu cài đặt.");
+      setTestMsg("Đã lưu nhà cung cấp và đường dẫn.");
     } catch (e) {
       setTestMsg((e as Error).message);
     } finally {
@@ -54,7 +60,7 @@ export default function SettingsBar() {
   };
 
   const runTest = async () => {
-    setTestMsg("Đang kiểm tra ChatGPT API…");
+    setTestMsg("Đang kiểm tra…");
     try {
       const msg = await testApiKey();
       setTestMsg(msg);
@@ -69,8 +75,25 @@ export default function SettingsBar() {
         {uiLang === "ja" ? "設定" : "Cài đặt"}
       </span>
       <label className="settings-field">
+        {uiLang === "ja" ? "翻訳API" : "Nhà cung cấp"}
+        <select
+          value={provider}
+          onChange={(e) =>
+            setProvider(e.target.value as TranslatorProvider)
+          }
+          title="OpenAI hết quota → chọn Google Translate hoặc Gemini"
+        >
+          <option value="google">Google Translate (miễn phí, khuyến nghị)</option>
+          <option value="gemini">Google Gemini (cần API key)</option>
+          <option value="openai">ChatGPT / OpenAI (cần billing)</option>
+        </select>
+      </label>
+      <label className="settings-field">
         {uiLang === "ja" ? "言語" : "Ngôn ngữ app"}
-        <select value={uiLang} onChange={(e) => setUiLang(e.target.value as "vi" | "ja")}>
+        <select
+          value={uiLang}
+          onChange={(e) => setUiLang(e.target.value as "vi" | "ja")}
+        >
           <option value="vi">Tiếng Việt</option>
           <option value="ja">日本語</option>
         </select>
@@ -84,7 +107,11 @@ export default function SettingsBar() {
           placeholder={settings?.recordings_dir_active ?? "Mặc định AppData"}
         />
         {window.desktopApp?.pickFolder && (
-          <button type="button" className="secondary" onClick={() => pickFolder("recordings")}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => pickFolder("recordings")}
+          >
             Chọn…
           </button>
         )}
@@ -98,7 +125,11 @@ export default function SettingsBar() {
           placeholder="Thư mục xuất file .txt"
         />
         {window.desktopApp?.pickFolder && (
-          <button type="button" className="secondary" onClick={() => pickFolder("export")}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => pickFolder("export")}
+          >
             Chọn…
           </button>
         )}
@@ -107,15 +138,17 @@ export default function SettingsBar() {
         {saving ? "…" : "Lưu"}
       </button>
       <button type="button" className="secondary" onClick={runTest}>
-        Test ChatGPT
+        Test API
       </button>
       {window.desktopApp?.openConfigFolder && (
         <button type="button" className="secondary" onClick={openConfig}>
-          Mở file .env
+          Mở .env
         </button>
       )}
       {testMsg && (
-        <span className={`settings-msg ${testMsg.includes("thất") || testMsg.includes("không") || testMsg.includes("Lỗi") || testMsg.includes("API key") ? "err" : ""}`}>
+        <span
+          className={`settings-msg ${testMsg.includes("thất") || testMsg.includes("không") || testMsg.includes("Lỗi") || testMsg.includes("quota") || testMsg.includes("Thiếu") ? "err" : ""}`}
+        >
           {testMsg}
         </span>
       )}

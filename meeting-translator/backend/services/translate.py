@@ -1,10 +1,20 @@
 from __future__ import annotations
 
-from services.config import OPENAI_TRANSLATE_MODEL, get_openai_api_key
+import asyncio
+
+from services.config import (
+    GEMINI_MODEL,
+    OPENAI_TRANSLATE_MODEL,
+    get_gemini_api_key,
+    get_openai_api_key,
+    get_translator_provider,
+)
 
 VI_JA_SYSTEM = """You are a professional Vietnamese–Japanese interpreter for business meetings.
 Translate accurately, preserve tone (formal です/ます for Japanese when appropriate), and keep names unchanged.
 Output ONLY the translation, no explanations."""
+
+_GOOGLE_LANG = {"vi": "vi", "ja": "ja", "en": "en"}
 
 
 def _lang_name(code: str) -> str:
@@ -17,17 +27,31 @@ async def translate_text(text: str, source_lang: str, target_lang: str) -> str:
     if source_lang == target_lang:
         return text
 
+    provider = get_translator_provider()
     prompt = (
         f"Translate the following from {_lang_name(source_lang)} to {_lang_name(target_lang)}:\n\n{text}"
     )
 
-    return await _translate_openai(prompt)
+    if provider == "gemini":
+        return await _translate_gemini(prompt)
+    if provider == "google":
+        return await _translate_google(text, source_lang, target_lang)
+
+    try:
+        return await _translate_openai(prompt)
+    except Exception as openai_err:
+        msg = str(openai_err).lower()
+        if "insufficient_quota" in msg or "billing" in msg or "429" in msg:
+            if get_gemini_api_key():
+                return await _translate_gemini(prompt)
+            return await _translate_google(text, source_lang, target_lang)
+        raise
 
 
 async def _translate_openai(prompt: str) -> str:
     api_key = get_openai_api_key()
     if not api_key:
-        raise ValueError("OPENAI_API_KEY chưa được cấu hình trong file .env")
+        raise ValueError("OPENAI_API_KEY chưa có — đổi nhà cung cấp sang Gemini hoặc Google Translate")
 
     from openai import AsyncOpenAI
 
@@ -41,3 +65,33 @@ async def _translate_openai(prompt: str) -> str:
         temperature=0.2,
     )
     return (response.choices[0].message.content or "").strip()
+
+
+async def _translate_gemini(prompt: str) -> str:
+    api_key = get_gemini_api_key()
+    if not api_key:
+        raise ValueError(
+            "GEMINI_API_KEY chưa có. Lấy key miễn phí: https://aistudio.google.com/apikey"
+        )
+
+    import google.generativeai as genai
+
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(GEMINI_MODEL)
+    result = await model.generate_content_async(
+        f"{VI_JA_SYSTEM}\n\n{prompt}",
+        generation_config={"temperature": 0.2},
+    )
+    return (result.text or "").strip()
+
+
+async def _translate_google(text: str, source_lang: str, target_lang: str) -> str:
+    src = _GOOGLE_LANG.get(source_lang, source_lang)
+    tgt = _GOOGLE_LANG.get(target_lang, target_lang)
+
+    def _run() -> str:
+        from deep_translator import GoogleTranslator
+
+        return GoogleTranslator(source=src, target=tgt).translate(text)
+
+    return await asyncio.to_thread(_run)

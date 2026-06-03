@@ -46,7 +46,9 @@ export default function TextTranslatePanel() {
     <section className="panel">
       <div className="panel-header">
         <h2>Dịch văn bản</h2>
-        <span className="badge">ChatGPT</span>
+        <span className="badge" id="translate-provider-badge">
+          Dịch
+        </span>
       </div>
 
       <div className="text-translate-body">

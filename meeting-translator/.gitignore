@@ -11,6 +11,7 @@ runtime/python/
 build-cache/
 frontend/dist/
 dist/stage-*/
+dist/release-download/
 # Giữ file zip bản phát hành trong git để tải trực tiếp
 # dist/*.zip — không ignore (zip được commit)
 .DS_Store

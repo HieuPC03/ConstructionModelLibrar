@@ -41,8 +41,10 @@ def friendly_api_error(exc: Exception) -> str:
         )
     if "insufficient_quota" in msg or "billing" in msg.lower():
         return (
-            "Tài khoản OpenAI hết quota / chưa có billing. "
-            "Kiểm tra https://platform.openai.com/account/billing"
+            "OpenAI hết quota / chưa bật billing (https://platform.openai.com/account/billing). "
+            "Trong app: Cài đặt → Nhà cung cấp → chọn Google Gemini hoặc Google Translate, "
+            "thêm GEMINI_API_KEY vào .env (Gemini: https://aistudio.google.com/apikey), "
+            "khởi động lại app."
         )
     if "OPENAI_API_KEY" in msg:
         return f"{msg} — File cấu hình: {hint}"

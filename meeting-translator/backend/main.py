@@ -14,11 +14,14 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from services.config import (
+    GEMINI_MODEL,
     OPENAI_STT_MODEL,
     OPENAI_TRANSLATE_MODEL,
+    PROVIDER_LABELS,
     RECORDINGS_DIR,
-    TRANSLATOR_PROVIDER,
+    get_gemini_api_key,
     get_openai_api_key,
+    get_translator_provider,
 )
 from services.errors import env_file_hint, friendly_api_error, is_placeholder_key
 from services.settings_store import load_settings, resolve_export_dir, resolve_recordings_dir, save_settings
@@ -64,22 +67,50 @@ class HealthResponse(BaseModel):
     message: str | None = None
 
 
+def _provider_health() -> tuple[bool, str, str, str | None]:
+    config_path = env_file_hint()
+    provider = get_translator_provider()
+    label = PROVIDER_LABELS.get(provider, provider)
+
+    if provider == "google":
+        has_gemini = not is_placeholder_key(get_gemini_api_key())
+        stt = GEMINI_MODEL if has_gemini else "cần GEMINI_API_KEY"
+        msg = None
+        if not has_gemini:
+            msg = (
+                f"Dịch văn bản: Google Translate (không cần key). "
+                f"Dịch họp realtime: thêm GEMINI_API_KEY vào {config_path}"
+            )
+        return True, label, stt, msg
+
+    if provider == "gemini":
+        ok = not is_placeholder_key(get_gemini_api_key())
+        msg = (
+            None
+            if ok
+            else f"Thêm GEMINI_API_KEY vào {config_path} (https://aistudio.google.com/apikey)"
+        )
+        return ok, label, GEMINI_MODEL, msg
+
+    ok = not is_placeholder_key(get_openai_api_key())
+    msg = (
+        None
+        if ok
+        else (
+            f"Thêm OPENAI_API_KEY hoặc đổi TRANSLATOR_PROVIDER=google/gemini trong {config_path}"
+        )
+    )
+    return ok, label, OPENAI_STT_MODEL, msg
+
+
 @app.get("/api/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     config_path = env_file_hint()
-    api_key = get_openai_api_key()
-    api_ok = not is_placeholder_key(api_key)
-    message = None
-    if not api_ok:
-        message = (
-            "Chưa có OPENAI_API_KEY hợp lệ. "
-            f"Mở file {config_path} — một dòng: OPENAI_API_KEY=sk-proj-... "
-            "Lấy key tại https://platform.openai.com/api-keys rồi khởi động lại app."
-        )
+    api_ok, label, stt, message = _provider_health()
     return HealthResponse(
         status="ok" if api_ok else "config_required",
-        provider="ChatGPT (OpenAI)",
-        stt=OPENAI_STT_MODEL,
+        provider=label,
+        stt=stt,
         api_key_ok=api_ok,
         config_path=config_path,
         message=message,
@@ -93,6 +124,9 @@ class SettingsUpdate(BaseModel):
     default_source_lang: str | None = Field(default=None, pattern="^(vi|ja|en|auto)$")
     default_target_lang: str | None = Field(default=None, pattern="^(vi|ja|en)$")
     meeting_pair: str | None = Field(default=None, pattern="^(vi-ja|ja-vi)$")
+    translator_provider: str | None = Field(
+        default=None, pattern="^(openai|gemini|google)$"
+    )
 
 
 @app.get("/api/settings")
@@ -103,7 +137,8 @@ async def get_settings() -> dict[str, Any]:
         "config_path": env_file_hint(),
         "recordings_dir_active": str(recordings_dir()),
         "translate_model": OPENAI_TRANSLATE_MODEL,
-        "provider": "ChatGPT (OpenAI)",
+        "provider": PROVIDER_LABELS.get(get_translator_provider(), "openai"),
+        "translator_provider": get_translator_provider(),
     }
 
 
@@ -115,28 +150,44 @@ async def patch_settings(body: SettingsUpdate) -> dict[str, Any]:
 
 
 @app.post("/api/config/test")
-async def test_openai_config() -> dict[str, Any]:
-    key = get_openai_api_key()
-    if is_placeholder_key(key):
-        from fastapi import HTTPException
+async def test_provider_config() -> dict[str, Any]:
+    from fastapi import HTTPException
 
-        raise HTTPException(
-            status_code=400,
-            detail=f"API key chưa hợp lệ. File: {env_file_hint()}",
-        )
+    provider = get_translator_provider()
     try:
+        if provider == "google":
+            result = await translate_text("xin chào", "vi", "ja")
+            if not result:
+                raise ValueError("Google Translate không trả kết quả")
+            return {
+                "ok": True,
+                "message": f"Google Translate OK (ví dụ: xin chào → {result})",
+            }
+        if provider == "gemini":
+            if is_placeholder_key(get_gemini_api_key()):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Thiếu GEMINI_API_KEY trong {env_file_hint()}",
+                )
+            result = await translate_text("test", "en", "vi")
+            return {"ok": True, "message": f"Gemini OK (thử dịch: {result})"}
+        if is_placeholder_key(get_openai_api_key()):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Thiếu OPENAI_API_KEY trong {env_file_hint()}",
+            )
         from openai import AsyncOpenAI
 
-        client = AsyncOpenAI(api_key=key)
+        client = AsyncOpenAI(api_key=get_openai_api_key())
         await client.chat.completions.create(
             model=OPENAI_TRANSLATE_MODEL,
             messages=[{"role": "user", "content": "reply OK"}],
             max_tokens=8,
         )
         return {"ok": True, "message": "ChatGPT API hoạt động bình thường."}
+    except HTTPException:
+        raise
     except Exception as exc:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=400, detail=friendly_api_error(exc)) from exc
 
 
@@ -174,7 +225,10 @@ async def translate_text_endpoint(body: TextTranslateRequest) -> TextTranslateRe
         from fastapi import HTTPException
 
         raise HTTPException(status_code=400, detail=friendly_api_error(exc)) from exc
-    return TextTranslateResponse(translation=result, provider=TRANSLATOR_PROVIDER)
+    return TextTranslateResponse(
+        translation=result,
+        provider=PROVIDER_LABELS.get(get_translator_provider(), "openai"),
+    )
 
 
 @app.post("/api/transcribe")
