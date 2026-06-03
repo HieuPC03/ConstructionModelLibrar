@@ -1,0 +1,35 @@
+MEETING TRANSLATOR — Cac file .BAT (Windows)
+============================================
+
+Tai day: https://github.com/HieuPC03/ConstructionModelLibrar/releases
+
+Dat CHUNG mot thu muc:
+  - Meeting-Translator-Setup-1.4.1.exe  (hoac ban moi nhat)
+  - Cac file .bat ben duoi
+  - BAT-HUONG-DAN.txt (file nay)
+
+THU TU SU DUNG
+--------------
+1. CAI-BANG-EXE.bat      → Cai app (chay file Setup .exe)
+2. CAU-HINH-API-KEY.bat  → Mo file .env, dien GEMINI_API_KEY (AQ.... hoac AIza...)
+3. MO-APP.bat            → Mo Meeting Translator
+
+CAC FILE .BAT
+-------------
+CAI-BANG-EXE.bat       Cai dat tu file Setup .exe
+MO-APP.bat             Mo app da cai (sau buoc 1)
+CAU-HINH-API-KEY.bat   Sua API key (%APPDATA%\meeting-translator-desktop\.env)
+
+TAO-BAN-CAI-DAT.bat    (Dev) Tu build file Setup.exe — can Node.js
+install-desktop.bat    (Dev) Cai Python + npm de chay tu source
+CHAY-DESKTOP.bat       (Dev) Chay tu source code (khong can cai .exe)
+CHAY.bat               (Dev) Chay qua trinh duyet
+install.bat            (Dev) Cai dependencies source
+
+API KEY
+-------
+Gemini (ghi transcript): GEMINI_API_KEY=AQ.... hoac AIza...
+  https://aistudio.google.com/apikey
+
+OpenAI (dich realtime):  OPENAI_API_KEY=sk-proj-...
+  https://platform.openai.com/api-keys

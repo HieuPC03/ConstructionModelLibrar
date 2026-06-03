@@ -13,12 +13,17 @@ echo.
 set "ENV_DIR=%APPDATA%\meeting-translator-desktop"
 if not exist "%ENV_DIR%" mkdir "%ENV_DIR%"
 if not exist "%ENV_DIR%\.env" (
-  echo TRANSLATOR_PROVIDER=google> "%ENV_DIR%\.env"
+  echo TRANSLATOR_PROVIDER=gemini> "%ENV_DIR%\.env"
   echo OPENAI_API_KEY=>> "%ENV_DIR%\.env"
   echo GEMINI_API_KEY=>> "%ENV_DIR%\.env"
   echo GEMINI_MODEL=gemini-2.0-flash>> "%ENV_DIR%\.env"
 )
-notepad "%ENV_DIR%\.env"
+echo File: %ENV_DIR%\.env
 echo.
-echo Trong app: Cai dat -^> Nha cung cap -^> Google Translate -^> Luu
+echo GEMINI: key bat dau AQ.... hoac AIza... (https://aistudio.google.com/apikey)
+echo OPENAI: sk-proj-... (che do Dich realtime ChatGPT)
+echo.
+notepad "%ENV_DIR%\.env"
+explorer "%ENV_DIR%"
+echo Luu file, tat app, chay MO-APP.bat
 pause
