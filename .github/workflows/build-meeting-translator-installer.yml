@@ -5,9 +5,17 @@ on:
   push:
     branches:
       - cursor/meeting-realtime-translator-6e16
+      - cursor/fix-text-translate-gemini-6e16
+      - cursor/package-v1.4.2-6e16
       - main
     paths:
       - "meeting-translator/**"
+      - ".github/workflows/build-meeting-translator-installer.yml"
+    tags:
+      - "meeting-translator-v*"
+
+permissions:
+  contents: write
 
 jobs:
   build-windows-installer:
@@ -27,11 +35,40 @@ jobs:
         shell: pwsh
         run: ./pack-desktop.ps1
 
+      - name: Package v1.4.2 release
+        shell: pwsh
+        run: ./pack-v1.4.2.ps1 -Version "1.4.2"
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Meeting-Translator-Windows-Setup
+          name: Meeting-Translator-v1.4.2
           path: |
+            meeting-translator/dist/Meeting-Translator-Setup-1.4.2.exe
+            meeting-translator/dist/Meeting-Translator-v1.4.2-Full-Package.zip
+            meeting-translator/dist/Meeting-Translator-v1.4.2-BAT-scripts.zip
             meeting-translator/dist/desktop/Meeting-Translator-Setup-*.exe
             meeting-translator/dist/release/**
-          if-no-files-found: error
+          if-no-files-found: warn
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/meeting-translator-v') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: meeting-translator-v1.4.2
+          name: Meeting Translator v1.4.2
+          prerelease: true
+          generate_release_notes: true
+          files: |
+            dist/Meeting-Translator-Setup-1.4.2.exe
+            dist/Meeting-Translator-v1.4.2-Full-Package.zip
+            dist/Meeting-Translator-v1.4.2-BAT-scripts.zip
+            dist/Meeting-Translator-BAT-scripts.zip
+            CAI-BANG-EXE.bat
+            MO-APP.bat
+            CAU-HINH-API-KEY.bat
+            BAT-HUONG-DAN.txt
+            TAI-BAN-CAI-DAT.txt
+            HUONG_DAN_CAI_DAT.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

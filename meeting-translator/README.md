@@ -20,7 +20,7 @@
 | Chạy app (cửa sổ riêng) | **`CHAY-DESKTOP.bat`** |
 | Cài lần đầu | **`install-desktop.bat`** |
 | **Tạo bản cài .exe** | Double-click **`TAO-BAN-CAI-DAT.bat`** |
-| File cài sau build | `dist/release/Meeting-Translator-Setup-1.0.0.exe` |
+| File cài sau build | `dist/Meeting-Translator-Setup-1.4.2.exe` |
 | Script nâng cao | `pack-desktop.ps1` (gói Python + Electron, không cần Python trên máy người dùng) |
 | Dữ liệu trên máy bạn | `%APPDATA%\meeting-translator-desktop\` (`.env`, `recordings\`) |
 
@@ -35,7 +35,7 @@ App chạy trong **Electron** (cửa sổ desktop). Dịch/STT vẫn cần **int
 | Mục | Đường dẫn |
 |-----|-----------|
 | Thư mục app (trong repo) | `meeting-translator/` |
-| **File zip** | `meeting-translator/dist/Meeting-Translator-v1.0.0.zip` |
+| **Release** | https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.4.2 |
 | Hướng dẫn tiếng Việt | `meeting-translator/HUONG_DAN_CAI_DAT.txt` |
 | Phiên bản trình duyệt (cũ) | `CHAY.bat` → http://127.0.0.1:5173 |
 

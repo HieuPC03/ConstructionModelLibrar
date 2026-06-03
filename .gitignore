@@ -1,0 +1,24 @@
+# Build
+**/bin/
+**/obj/
+*.user
+*.suo
+.vs/
+
+# Installer payload tạm khi dev (dist/Setup đã có bản phát hành)
+ConstructionModelLibrary.Installer/Payload/
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Giữ bản phát hành ConstructionModelLibrary
+!dist/
+!dist/**
+
+# Meeting Translator — build artifacts (phát hành qua GitHub Releases)
+meeting-translator/dist/
+meeting-translator/frontend/node_modules/
+meeting-translator/desktop/node_modules/
+meeting-translator/backend/.venv/
+meeting-translator/runtime/

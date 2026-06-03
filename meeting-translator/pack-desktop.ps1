@@ -105,4 +105,14 @@ Write-Host ""
 Write-Host "Nguoi dung cai xong: shortcut Desktop + Start Menu" -ForegroundColor Cyan
 Write-Host "Du lieu: %APPDATA%\meeting-translator-desktop\" -ForegroundColor Cyan
 
+$verFile = Join-Path $Root "VERSION.txt"
+if (Test-Path $verFile) {
+    $ver = (Get-Content $verFile -Raw).Trim()
+    if ($ver) {
+        Write-Host ""
+        Write-Host "Dong goi phat hanh v$ver..." -ForegroundColor Yellow
+        & "$Root\pack-v1.4.2.ps1" -Version $ver
+    }
+}
+
 Pop-Location

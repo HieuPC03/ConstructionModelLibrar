@@ -9,7 +9,7 @@ echo.
 echo Can: Node.js 18+ (https://nodejs.org)
 echo      Ket noi Internet (tai Python embed + Electron)
 echo.
-echo Ket qua: dist\desktop\Meeting-Translator-Setup-1.0.0.exe
+echo Ket qua: dist\desktop\Meeting-Translator-Setup-1.4.2.exe
 echo.
 pause
 

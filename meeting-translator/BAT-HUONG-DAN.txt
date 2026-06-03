@@ -4,7 +4,7 @@ MEETING TRANSLATOR — Cac file .BAT (Windows)
 Tai day: https://github.com/HieuPC03/ConstructionModelLibrar/releases
 
 Dat CHUNG mot thu muc:
-  - Meeting-Translator-Setup-1.4.1.exe  (hoac ban moi nhat)
+  - Meeting-Translator-Setup-1.4.2.exe  (ban moi nhat)
   - Cac file .bat ben duoi
   - BAT-HUONG-DAN.txt (file nay)
 

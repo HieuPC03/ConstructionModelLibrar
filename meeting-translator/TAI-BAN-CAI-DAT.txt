@@ -1,24 +1,18 @@
 TẢI BẢN CÀI ĐẶT — Meeting Translator (Windows)
 ==============================================
 
-Mình KHÔNG thể ghi file trực tiếp lên ổ C: của bạn.
-Bạn tải file .exe về máy rồi chạy để cài (giống Zalo, Chrome).
+BẢN MỚI NHẤT: v1.4.2
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.4.2
 
-Link tải BẢN MỚI NHẤT (v1.2.0):
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.2.0
+File cài (~123 MB):
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.4.2/Meeting-Translator-Setup-1.4.2.exe
 
-File: Meeting-Translator-Setup-1.2.0.exe  (~123 MB)
-
-API key: KHÔNG có trong file cài — chạy CAU-HINH-API-KEY.bat sau khi cài.
+Gói đầy đủ (.exe + tất cả .bat):
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.4.2/Meeting-Translator-v1.4.2-Full-Package.zip
 
 Sau khi tải:
-  1. Double-click file .exe
-  2. Install → mở app từ Start Menu
-  3. Sửa API key (BẮT BUỘC):
-     Win+R → gõ: %APPDATA%\meeting-translator-desktop
-     Mở file .env bằng Notepad
-     Dán key: OPENAI_API_KEY=sk-proj-xxxxxxxx
-     Lưu file → tắt app → mở lại
+  1. Giải nén (nếu dùng zip) hoặc chạy CAI-BANG-EXE.bat / file .exe
+  2. CAU-HINH-API-KEY.bat — GEMINI_API_KEY=AQ.... hoặc AIza....
+  3. MO-APP.bat — mở app
 
-  Lỗi 401 = key sai hoặc vẫn để sk-... mẫu. Tạo key mới tại:
-  https://platform.openai.com/api-keys
+API key không có trong file cài — cấu hình sau khi cài.

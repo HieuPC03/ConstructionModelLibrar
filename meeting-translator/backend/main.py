@@ -54,7 +54,7 @@ def recordings_dir() -> Path:
 app = FastAPI(
     title="Meeting Realtime Translator",
     description="Dịch họp realtime — capture âm thanh hệ thống, ghi hội thoại, dịch Việt–Nhật",
-    version="1.0.0",
+    version="1.4.2",
 )
 
 app.add_middleware(

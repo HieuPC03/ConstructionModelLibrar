@@ -1,7 +1,7 @@
 # Dong goi Meeting Translator thanh file zip cai dat
 $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
-$Version = "1.0.0"
+$Version = "1.4.2"
 $OutDir = Join-Path $Root "dist"
 $ArchiveName = "Meeting-Translator-v$Version.zip"
 $Stage = Join-Path $OutDir "stage-Meeting-Translator"
