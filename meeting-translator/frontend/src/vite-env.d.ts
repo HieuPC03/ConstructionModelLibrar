@@ -8,3 +8,12 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+interface DesktopAppBridge {
+  isDesktop: boolean;
+  version: string;
+}
+
+interface Window {
+  desktopApp?: DesktopAppBridge;
+}

@@ -21,11 +21,13 @@ export default function App() {
       <header className="app-header">
         <h1>Meeting Translator — Dịch họp realtime</h1>
         <span className="badge">
-          {backendOk === false
-            ? "Backend offline"
-            : backendOk
-              ? `API · ${provider}`
-              : "Đang kết nối…"}
+          {window.desktopApp?.isDesktop
+            ? "Desktop app"
+            : backendOk === false
+              ? "Backend offline"
+              : backendOk
+                ? `API · ${provider}`
+                : "Đang kết nối…"}
         </span>
       </header>
       <main className="split-layout">

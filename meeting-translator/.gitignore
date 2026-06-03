@@ -4,6 +4,8 @@ backend/recordings/
 __pycache__/
 *.pyc
 frontend/node_modules/
+desktop/node_modules/
+dist/desktop/
 frontend/dist/
 dist/stage-*/
 # Giữ file zip bản phát hành trong git để tải trực tiếp

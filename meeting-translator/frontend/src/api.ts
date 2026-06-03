@@ -38,9 +38,10 @@ export function wsUrl(): string {
   const base = import.meta.env.VITE_WS_URL;
   if (base) return base;
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const host = import.meta.env.DEV
-    ? "127.0.0.1:8000"
-    : window.location.host;
+  const host =
+    import.meta.env.DEV && !window.desktopApp?.isDesktop
+      ? "127.0.0.1:8000"
+      : window.location.host;
   return `${proto}//${host}/ws/session`;
 }
 

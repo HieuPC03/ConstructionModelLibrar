@@ -10,6 +10,7 @@ import aiofiles
 from fastapi import FastAPI, File, Form, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from services.config import RECORDINGS_DIR, TRANSLATOR_PROVIDER
@@ -247,3 +248,13 @@ async def get_transcript(session_id: str) -> FileResponse:
     from fastapi import HTTPException
 
     raise HTTPException(status_code=404, detail="Transcript not found")
+
+
+# Giao diện desktop: một cổng phục vụ cả API + React (không cần trình duyệt)
+_FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+if _FRONTEND_DIST.is_dir() and (_FRONTEND_DIST / "index.html").exists():
+    app.mount(
+        "/",
+        StaticFiles(directory=str(_FRONTEND_DIST), html=True),
+        name="frontend",
+    )

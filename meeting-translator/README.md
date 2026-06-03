@@ -13,23 +13,36 @@
 
 **STT (nhận dạng giọng nói):** OpenAI Whisper (cần `OPENAI_API_KEY`).
 
-## Đường dẫn & file cài đặt
+## Ứng dụng desktop (không dùng trình duyệt) — khuyến nghị
+
+| Mục | Đường dẫn |
+|-----|-----------|
+| Chạy app (cửa sổ riêng) | **`CHAY-DESKTOP.bat`** |
+| Cài lần đầu | **`install-desktop.bat`** |
+| Tạo file Setup.exe | **`pack-desktop.ps1`** (trên Windows) |
+| File cài sau build | `dist/desktop/Meeting-Translator-Setup-1.0.0.exe` |
+| Dữ liệu trên máy bạn | `%APPDATA%\meeting-translator-desktop\` (`.env`, `recordings\`) |
+
+```text
+install-desktop.bat  →  sửa %APPDATA%\meeting-translator-desktop\.env  →  CHAY-DESKTOP.bat
+```
+
+App chạy trong **Electron** (cửa sổ desktop). Dịch/STT vẫn cần **internet** + API key.
+
+## Đường dẫn & file zip (portable)
 
 | Mục | Đường dẫn |
 |-----|-----------|
 | Thư mục app (trong repo) | `meeting-translator/` |
-| **File zip cài đặt** | `meeting-translator/dist/Meeting-Translator-v1.0.0.zip` |
+| **File zip** | `meeting-translator/dist/Meeting-Translator-v1.0.0.zip` |
 | Hướng dẫn tiếng Việt | `meeting-translator/HUONG_DAN_CAI_DAT.txt` |
-| Cài lần đầu (Windows) | `install.bat` → sau đó `CHAY.bat` |
-| Cài lần đầu (Linux/Mac) | `./install.sh` → `./start.sh` |
-| API key | `meeting-translator/backend/.env` |
-| Bản ghi đã lưu | `meeting-translator/backend/recordings/` |
+| Phiên bản trình duyệt (cũ) | `CHAY.bat` → http://127.0.0.1:5173 |
 
-Tạo lại gói zip: `./pack-release.sh` (Linux) hoặc `.\pack-release.ps1` (Windows).
+Tạo lại gói zip: `./pack-release.sh` hoặc `.\pack-release.ps1`.
 
-## Cài đặt nhanh
+## Cài đặt nhanh (desktop Windows)
 
-**Windows:** Giải nén zip → chạy `install.bat` → sửa `backend\.env` → chạy `CHAY.bat`
+**`install-desktop.bat`** → sửa API key trong `%APPDATA%\meeting-translator-desktop\.env` → **`CHAY-DESKTOP.bat`**
 
 **Linux/Mac:**
 
