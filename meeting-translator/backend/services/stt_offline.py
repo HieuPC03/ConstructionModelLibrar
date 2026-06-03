@@ -15,6 +15,22 @@ _model_lock = asyncio.Lock()
 _model_loading = False
 
 
+def _hub_repo_name(model_name: str) -> str:
+    return f"models--Systran--faster-whisper-{model_name}"
+
+
+def _model_cached(root: Path | None, model_name: str) -> bool:
+    if root is None or not root.is_dir():
+        return False
+    snapshots = root / _hub_repo_name(model_name) / "snapshots"
+    if not snapshots.is_dir():
+        return False
+    try:
+        return any(snapshots.iterdir())
+    except OSError:
+        return False
+
+
 def _cache_dir() -> Path:
     data = os.getenv("MEETING_TRANSLATOR_DATA")
     if data:
@@ -23,6 +39,40 @@ def _cache_dir() -> Path:
         p = Path("whisper-models")
     p.mkdir(parents=True, exist_ok=True)
     return p
+
+
+def _bundled_whisper_root() -> Path | None:
+    candidates = []
+    resources = os.getenv("RESOURCES_PATH")
+    if resources:
+        candidates.append(Path(resources) / "runtime" / "whisper-models")
+    candidates.append(Path(__file__).resolve().parents[2] / "runtime" / "whisper-models")
+    for base in candidates:
+        try:
+            if not base.is_dir():
+                continue
+            if any(
+                p.name.startswith("models--Systran--faster-whisper-")
+                for p in base.iterdir()
+            ):
+                return base
+        except OSError:
+            continue
+    return None
+
+
+def _resolve_download_root(model_name: str) -> Path:
+    """Prefer pre-bundled model in installer; else user AppData cache."""
+    bundled = _bundled_whisper_root()
+    if bundled is not None and _model_cached(bundled, model_name):
+        return bundled
+    return _cache_dir()
+
+
+def is_whisper_prebundled(model_name: str | None = None) -> bool:
+    name = model_name or get_offline_model_name()
+    bundled = _bundled_whisper_root()
+    return bundled is not None and _model_cached(bundled, name)
 
 
 def get_offline_model_name() -> str:
@@ -65,14 +115,14 @@ def _load_model_sync():
     from faster_whisper import WhisperModel
 
     name = get_offline_model_name()
-    cache = str(_cache_dir())
+    cache = str(_resolve_download_root(name))
     device = "cuda" if os.getenv("WHISPER_OFFLINE_DEVICE", "").lower() == "cuda" else "cpu"
     compute_type = "float16" if device == "cuda" else "int8"
     return WhisperModel(name, device=device, compute_type=compute_type, download_root=cache)
 
 
 async def ensure_offline_model() -> None:
-    """Preload Whisper model (first run may download ~500MB for 'small')."""
+    """Load Whisper (bundled in installer or download to user cache)."""
     global _model, _model_loading
     if _model is not None:
         return
@@ -93,11 +143,14 @@ async def ensure_offline_model() -> None:
 def offline_model_status() -> dict[str, str]:
     name = get_offline_model_name()
     ready = _model is not None
+    bundled = is_whisper_prebundled(name)
+    root = _resolve_download_root(name)
     return {
         "engine": "faster-whisper",
         "model": name,
         "ready": str(ready).lower(),
-        "cache_dir": str(_cache_dir()),
+        "bundled": str(bundled).lower(),
+        "cache_dir": str(root),
         "ffmpeg": str(_ffmpeg_available()).lower(),
     }
 

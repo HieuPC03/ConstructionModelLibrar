@@ -212,12 +212,25 @@ async def reset_settings_endpoint() -> dict[str, Any]:
 
 @app.post("/api/stt/offline/warmup")
 async def warmup_offline_stt() -> dict[str, Any]:
-    """Tải model Whisper local (lần đầu có thể mất vài phút)."""
-    from services.stt_offline import ensure_offline_model, offline_model_status
+    """Nạp model Whisper (đã gói trong installer hoặc tải về AppData)."""
+    from services.stt_offline import (
+        ensure_offline_model,
+        get_offline_model_name,
+        is_whisper_prebundled,
+        offline_model_status,
+    )
 
     try:
         await ensure_offline_model()
-        return {"ok": True, "message": "Whisper offline sẵn sàng", **offline_model_status()}
+        name = get_offline_model_name()
+        if is_whisper_prebundled(name):
+            msg = f"Whisper '{name}' sẵn sàng (đã cài kèm app, không cần tải thêm)"
+        else:
+            msg = (
+                f"Whisper '{name}' sẵn sàng. "
+                "Model này chưa gói sẵn — lần đầu có thể tải ~500MB vào AppData."
+            )
+        return {"ok": True, "message": msg, **offline_model_status()}
     except Exception as exc:
         from fastapi import HTTPException
 
@@ -239,14 +252,20 @@ async def test_provider_config() -> dict[str, Any]:
     via = text_translate_provider_for_mode(mode)
     try:
         if mode == SESSION_TRANSCRIPT:
-            from services.stt_offline import ensure_offline_model, get_offline_model_name
+            from services.stt_offline import (
+                ensure_offline_model,
+                get_offline_model_name,
+                is_whisper_prebundled,
+            )
 
             await ensure_offline_model()
+            name = get_offline_model_name()
+            extra = " (model kèm installer)" if is_whisper_prebundled(name) else ""
             return {
                 "ok": True,
                 "message": (
-                    f"Live Caption offline OK — Whisper '{get_offline_model_name()}' "
-                    "(không cần GEMINI_API_KEY)"
+                    f"Live Caption offline OK — Whisper '{name}'{extra}, "
+                    "không cần GEMINI_API_KEY"
                 ),
             }
         if via == "google":

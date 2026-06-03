@@ -24,7 +24,7 @@ const vi = {
   meeting: "Phiên họp",
   live: "LIVE",
   hintTranscript:
-    "Live Caption OFFLINE: nhận dạng giọng trên máy (Whisper), không cần GEMINI. Lần đầu tải model ~500MB. Cần FFmpeg.",
+    "Live Caption OFFLINE: Whisper chạy trên máy (model small ~500MB đã gói trong bản cài). Không cần GEMINI. Cần FFmpeg.",
   hintRealtime:
     "Dịch realtime chỉ dùng ChatGPT (OpenAI). Cần OPENAI_API_KEY. Nút Play / Stop.",
   source: "Nguồn",
@@ -72,8 +72,11 @@ const vi = {
   savedSession: "Đã lưu phiên",
   savedFiles: "Đã lưu video + văn bản",
   saveFailed: "Lưu thất bại (kiểm tra thư mục)",
-  loadingWhisper: "Đang tải Whisper offline (lần đầu có thể 2–5 phút)…",
+  loadingWhisper: "Đang mở Whisper (model đã cài kèm app)…",
+  loadingWhisperDownload: "Đang tải Whisper (~500MB, chỉ lần đầu)…",
   whisperModel: "Model Whisper",
+  whisperModelHint:
+    "Bản cài gói sẵn «small». Đổi tiny/base/medium sẽ tải thêm lần đầu.",
 };
 
 export type MessageKey = keyof typeof vi;
@@ -102,7 +105,7 @@ const ja: Record<MessageKey, string> = {
   meeting: "会議セッション",
   live: "LIVE",
   hintTranscript:
-    "Live Caption オフライン：PC上のWhisper（GEMINI不要）。初回モデル約500MB。FFmpegが必要。",
+    "Live Caption オフライン：Whisper（small約500MB同梱）。GEMINI不要。FFmpegが必要。",
   hintRealtime:
     "リアルタイム翻訳はChatGPT（OpenAI）のみ。OPENAI_API_KEYが必要。Play / Stop。",
   source: "ソース",
@@ -150,8 +153,11 @@ const ja: Record<MessageKey, string> = {
   savedSession: "セッションを保存しました",
   savedFiles: "動画とテキストを保存しました",
   saveFailed: "保存に失敗しました（フォルダを確認）",
-  loadingWhisper: "Whisperオフラインを読み込み中（初回は2〜5分）…",
+  loadingWhisper: "Whisperを起動中（同梱モデル）…",
+  loadingWhisperDownload: "Whisperをダウンロード中（初回のみ約500MB）…",
   whisperModel: "Whisperモデル",
+  whisperModelHint:
+    "インストーラに「small」同梱。他サイズは初回のみ追加ダウンロード。",
 };
 
 export const messages = { vi, ja };

@@ -23,6 +23,12 @@ export async function checkHealth(): Promise<{
   return res.json();
 }
 
+export async function getOfflineSttStatus(): Promise<Record<string, string>> {
+  const res = await fetch(`${API_BASE}/api/stt/offline/status`);
+  if (!res.ok) return {};
+  return res.json();
+}
+
 export async function warmupOfflineStt(): Promise<string> {
   const res = await fetch(`${API_BASE}/api/stt/offline/warmup`, { method: "POST" });
   const data = await res.json().catch(() => ({}));

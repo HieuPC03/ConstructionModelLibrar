@@ -1,6 +1,6 @@
 {
   "name": "meeting-translator-desktop",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "description": "Meeting Translator — ứng dụng desktop offline (cửa sổ riêng)",
   "main": "main.js",
   "author": "Meeting Translator",
@@ -52,6 +52,11 @@
       {
         "from": "../runtime/ffmpeg",
         "to": "runtime/ffmpeg",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../runtime/whisper-models",
+        "to": "runtime/whisper-models",
         "filter": ["**/*"]
       }
     ],

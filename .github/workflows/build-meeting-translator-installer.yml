@@ -33,6 +33,14 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Cache Whisper model (build)
+        uses: actions/cache@v4
+        with:
+          path: meeting-translator/runtime/whisper-models
+          key: whisper-small-${{ hashFiles('meeting-translator/backend/requirements.txt', 'meeting-translator/scripts/download_whisper_model.py') }}
+          restore-keys: |
+            whisper-small-
+
       - name: Build installer
         shell: pwsh
         run: ./pack-desktop.ps1

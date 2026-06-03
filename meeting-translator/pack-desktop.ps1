@@ -29,6 +29,8 @@ if (-not $SkipPythonBundle) {
     & "$Root\scripts\bundle-python.ps1" -Root $Root
     Write-Host "[1b/6] FFmpeg (offline STT)..." -ForegroundColor Yellow
     & "$Root\scripts\bundle-ffmpeg.ps1" -Root $Root
+    Write-Host "[1c/6] Whisper model small (~500MB, kem trong installer)..." -ForegroundColor Yellow
+    & "$Root\scripts\bundle-whisper.ps1" -Root $Root -Model "small"
 } else {
     Write-Host "[1/6] Bo qua bundle Python (dev)" -ForegroundColor DarkYellow
 }
@@ -78,7 +80,8 @@ MEETING TRANSLATOR - Ban cai dat
    %APPDATA%\meeting-translator-desktop\.env
 
 Khong can cai Python hay Node.js tren may nguoi dung.
-Can Internet khi dung tinh nang dich.
+Live Caption: Whisper small da gói san trong file cai (~500MB them).
+Can Internet khi dung dich van ban / dich realtime.
 "@
     Set-Content -Path (Join-Path $ReleaseDir "DOC-DAI.txt") -Value $readme -Encoding UTF8
 }

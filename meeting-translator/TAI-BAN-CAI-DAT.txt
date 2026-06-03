@@ -1,20 +1,18 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.5.2
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.5.3
 ============================================
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.5.2
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.5.3
 
-File cài:
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.2/Meeting-Translator-Setup-1.5.2.exe
+File cài (Whisper small ~500MB đã gói sẵn — không tải lần đầu):
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.3/Meeting-Translator-Setup-1.5.3.exe
 
 Gói đầy đủ (.exe + .bat):
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.2/Meeting-Translator-v1.5.2-Full-Package.zip
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.5.3/Meeting-Translator-v1.5.3-Full-Package.zip
+
+Tính năng v1.5.3:
+- Model Whisper «small» kèm trong installer (~1GB tổng, tùy máy)
+- Live Caption mở ngay sau cài, không cần tải model lần đầu
+- Đổi model tiny/base/medium trong Cài đặt → tải thêm lần đầu nếu chọn size khác
 
 Tính năng v1.5.2:
-- Sửa lỗi «Not supported» khi bấm Play (ghi âm Windows/Electron)
-
-Tính năng v1.5.1:
-- Live Caption OFFLINE: Whisper trên máy (không cần GEMINI_API_KEY)
-- Lần đầu Play: tải model Whisper (~500MB), cần FFmpeg (kèm trong bản cài)
-- Dịch realtime: ChatGPT (OPENAI_API_KEY)
-- Dịch văn bản: Google Translate
-- Giao diện Việt / 日本語, đổi màu, lưu .txt + video
+- Sửa lỗi «Not supported» khi Play

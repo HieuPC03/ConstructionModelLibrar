@@ -5,7 +5,12 @@ import { useAppSettings } from "../AppSettingsContext";
 import type { CaptureMode } from "../hooks/useAudioCapture";
 import { useAudioCapture } from "../hooks/useAudioCapture";
 import { useRealtimeSession } from "../hooks/useRealtimeSession";
-import { exportTranscript, exportVideoToFolder, warmupOfflineStt } from "../api";
+import {
+  exportTranscript,
+  exportVideoToFolder,
+  getOfflineSttStatus,
+  warmupOfflineStt,
+} from "../api";
 import { copyText } from "../utils/clipboard";
 import { friendlyMediaError } from "../utils/mediaRecorder";
 
@@ -23,6 +28,7 @@ function statusLabel(
   if (status === "saveFailed") return tr("saveFailed");
   if (status === "opening") return tr("statusOpeningAudio");
   if (status === "loadingWhisper") return tr("loadingWhisper");
+  if (status === "loadingWhisperDownload") return tr("loadingWhisperDownload");
   return status;
 }
 
@@ -83,7 +89,14 @@ export default function ConversationPanel() {
     session.setStatus("opening");
     try {
       if (!isTranslate) {
-        session.setStatus("loadingWhisper");
+        try {
+          const st = await getOfflineSttStatus();
+          session.setStatus(
+            st.bundled === "true" ? "loadingWhisper" : "loadingWhisperDownload"
+          );
+        } catch {
+          session.setStatus("loadingWhisper");
+        }
         await warmupOfflineStt();
       }
       const mixMic = captureMode === "screen" ? true : includeMic;

@@ -92,13 +92,14 @@ export default function SettingsBar() {
         <select
           value={whisperModel}
           onChange={(e) => setWhisperModel(e.target.value)}
-          title="tiny=nhe, small=can bang, medium=chat hon"
+          title={tr("whisperModelHint")}
         >
           <option value="tiny">tiny (~75MB)</option>
           <option value="base">base (~150MB)</option>
-          <option value="small">small (~500MB)</option>
+          <option value="small">small (gói sẵn ~500MB)</option>
           <option value="medium">medium (~1.5GB)</option>
         </select>
+        <span className="field-hint">{tr("whisperModelHint")}</span>
       </label>
       <label className="settings-field">
         {tr("theme")}

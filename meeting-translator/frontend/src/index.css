@@ -289,6 +289,13 @@ textarea {
   color: var(--muted);
 }
 
+.field-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  max-width: 14rem;
+  line-height: 1.3;
+}
+
 .settings-path input {
   min-width: 160px;
   max-width: 280px;

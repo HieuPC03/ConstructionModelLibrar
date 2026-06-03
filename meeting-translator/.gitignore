@@ -8,6 +8,7 @@ desktop/node_modules/
 dist/desktop/
 dist/release/
 runtime/python/
+runtime/whisper-models/
 build-cache/
 frontend/dist/
 dist/stage-*/
