@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, session, shell } = require("electron");
+const { app, BrowserWindow, dialog, session, shell, ipcMain } = require("electron");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -172,6 +172,20 @@ function createWindow() {
     return { action: "deny" };
   });
 }
+
+ipcMain.handle("open-config-folder", async () => {
+  const ud = ensureUserConfig();
+  shell.showItemInFolder(ud.env);
+  return ud.env;
+});
+
+ipcMain.handle("pick-folder", async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ["openDirectory", "createDirectory"],
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  return result.filePaths[0];
+});
 
 app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => {

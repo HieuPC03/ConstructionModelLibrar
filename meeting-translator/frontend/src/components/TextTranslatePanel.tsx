@@ -2,11 +2,7 @@ import { useState } from "react";
 import type { LangCode } from "../types";
 import { translateText } from "../api";
 
-interface Props {
-  provider: string;
-}
-
-export default function TextTranslatePanel({ provider }: Props) {
+export default function TextTranslatePanel() {
   const [sourceLang, setSourceLang] = useState<LangCode>("vi");
   const [targetLang, setTargetLang] = useState<LangCode>("ja");
   const [input, setInput] = useState("");
@@ -50,7 +46,7 @@ export default function TextTranslatePanel({ provider }: Props) {
     <section className="panel">
       <div className="panel-header">
         <h2>Dịch văn bản</h2>
-        <span className="badge">{provider}</span>
+        <span className="badge">ChatGPT</span>
       </div>
 
       <div className="text-translate-body">
@@ -109,7 +105,7 @@ export default function TextTranslatePanel({ provider }: Props) {
             output
           ) : (
             <span style={{ color: "var(--muted)" }}>
-              Kết quả dịch (ChatGPT / Gemini) hiển thị tại đây…
+              Kết quả dịch (ChatGPT) hiển thị tại đây…
             </span>
           )}
         </div>

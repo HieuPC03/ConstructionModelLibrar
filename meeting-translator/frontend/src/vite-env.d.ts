@@ -12,6 +12,8 @@ interface ImportMeta {
 interface DesktopAppBridge {
   isDesktop: boolean;
   version: string;
+  openConfigFolder?: () => Promise<string>;
+  pickFolder?: () => Promise<string | null>;
 }
 
 interface Window {

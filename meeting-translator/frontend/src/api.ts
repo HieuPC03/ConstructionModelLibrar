@@ -1,6 +1,14 @@
-import type { LangCode } from "./types";
+import type { LangCode, Utterance } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
+function parseApiError(err: unknown, fallback: string): string {
+  if (!err || typeof err !== "object") return fallback;
+  const detail = (err as { detail?: unknown }).detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail) && detail[0]?.msg) return String(detail[0].msg);
+  return fallback;
+}
 
 export async function checkHealth(): Promise<{
   status: string;
@@ -13,6 +21,43 @@ export async function checkHealth(): Promise<{
   const res = await fetch(`${API_BASE}/api/health`);
   if (!res.ok) throw new Error("Backend không phản hồi");
   return res.json();
+}
+
+export async function testApiKey(): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/config/test`, { method: "POST" });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(parseApiError(data, "Kiểm tra API thất bại"));
+  return (data as { message?: string }).message ?? "OK";
+}
+
+export type AppSettings = {
+  recordings_dir: string;
+  export_dir: string;
+  ui_language: "vi" | "ja";
+  default_source_lang: LangCode;
+  default_target_lang: LangCode;
+  meeting_pair: "vi-ja" | "ja-vi";
+  config_path?: string;
+  recordings_dir_active?: string;
+};
+
+export async function fetchSettings(): Promise<AppSettings> {
+  const res = await fetch(`${API_BASE}/api/settings`);
+  if (!res.ok) throw new Error("Không tải được cài đặt");
+  return res.json();
+}
+
+export async function updateSettings(
+  patch: Partial<AppSettings>
+): Promise<AppSettings> {
+  const res = await fetch(`${API_BASE}/api/settings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(parseApiError(data, "Lưu cài đặt thất bại"));
+  return data;
 }
 
 export async function translateText(
@@ -29,11 +74,8 @@ export async function translateText(
       target_lang: targetLang === "auto" ? "ja" : targetLang,
     }),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? "Dịch thất bại");
-  }
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(parseApiError(data, "Dịch thất bại"));
   return data.translation as string;
 }
 
@@ -62,4 +104,23 @@ export async function uploadRecording(
     body: form,
   });
   if (!res.ok) throw new Error("Lưu bản ghi thất bại");
+}
+
+export async function exportTranscript(
+  utterances: Utterance[],
+  saveDir: string,
+  filename: string
+): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/export/text`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      utterances,
+      save_dir: saveDir || undefined,
+      filename,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(parseApiError(data, "Xuất file thất bại"));
+  return (data as { path: string; message: string }).message;
 }

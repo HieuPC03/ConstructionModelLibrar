@@ -254,3 +254,52 @@ textarea {
 .hint-box strong {
   color: var(--text);
 }
+
+.settings-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+
+.settings-title {
+  font-weight: 600;
+  margin-right: 0.25rem;
+}
+
+.settings-field {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--muted);
+}
+
+.settings-path input {
+  min-width: 160px;
+  max-width: 280px;
+}
+
+.settings-msg {
+  color: var(--success);
+  max-width: 420px;
+}
+
+.settings-msg.err {
+  color: var(--danger);
+}
+
+.screen-preview-wrap {
+  padding: 0 1rem 0.5rem;
+}
+
+.screen-preview {
+  width: 100%;
+  max-height: 140px;
+  border-radius: 8px;
+  background: #000;
+  border: 1px solid var(--border);
+}

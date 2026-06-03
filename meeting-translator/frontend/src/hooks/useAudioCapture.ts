@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { AudioDeviceOption } from "../types";
 
-export type CaptureMode = "loopback" | "display" | "mic";
+export type CaptureMode = "loopback" | "display" | "screen" | "mic";
 
 async function listAudioInputs(): Promise<AudioDeviceOption[]> {
   const devices = await navigator.mediaDevices.enumerateDevices();
@@ -18,6 +18,7 @@ export function useAudioCapture() {
   const [error, setError] = useState<string | null>(null);
   const streamsRef = useRef<MediaStream[]>([]);
   const mixedRef = useRef<MediaStream | null>(null);
+  const screenVideoRef = useRef<MediaStream | null>(null);
 
   const refreshDevices = useCallback(async () => {
     try {
@@ -41,6 +42,8 @@ export function useAudioCapture() {
     );
     streamsRef.current = [];
     mixedRef.current = null;
+    screenVideoRef.current?.getTracks().forEach((t) => t.stop());
+    screenVideoRef.current = null;
   }, []);
 
   const startCapture = useCallback(
@@ -55,12 +58,16 @@ export function useAudioCapture() {
       const streams: MediaStream[] = [];
 
       try {
-        if (mode === "display") {
+        if (mode === "display" || mode === "screen") {
           const display = await navigator.mediaDevices.getDisplayMedia({
             video: true,
             audio: true,
           });
-          display.getVideoTracks().forEach((t) => t.stop());
+          if (mode === "screen" && display.getVideoTracks().length > 0) {
+            screenVideoRef.current = new MediaStream(display.getVideoTracks());
+          } else {
+            display.getVideoTracks().forEach((t) => t.stop());
+          }
           if (display.getAudioTracks().length > 0) {
             streams.push(new MediaStream(display.getAudioTracks()));
           }
@@ -123,5 +130,6 @@ export function useAudioCapture() {
     startCapture,
     stopAll,
     getMixedStream: () => mixedRef.current,
+    getScreenVideoStream: () => screenVideoRef.current,
   };
 }

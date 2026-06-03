@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import type { LangCode, Speaker, Utterance } from "../types";
-import { uploadRecording, wsUrl } from "../api";
+import { exportTranscript, uploadRecording, wsUrl } from "../api";
 
 const CHUNK_MS = 3000;
 
@@ -126,7 +126,7 @@ export function useRealtimeSession() {
     [appendUtterance, startChunkPipeline]
   );
 
-  const stopSession = useCallback(async () => {
+  const stopSession = useCallback(async (exportDir?: string) => {
     if (chunkIntervalRef.current) {
       clearInterval(chunkIntervalRef.current);
       chunkIntervalRef.current = null;
@@ -158,9 +158,18 @@ export function useRealtimeSession() {
           blob,
           JSON.stringify(utterances, null, 2)
         );
-        setStatus("Đã lưu âm thanh + hội thoại");
+        let msg = "Đã lưu âm thanh + hội thoại";
+        if (exportDir && utterances.length > 0) {
+          await exportTranscript(
+            utterances,
+            exportDir,
+            `transcript-${sid.slice(0, 8)}.txt`
+          );
+          msg += `; văn bản → ${exportDir}`;
+        }
+        setStatus(msg);
       } catch {
-        setStatus("Lưu bản ghi thất bại (kiểm tra backend)");
+        setStatus("Lưu bản ghi thất bại (kiểm tra thư mục lưu)");
       }
     }
 

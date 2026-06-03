@@ -37,7 +37,7 @@ def friendly_api_error(exc: Exception) -> str:
             "API key OpenAI không đúng hoặc đã hết hạn. "
             f"Sửa file: {hint} — dán key mới từ "
             "https://platform.openai.com/api-keys (bấm Create new secret key). "
-            "Sau đó khởi động lại app."
+            "Lưu file .env → tắt hẳn app (Task Manager) → mở lại."
         )
     if "insufficient_quota" in msg or "billing" in msg.lower():
         return (

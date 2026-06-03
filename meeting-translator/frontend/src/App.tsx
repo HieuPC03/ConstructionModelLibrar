@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import ConversationPanel from "./components/ConversationPanel";
+import SettingsBar from "./components/SettingsBar";
 import TextTranslatePanel from "./components/TextTranslatePanel";
 import { checkHealth } from "./api";
 
@@ -11,7 +12,7 @@ export default function App() {
   useEffect(() => {
     checkHealth()
       .then((h) => {
-        setProvider(h.provider);
+        setProvider(h.provider || "ChatGPT");
         setBackendOk(true);
         if (h.api_key_ok === false && h.message) {
           setConfigWarning(h.message);
@@ -36,6 +37,7 @@ export default function App() {
                 : "Đang kết nối…"}
         </span>
       </header>
+      <SettingsBar />
       {configWarning && (
         <div
           className="status-bar error"
@@ -46,7 +48,7 @@ export default function App() {
       )}
       <main className="split-layout">
         <ConversationPanel provider={provider} />
-        <TextTranslatePanel provider={provider} />
+        <TextTranslatePanel />
       </main>
     </>
   );
