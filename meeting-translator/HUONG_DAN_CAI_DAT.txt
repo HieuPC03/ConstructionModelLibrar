@@ -1,0 +1,74 @@
+═══════════════════════════════════════════════════════════════
+  MEETING TRANSLATOR — Hướng dẫn cài đặt & đường dẫn
+═══════════════════════════════════════════════════════════════
+
+■ ĐƯỜNG DẪN THƯ MỤC (sau khi giải nén)
+──────────────────────────────────────────────────────────────
+  Windows ví dụ:
+    C:\Users\<TenBan>\Downloads\Meeting-Translator\
+  hoặc (trong repo Git):
+    <thu-muc-repo>\meeting-translator\
+
+  Các file quan trọng:
+    install.bat          → Cài đặt lần đầu (bắt buộc)
+    CHAY.bat             → Mở ứng dụng mỗi lần dùng
+    backend\.env         → API key OpenAI / Gemini
+    backend\recordings\  → Bản ghi hội thoại đã lưu
+    frontend\dist\       → Giao diện web (sau khi build)
+
+■ FILE CÀI ĐẶT (gói zip)
+──────────────────────────────────────────────────────────────
+  Tên file:  Meeting-Translator-v1.0.0.zip
+  Vị trí:    meeting-translator\dist\Meeting-Translator-v1.0.0.zip
+
+  Tạo lại gói zip (trên máy có bash):
+    cd meeting-translator
+    ./pack-release.sh
+
+  Windows (PowerShell):
+    cd meeting-translator
+    .\pack-release.ps1
+
+■ YÊU CẦU HỆ THỐNG
+──────────────────────────────────────────────────────────────
+  - Windows 10/11 (khuyến nghị) hoặc Linux / macOS
+  - Python 3.10 trở lên  → https://www.python.org/downloads/
+  - Node.js 18 LTS       → https://nodejs.org/
+  - Tài khoản API:
+      OPENAI_API_KEY  (bắt buộc — nhận dạng giọng Whisper)
+      GEMINI_API_KEY  (tùy chọn — nếu dùng Gemini để dịch)
+
+■ CÀI ĐẶT NHANH (WINDOWS)
+──────────────────────────────────────────────────────────────
+  1. Giải nén Meeting-Translator-v1.0.0.zip
+  2. Double-click:  install.bat
+  3. Mở file backend\.env, điền:
+       OPENAI_API_KEY=sk-...
+       TRANSLATOR_PROVIDER=openai
+     (hoặc gemini + GEMINI_API_KEY)
+  4. Double-click:  CHAY.bat
+  5. Trình duyệt mở http://127.0.0.1:5173
+
+■ CÀI ĐẶT (LINUX / macOS)
+──────────────────────────────────────────────────────────────
+  cd meeting-translator
+  cp backend/.env.example backend/.env
+  # Sửa backend/.env — thêm API key
+  chmod +x install.sh start.sh pack-release.sh
+  ./install.sh
+  ./start.sh
+
+■ DÙNG TAI NGHE — KHÔNG CẦN MICRO CUỘC HỌP
+──────────────────────────────────────────────────────────────
+  Trong app, cột trái:
+    - Chọn nguồn: "Loopback / Stereo Mix"
+    - Thiết bị: Stereo Mix (Windows) hoặc Monitor of … (Linux)
+  Hoặc: "Chia sẻ tab" nếu họp trên Chrome/Edge (bật âm thanh tab).
+
+  Bật "Thêm micro" nếu muốn ghi cả lời bạn nói.
+
+■ HỖ TRỢ
+──────────────────────────────────────────────────────────────
+  Chi tiết kỹ thuật: README.md (tiếng Anh/Việt)
+
+═══════════════════════════════════════════════════════════════

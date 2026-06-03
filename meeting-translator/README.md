@@ -13,14 +13,33 @@
 
 **STT (nhận dạng giọng nói):** OpenAI Whisper (cần `OPENAI_API_KEY`).
 
+## Đường dẫn & file cài đặt
+
+| Mục | Đường dẫn |
+|-----|-----------|
+| Thư mục app (trong repo) | `meeting-translator/` |
+| **File zip cài đặt** | `meeting-translator/dist/Meeting-Translator-v1.0.0.zip` |
+| Hướng dẫn tiếng Việt | `meeting-translator/HUONG_DAN_CAI_DAT.txt` |
+| Cài lần đầu (Windows) | `install.bat` → sau đó `CHAY.bat` |
+| Cài lần đầu (Linux/Mac) | `./install.sh` → `./start.sh` |
+| API key | `meeting-translator/backend/.env` |
+| Bản ghi đã lưu | `meeting-translator/backend/recordings/` |
+
+Tạo lại gói zip: `./pack-release.sh` (Linux) hoặc `.\pack-release.ps1` (Windows).
+
 ## Cài đặt nhanh
+
+**Windows:** Giải nén zip → chạy `install.bat` → sửa `backend\.env` → chạy `CHAY.bat`
+
+**Linux/Mac:**
 
 ```bash
 cd meeting-translator
 cp backend/.env.example backend/.env
 # Sửa backend/.env: OPENAI_API_KEY và/hoặc GEMINI_API_KEY
 
-chmod +x start.sh
+chmod +x start.sh install.sh
+./install.sh
 ./start.sh
 ```
 
