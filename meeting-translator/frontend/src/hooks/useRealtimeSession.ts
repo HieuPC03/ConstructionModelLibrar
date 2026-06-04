@@ -15,6 +15,7 @@ import {
   wsUrl,
 } from "../api";
 import {
+  chunkFilenameForMime,
   createMediaRecorder,
   friendlyMediaError,
   resumeStreamAudioContext,
@@ -61,7 +62,7 @@ export function useRealtimeSession() {
   const [isLive, setIsLive] = useState(false);
   const [status, setStatus] = useState("idle");
   const wsRef = useRef<WebSocket | null>(null);
-  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunkPumpIntervalRef = useRef<number | null>(null);
   const videoRecorderRef = useRef<MediaRecorder | null>(null);
   const recordChunksRef = useRef<Blob[]>([]);
   const videoChunksRef = useRef<Blob[]>([]);
@@ -142,27 +143,52 @@ export function useRealtimeSession() {
     []
   );
 
+  const clearChunkPump = useCallback(() => {
+    if (chunkPumpIntervalRef.current) {
+      clearInterval(chunkPumpIntervalRef.current);
+      chunkPumpIntervalRef.current = null;
+    }
+  }, []);
+
+  /** Một recorder mỗi lần, gộp blob hoàn chỉnh rồi mới gửi Whisper (tránh slice timeslice lỗi 400). */
   const startLiveAudioRecording = useCallback(
     (stream: MediaStream, meta: Record<string, string>) => {
-      if (recorderRef.current && recorderRef.current.state !== "inactive") {
-        return;
-      }
+      if (chunkPumpIntervalRef.current) return;
       recordChunksRef.current = [];
-      const { recorder: rec, mimeType } = createMediaRecorder(stream);
-      audioMimeRef.current = mimeType;
-      rec.ondataavailable = (e) => {
-        if (!e.data.size) return;
-        recordChunksRef.current.push(e.data);
-        if (e.data.size >= MIN_CHUNK_BYTES) {
-          const ext = mimeType.includes("ogg") ? "chunk.ogg" : "chunk.webm";
-          sendAudioChunk(e.data, { ...meta, filename: ext });
+
+      const pump = () => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+        try {
+          const { recorder: rec, mimeType } = createMediaRecorder(stream);
+          audioMimeRef.current = mimeType;
+          const slices: Blob[] = [];
+          rec.ondataavailable = (e) => {
+            if (e.data.size > 0) slices.push(e.data);
+          };
+          rec.onstop = () => {
+            if (!slices.length) return;
+            const blob = new Blob(slices, { type: mimeType });
+            if (blob.size < MIN_CHUNK_BYTES) return;
+            recordChunksRef.current.push(blob);
+            sendAudioChunk(blob, {
+              ...meta,
+              filename: chunkFilenameForMime(mimeType),
+            });
+          };
+          rec.onerror = () => {
+            setStatus("error:MediaRecorder lỗi khi ghi âm từ nguồn này");
+          };
+          rec.start();
+          window.setTimeout(() => {
+            if (rec.state === "recording") rec.stop();
+          }, CHUNK_MS);
+        } catch (e) {
+          setStatus(`error:${friendlyMediaError(e)}`);
         }
       };
-      rec.onerror = () => {
-        setStatus("error:MediaRecorder lỗi khi ghi âm từ nguồn này");
-      };
-      rec.start(CHUNK_MS);
-      recorderRef.current = rec;
+
+      pump();
+      chunkPumpIntervalRef.current = window.setInterval(pump, CHUNK_MS);
     },
     [sendAudioChunk]
   );
@@ -291,10 +317,9 @@ export function useRealtimeSession() {
   }, []);
 
   const abortSession = useCallback(() => {
+    clearChunkPump();
     wsRef.current?.close();
     wsRef.current = null;
-    recorderRef.current?.stop();
-    recorderRef.current = null;
     videoRecorderRef.current?.stop();
     videoRecorderRef.current = null;
     recordChunksRef.current = [];
@@ -309,10 +334,11 @@ export function useRealtimeSession() {
     openSegmentIdRef.current = null;
     chunkStreamRef.current = null;
     setStatus("idle");
-  }, []);
+  }, [clearChunkPump]);
 
   const stopSession = useCallback(
     async (exportDir?: string, videoExportDir?: string) => {
+      clearChunkPump();
       const ws = wsRef.current;
       if (ws?.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "end_session" }));
@@ -320,15 +346,6 @@ export function useRealtimeSession() {
         ws.close();
       }
       wsRef.current = null;
-
-      const rec = recorderRef.current;
-      if (rec && rec.state !== "inactive") {
-        await new Promise<void>((resolve) => {
-          rec.onstop = () => resolve();
-          rec.stop();
-        });
-      }
-      recorderRef.current = null;
 
       const vRec = videoRecorderRef.current;
       if (vRec && vRec.state !== "inactive") {
@@ -404,7 +421,7 @@ export function useRealtimeSession() {
       streamRef.current = null;
       setIsLive(false);
     },
-    [sessionId, utterances, transcriptSegments]
+    [sessionId, utterances, transcriptSegments, clearChunkPump]
   );
 
   const activeSegment =

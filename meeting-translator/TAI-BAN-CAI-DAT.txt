@@ -1,11 +1,10 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.6.5
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.6.6
 ============================================
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.6.5/Meeting-Translator-Setup-1.6.5.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.6.6/Meeting-Translator-Setup-1.6.6.exe
 (404 = đợi CI ~5 phút)
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.6.5
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.6.6
 
-v1.6.5 — Sửa Live Caption micro / Stereo Mix / loopback (một MediaRecorder, AudioContext)
-v1.6.4 — Dịch realtime chờ hết cấu
-v1.6.3 — Live Caption ghi chữ ổn định
+v1.6.6 — Sửa lỗi OpenAI «Invalid file format» (gộp blob âm thanh trước khi gửi STT)
+v1.6.5 — Live Caption micro / Stereo Mix

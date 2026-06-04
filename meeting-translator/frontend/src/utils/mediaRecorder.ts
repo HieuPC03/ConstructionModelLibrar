@@ -91,6 +91,15 @@ export async function pickRecordableAudioStream(
   );
 }
 
+/** Tên file gửi Whisper — khớp MIME thực tế của MediaRecorder. */
+export function chunkFilenameForMime(mimeType: string): string {
+  const m = mimeType.toLowerCase();
+  if (m.includes("ogg")) return "chunk.ogg";
+  if (m.includes("mp4") || m.includes("m4a")) return "chunk.m4a";
+  if (m.includes("wav")) return "chunk.wav";
+  return "chunk.webm";
+}
+
 export function createMediaRecorder(
   stream: MediaStream,
   mimeCandidates: string[] = AUDIO_MIME_CANDIDATES

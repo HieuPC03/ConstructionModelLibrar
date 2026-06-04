@@ -13,6 +13,22 @@ from services.config import (
 from services.errors import is_valid_gemini_key, is_valid_openai_key
 
 WHISPER_LANG = {"vi": "vi", "ja": "ja", "en": "en", "auto": None}
+MIN_AUDIO_BYTES = 280
+
+
+def _audio_suffix_from_bytes(data: bytes, filename: str) -> str:
+    """Đuôi file khớp magic bytes — tránh gửi .webm cho blob Ogg/MP4."""
+    if len(data) >= 4 and data[:4] == b"OggS":
+        return ".ogg"
+    if len(data) >= 4 and data[:4] == b"RIFF":
+        return ".wav"
+    if len(data) >= 8 and data[4:8] == b"ftyp":
+        return ".m4a"
+    if len(data) >= 4 and data[:4] == bytes((0x1A, 0x45, 0xDF, 0xA3)):
+        return ".webm"
+    if "." in filename:
+        return filename[filename.rfind(".") :]
+    return ".webm"
 _GEMINI_LANG_HINT = {
     "vi": "The speech is in Vietnamese.",
     "ja": "The speech is in Japanese.",
@@ -26,6 +42,8 @@ async def transcribe_audio(
     language: str = "auto",
     engine: str | None = None,
 ) -> str:
+    if len(audio_bytes) < MIN_AUDIO_BYTES:
+        return ""
     if engine == "openai":
         return await _transcribe_openai(audio_bytes, filename, language)
     if engine == "gemini":
@@ -75,9 +93,7 @@ async def _transcribe_openai(
     client = AsyncOpenAI(api_key=api_key)
     lang = WHISPER_LANG.get(language)
 
-    suffix = ".webm"
-    if "." in filename:
-        suffix = filename[filename.rfind(".") :]
+    suffix = _audio_suffix_from_bytes(audio_bytes, filename)
 
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(audio_bytes)
@@ -90,12 +106,19 @@ async def _transcribe_openai(
                 kwargs["language"] = lang
             try:
                 transcript = await client.audio.transcriptions.create(**kwargs)
-            except Exception:
+            except Exception as primary_exc:
+                if "invalid file format" in str(primary_exc).lower():
+                    return ""
                 with open(tmp_path, "rb") as fallback_file:
                     fb: dict = {"model": "whisper-1", "file": fallback_file}
                     if lang:
                         fb["language"] = lang
-                    transcript = await client.audio.transcriptions.create(**fb)
+                    try:
+                        transcript = await client.audio.transcriptions.create(**fb)
+                    except Exception as fb_exc:
+                        if "invalid file format" in str(fb_exc).lower():
+                            return ""
+                        raise fb_exc from primary_exc
         return (transcript.text or "").strip()
     finally:
         try:
