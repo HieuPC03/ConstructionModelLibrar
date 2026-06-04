@@ -14,7 +14,11 @@ import {
   translateCaptionOpenAI,
 } from "../api";
 import { copyText } from "../utils/clipboard";
-import { SYSTEM_AUDIO_AUTO_ID, deviceOptionLabel } from "../utils/audioDevices";
+import {
+  deviceOptionLabel,
+  isWindowsSystemAudioShare,
+  SYSTEM_AUDIO_WINDOWS_SHARE,
+} from "../utils/audioDevices";
 import { friendlyMediaError } from "../utils/mediaRecorder";
 
 function statusLabel(
@@ -41,8 +45,8 @@ export default function ConversationPanel() {
   const { tr, exportDir, recordingsDir } = useAppSettings();
   const [sourceLang, setSourceLang] = useState<LangCode>("auto");
   const [targetLang, setTargetLang] = useState<LangCode>("vi");
-  const [captureMode, setCaptureMode] = useState<CaptureMode>("screen");
-  const [loopbackId, setLoopbackId] = useState("");
+  const [captureMode, setCaptureMode] = useState<CaptureMode>("system");
+  const [loopbackId, setLoopbackId] = useState(SYSTEM_AUDIO_WINDOWS_SHARE);
   const [includeMic, setIncludeMic] = useState(true);
   const [hearLoopback, setHearLoopback] = useState(true);
   const [starting, setStarting] = useState(false);
@@ -96,15 +100,19 @@ export default function ConversationPanel() {
       await checkHealth();
       const mixMic = captureMode === "screen" ? true : includeMic;
       const loopDevice =
-        captureMode === "loopback"
-          ? loopbackId || SYSTEM_AUDIO_AUTO_ID
+        captureMode === "loopback" || captureMode === "system"
+          ? captureMode === "system"
+            ? SYSTEM_AUDIO_WINDOWS_SHARE
+            : loopbackId
           : undefined;
+      const useVbCable =
+        captureMode === "loopback" && !isWindowsSystemAudioShare(loopbackId);
       const stream = await audio.startCapture(
         captureMode,
         loopDevice,
         mixMic,
         undefined,
-        captureMode === "loopback" ? hearLoopback : false
+        useVbCable && hearLoopback
       );
       const videoStream = audio.getCompositeRecordStream();
       await session.startSession(
@@ -136,8 +144,8 @@ export default function ConversationPanel() {
     setRefreshing(true);
     try {
       await resetToDefaults();
-      setCaptureMode("screen");
-      setLoopbackId("");
+      setCaptureMode("system");
+      setLoopbackId(SYSTEM_AUDIO_WINDOWS_SHARE);
       setIncludeMic(true);
       setSourceLang("auto");
       setTargetLang("vi");
@@ -272,11 +280,13 @@ export default function ConversationPanel() {
       </div>
 
       <div className="hint-box">
-        {captureMode === "loopback"
-          ? tr("hintLoopback")
-          : isTranslate
-            ? tr("hintRealtime")
-            : tr("hintTranscript")}
+        {captureMode === "system"
+          ? tr("hintSystemNoCable")
+          : captureMode === "loopback"
+            ? tr("hintLoopback")
+            : isTranslate
+              ? tr("hintRealtime")
+              : tr("hintTranscript")}
       </div>
 
       <div className="panel-header">
@@ -287,41 +297,48 @@ export default function ConversationPanel() {
               value={captureMode}
               onChange={(e) => setCaptureMode(e.target.value as CaptureMode)}
             >
+              <option value="system">{tr("sourceSystemNoCable")}</option>
+              <option value="loopback">{tr("sourceLoopbackVb")}</option>
               <option value="screen">{tr("sourceScreen")}</option>
               <option value="display">{tr("sourceDisplay")}</option>
-              <option value="loopback">{tr("sourceLoopback")}</option>
               <option value="mic">{tr("sourceMic")}</option>
             </select>
           </label>
           {captureMode === "loopback" && (
             <>
               <label>
-                {tr("device")}
+                {tr("loopbackMethod")}
                 <select
                   value={loopbackId}
                   onChange={(e) => setLoopbackId(e.target.value)}
                 >
-                  <option value={SYSTEM_AUDIO_AUTO_ID}>
-                    {tr("systemAudioAuto")}
+                  <option value={SYSTEM_AUDIO_WINDOWS_SHARE}>
+                    {tr("systemAudioNoCable")}
                   </option>
-                  {loopbackDevices.map((d) => (
-                    <option key={d.deviceId} value={d.deviceId}>
-                      {deviceOptionLabel(d)}
-                    </option>
-                  ))}
+                  {loopbackDevices.length > 0 && (
+                    <optgroup label={tr("loopbackDevicesGroup")}>
+                      {loopbackDevices.map((d) => (
+                        <option key={d.deviceId} value={d.deviceId}>
+                          {deviceOptionLabel(d)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </label>
-              <label title={tr("hearLoopbackHint")}>
-                <input
-                  type="checkbox"
-                  checked={hearLoopback}
-                  onChange={(e) => setHearLoopback(e.target.checked)}
-                />
-                {tr("hearLoopback")}
-              </label>
+              {!isWindowsSystemAudioShare(loopbackId) && (
+                <label title={tr("hearLoopbackHint")}>
+                  <input
+                    type="checkbox"
+                    checked={hearLoopback}
+                    onChange={(e) => setHearLoopback(e.target.checked)}
+                  />
+                  {tr("hearLoopback")}
+                </label>
+              )}
             </>
           )}
-          {captureMode !== "screen" && (
+          {captureMode !== "screen" && captureMode !== "system" && (
             <label>
               <input
                 type="checkbox"

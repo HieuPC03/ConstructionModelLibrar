@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AudioDeviceOption } from "../types";
 import {
+  isWindowsSystemAudioShare,
   listLoopbackDeviceOptions,
-  pickBestLoopbackDevice,
-  SYSTEM_AUDIO_AUTO_ID,
 } from "../utils/audioDevices";
 import {
   startLoopbackMonitor,
@@ -14,7 +13,12 @@ import {
   pickRecordableAudioStream,
 } from "../utils/mediaRecorder";
 
-export type CaptureMode = "loopback" | "display" | "screen" | "mic";
+export type CaptureMode =
+  | "loopback"
+  | "system"
+  | "display"
+  | "screen"
+  | "mic";
 
 async function listAudioInputs(): Promise<AudioDeviceOption[]> {
   const devices = await navigator.mediaDevices.enumerateDevices();
@@ -159,34 +163,23 @@ export function useAudioCapture() {
           if (mode === "screen") {
             mixMic = true;
           }
-        } else if (mode === "loopback") {
-          const inputs = await listAudioInputs();
-          const explicitId =
-            loopbackDeviceId && loopbackDeviceId !== SYSTEM_AUDIO_AUTO_ID
-              ? loopbackDeviceId
-              : undefined;
-          const autoPick = explicitId
-            ? undefined
-            : pickBestLoopbackDevice(inputs);
+        } else if (mode === "system" || mode === "loopback") {
+          const useWindowsShare =
+            mode === "system" ||
+            isWindowsSystemAudioShare(loopbackDeviceId);
 
-          if (explicitId) {
-            const loop = await openLoopbackDevice(explicitId);
-            loopbackRawForMonitor = loop;
-            audioStreams.push(loop);
-          } else if (autoPick) {
-            try {
-              const loop = await openLoopbackDevice(autoPick.deviceId);
-              loopbackRawForMonitor = loop;
-              audioStreams.push(loop);
-            } catch {
-              /* thiết bị loopback lỗi → thử chia sẻ hệ thống */
-            }
-          }
-
-          if (audioStreams.length === 0) {
+          if (useWindowsShare) {
             const sys = await captureSystemAudioViaDisplay();
             systemAudioViaDisplayRef.current = true;
             audioStreams.push(sys);
+          } else if (loopbackDeviceId) {
+            const loop = await openLoopbackDevice(loopbackDeviceId);
+            loopbackRawForMonitor = loop;
+            audioStreams.push(loop);
+          } else {
+            throw new Error(
+              "Chọn «Không cần VB-Cable» hoặc một thiết bị VB-Cable / loopback."
+            );
           }
         }
 

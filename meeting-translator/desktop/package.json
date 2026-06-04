@@ -1,6 +1,6 @@
 {
   "name": "meeting-translator-desktop",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Meeting Translator — ứng dụng desktop offline (cửa sổ riêng)",
   "main": "main.js",
   "author": "Meeting Translator",
