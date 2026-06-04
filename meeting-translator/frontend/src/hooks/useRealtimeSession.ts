@@ -24,10 +24,10 @@ import {
   resumeStreamAudioContext,
 } from "../utils/mediaRecorder";
 
-/** Chunk ngắn hơn → STT và chữ trên màn hình nhanh hơn (~1.8s). */
-const CHUNK_MS = 1800;
-/** Chunk nhỏ hơn vẫn gửi STT (micro / Stereo Mix thường ít dữ liệu hơn quay màn hình). */
-const MIN_CHUNK_BYTES = 256;
+/** Chunk ngắn → STT và chữ live nhanh hơn (~1.2s, tốn API hơn một chút). */
+const CHUNK_MS = 1200;
+/** Chunk nhỏ hơn vẫn gửi STT (micro / loopback). */
+const MIN_CHUNK_BYTES = 200;
 const MODE_TRANSCRIPT: SessionMode = "transcript";
 const MODE_REALTIME: SessionMode = "translate_realtime";
 

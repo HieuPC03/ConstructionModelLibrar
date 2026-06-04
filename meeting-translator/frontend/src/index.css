@@ -491,6 +491,10 @@ textarea {
   border: 1px solid var(--border);
 }
 
+.text-provider-switch {
+  margin-bottom: 0.5rem;
+}
+
 .mode-switch {
   display: flex;
   gap: 0.5rem;

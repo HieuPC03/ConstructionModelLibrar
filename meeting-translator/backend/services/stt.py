@@ -13,7 +13,7 @@ from services.config import (
 from services.errors import is_valid_gemini_key, is_valid_openai_key
 
 WHISPER_LANG = {"vi": "vi", "ja": "ja", "en": "en", "auto": None}
-MIN_AUDIO_BYTES = 280
+MIN_AUDIO_BYTES = 200
 
 
 def _audio_suffix_from_bytes(data: bytes, filename: str) -> str:

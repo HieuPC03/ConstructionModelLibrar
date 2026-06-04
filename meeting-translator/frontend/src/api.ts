@@ -130,10 +130,13 @@ export type TextTranslateResult = {
   notice: string | null;
 };
 
+export type TextTranslateProvider = "google" | "openai";
+
 export async function translateText(
   text: string,
   sourceLang: LangCode,
-  targetLang: LangCode
+  targetLang: LangCode,
+  provider: TextTranslateProvider = "google"
 ): Promise<TextTranslateResult> {
   const res = await fetch(`${apiBase()}/api/translate/text`, {
     method: "POST",
@@ -143,7 +146,7 @@ export async function translateText(
       source_lang: sourceLang === "auto" ? "vi" : sourceLang,
       target_lang: targetLang === "auto" ? "ja" : targetLang,
       session_mode: "transcript",
-      use_openai: false,
+      use_openai: provider === "openai",
     }),
   });
   const data = await res.json().catch(() => ({}));

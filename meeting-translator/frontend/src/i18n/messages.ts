@@ -67,6 +67,13 @@ const vi = {
   liveCaption: "Phụ đề trực tiếp",
   textTranslate: "Dịch văn bản",
   googleTranslate: "Google Translate",
+  chatGptTranslate: "ChatGPT",
+  textProviderGoogle: "Google",
+  textProviderChatGpt: "ChatGPT",
+  textHintGoogle:
+    "Google Translate — miễn phí, không cần API key.",
+  textHintChatGpt:
+    "ChatGPT (OpenAI) — cần OPENAI_API_KEY trong .env, chất lượng dịch tốt hơn.",
   textHint: "Dịch thủ công qua Google Translate (miễn phí, không cần API key).",
   viToJa: "Việt → Nhật",
   jaToVi: "Nhật → Việt",
@@ -161,6 +168,12 @@ const ja: Record<MessageKey, string> = {
   liveCaption: "ライブ字幕",
   textTranslate: "テキスト翻訳",
   googleTranslate: "Google翻訳",
+  chatGptTranslate: "ChatGPT",
+  textProviderGoogle: "Google",
+  textProviderChatGpt: "ChatGPT",
+  textHintGoogle: "Google Translate — 無料、APIキー不要。",
+  textHintChatGpt:
+    "ChatGPT（OpenAI）— .envにOPENAI_API_KEYが必要です。",
   textHint: "手動翻訳はGoogle Translateのみ（無料、APIキー不要）。",
   viToJa: "ベトナム語 → 日本語",
   jaToVi: "日本語 → ベトナム語",

@@ -4,20 +4,43 @@ import {
   APP_RESET_EVENT,
   TEXT_TRANSLATE_FILL_EVENT,
   type TextTranslateFillDetail,
+  type TextTranslateProvider,
   translateText,
 } from "../api";
 import { useAppSettings } from "../AppSettingsContext";
 import { copyText } from "../utils/clipboard";
 
+const TEXT_PROVIDER_KEY = "meeting-translator-text-provider";
+
+function loadTextProvider(): TextTranslateProvider {
+  try {
+    const v = localStorage.getItem(TEXT_PROVIDER_KEY);
+    if (v === "openai" || v === "google") return v;
+  } catch {
+    /* ignore */
+  }
+  return "google";
+}
+
 export default function TextTranslatePanel() {
   const { tr } = useAppSettings();
   const [sourceLang, setSourceLang] = useState<LangCode>("vi");
   const [targetLang, setTargetLang] = useState<LangCode>("ja");
+  const [provider, setProvider] = useState<TextTranslateProvider>(loadTextProvider);
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
+  const [lastProviderLabel, setLastProviderLabel] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(TEXT_PROVIDER_KEY, provider);
+    } catch {
+      /* ignore */
+    }
+  }, [provider]);
 
   useEffect(() => {
     const onReset = () => {
@@ -26,6 +49,7 @@ export default function TextTranslatePanel() {
       setInput("");
       setOutput("");
       setError(null);
+      setLastProviderLabel(null);
     };
     window.addEventListener(APP_RESET_EVENT, onReset);
     return () => window.removeEventListener(APP_RESET_EVENT, onReset);
@@ -38,6 +62,7 @@ export default function TextTranslatePanel() {
       setInput(detail.text);
       setOutput("");
       setError(null);
+      setLastProviderLabel(null);
       if (detail.sourceLang && detail.sourceLang !== "auto") {
         setSourceLang(detail.sourceLang);
       }
@@ -63,11 +88,21 @@ export default function TextTranslatePanel() {
     setLoading(true);
     setError(null);
     try {
-      const result = await translateText(input, sourceLang, targetLang);
+      const result = await translateText(
+        input,
+        sourceLang,
+        targetLang,
+        provider
+      );
       setOutput(result.translation);
+      setLastProviderLabel(result.provider);
+      if (result.notice) {
+        setError(result.notice);
+      }
     } catch (e) {
       setError((e as Error).message);
       setOutput("");
+      setLastProviderLabel(null);
     } finally {
       setLoading(false);
     }
@@ -90,14 +125,44 @@ export default function TextTranslatePanel() {
     }
   };
 
+  const providerBadge =
+    provider === "openai" ? tr("chatGptTranslate") : tr("googleTranslate");
+
   return (
     <section className="panel">
       <div className="panel-header">
         <h2>{tr("textTranslate")}</h2>
-        <span className="badge">{tr("googleTranslate")}</span>
+        <span className="badge">
+          {lastProviderLabel || providerBadge}
+        </span>
       </div>
 
-      <div className="hint-box">{tr("textHint")}</div>
+      <div className="mode-switch text-provider-switch">
+        <button
+          type="button"
+          className={
+            provider === "google" ? "mode-btn active" : "mode-btn secondary"
+          }
+          onClick={() => setProvider("google")}
+          disabled={loading}
+        >
+          {tr("textProviderGoogle")}
+        </button>
+        <button
+          type="button"
+          className={
+            provider === "openai" ? "mode-btn active" : "mode-btn secondary"
+          }
+          onClick={() => setProvider("openai")}
+          disabled={loading}
+        >
+          {tr("textProviderChatGpt")}
+        </button>
+      </div>
+
+      <div className="hint-box">
+        {provider === "openai" ? tr("textHintChatGpt") : tr("textHintGoogle")}
+      </div>
 
       <div className="text-translate-body">
         <div className="lang-swap">
@@ -172,7 +237,7 @@ export default function TextTranslatePanel() {
         </div>
 
         <div className="translation-result">
-          {error ? (
+          {error && !output ? (
             <span style={{ color: "var(--danger)" }}>{error}</span>
           ) : output ? (
             output
@@ -180,6 +245,11 @@ export default function TextTranslatePanel() {
             <span style={{ color: "var(--muted)" }}>{tr("resultPlaceholder")}</span>
           )}
         </div>
+        {error && output && (
+          <p className="translate-notice" style={{ color: "var(--muted)", marginTop: "0.35rem" }}>
+            {error}
+          </p>
+        )}
         {output && (
           <button
             type="button"
