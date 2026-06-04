@@ -1,9 +1,9 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.6.7
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.6.8
 ============================================
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.6.7/Meeting-Translator-Setup-1.6.7.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.6.8/Meeting-Translator-Setup-1.6.8.exe
 (404 = đợi CI ~5 phút)
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.6.7
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.6.8
 
-v1.6.7 — Live: dải «đang nghe» cập nhật liên tục; dưới là câu hoàn chỉnh; STT nhanh hơn (~1.8s)
+v1.6.8 — Âm thanh hệ thống: không bắt buộc Stereo Mix; tự động chia sẻ Windows / VB-Cable

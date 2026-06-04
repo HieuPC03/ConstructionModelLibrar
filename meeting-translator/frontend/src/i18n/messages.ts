@@ -33,7 +33,10 @@ const vi = {
   source: "Nguồn",
   sourceScreen: "Quay màn hình (loa + micro)",
   sourceDisplay: "Chia sẻ tab / màn hình",
-  sourceLoopback: "Loopback / Stereo Mix",
+  sourceLoopback: "Âm thanh hệ thống",
+  systemAudioAuto: "Tự động (Windows / VB-Cable…)",
+  hintLoopback:
+    "Không cần Stereo Mix: chọn «Tự động» để chia sẻ âm thanh hệ thống Windows, hoặc thiết bị VB-Cable / Voicemeeter nếu đã cài.",
   sourceMic: "Chỉ micro",
   device: "Thiết bị",
   addMic: "Thêm micro",
@@ -122,7 +125,10 @@ const ja: Record<MessageKey, string> = {
   source: "ソース",
   sourceScreen: "画面録画（スピーカー＋マイク）",
   sourceDisplay: "タブ／画面共有",
-  sourceLoopback: "ループバック / Stereo Mix",
+  sourceLoopback: "システム音声",
+  systemAudioAuto: "自動（Windows共有 / VB-Cable…）",
+  hintLoopback:
+    "Stereo Mix不要。「自動」でWindowsのシステム音声共有、またはVB-Cable等を選択。",
   sourceMic: "マイクのみ",
   device: "デバイス",
   addMic: "マイクを追加",

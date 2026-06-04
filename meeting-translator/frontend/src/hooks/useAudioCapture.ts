@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AudioDeviceOption } from "../types";
 import {
+  listLoopbackDeviceOptions,
+  pickBestLoopbackDevice,
+  SYSTEM_AUDIO_AUTO_ID,
+} from "../utils/audioDevices";
+import {
   friendlyMediaError,
-  isLoopbackDeviceLabel,
   pickRecordableAudioStream,
 } from "../utils/mediaRecorder";
 
@@ -18,12 +22,55 @@ async function listAudioInputs(): Promise<AudioDeviceOption[]> {
     }));
 }
 
+/**
+ * Âm thanh hệ thống qua chia sẻ màn hình Windows (không cần Stereo Mix).
+ * Video track dừng ngay — chỉ giữ audio.
+ */
+async function captureSystemAudioViaDisplay(): Promise<MediaStream> {
+  const display = await navigator.mediaDevices.getDisplayMedia({
+    video: {
+      width: { ideal: 64, max: 320 },
+      height: { ideal: 64, max: 180 },
+      frameRate: { max: 5 },
+    },
+    audio: {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+    },
+  });
+
+  display.getVideoTracks().forEach((t) => t.stop());
+
+  const audioTracks = display.getAudioTracks();
+  if (!audioTracks.length) {
+    display.getTracks().forEach((t) => t.stop());
+    throw new Error(
+      "Không bắt được âm thanh hệ thống. Trong hộp thoại Windows: chọn màn hình hoặc cửa sổ và bật «Chia sẻ âm thanh hệ thống» (Share system audio)."
+    );
+  }
+
+  return new MediaStream(audioTracks);
+}
+
+async function openLoopbackDevice(deviceId: string): Promise<MediaStream> {
+  return navigator.mediaDevices.getUserMedia({
+    audio: {
+      deviceId: { exact: deviceId },
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+    },
+  });
+}
+
 export function useAudioCapture() {
   const [devices, setDevices] = useState<AudioDeviceOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const streamsRef = useRef<MediaStream[]>([]);
   const mixedRef = useRef<MediaStream | null>(null);
   const screenVideoRef = useRef<MediaStream | null>(null);
+  const systemAudioViaDisplayRef = useRef(false);
 
   const refreshDevices = useCallback(async (): Promise<AudioDeviceOption[]> => {
     setError(null);
@@ -75,6 +122,7 @@ export function useAudioCapture() {
     mixedRef.current = null;
     screenVideoRef.current?.getTracks().forEach((t) => t.stop());
     screenVideoRef.current = null;
+    systemAudioViaDisplayRef.current = false;
   }, []);
 
   const startCapture = useCallback(
@@ -105,25 +153,30 @@ export function useAudioCapture() {
             mixMic = true;
           }
         } else if (mode === "loopback") {
-          let deviceId = loopbackDeviceId;
-          if (!deviceId) {
-            const inputs = await listAudioInputs();
-            deviceId = inputs.find((d) => isLoopbackDeviceLabel(d.label))?.deviceId;
+          const inputs = await listAudioInputs();
+          const explicitId =
+            loopbackDeviceId && loopbackDeviceId !== SYSTEM_AUDIO_AUTO_ID
+              ? loopbackDeviceId
+              : undefined;
+          const autoPick = explicitId
+            ? undefined
+            : pickBestLoopbackDevice(inputs);
+
+          if (explicitId) {
+            audioStreams.push(await openLoopbackDevice(explicitId));
+          } else if (autoPick) {
+            try {
+              audioStreams.push(await openLoopbackDevice(autoPick.deviceId));
+            } catch {
+              /* thiết bị loopback lỗi → thử chia sẻ hệ thống */
+            }
           }
-          if (!deviceId) {
-            throw new Error(
-              "Không tìm thấy Stereo Mix / loopback. Bật «Stereo Mix» trong Cài đặt âm thanh Windows (Recording devices), rồi chọn thiết bị trong danh sách."
-            );
+
+          if (audioStreams.length === 0) {
+            const sys = await captureSystemAudioViaDisplay();
+            systemAudioViaDisplayRef.current = true;
+            audioStreams.push(sys);
           }
-          const loop = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              deviceId: { exact: deviceId },
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: false,
-            },
-          });
-          audioStreams.push(loop);
         }
 
         if (mixMic) {
@@ -142,7 +195,7 @@ export function useAudioCapture() {
 
         if (audioStreams.length === 0) {
           throw new Error(
-            "Không có nguồn âm thanh. Chọn Stereo Mix / loopback, bật «Chia sẻ âm thanh» khi quay màn hình, hoặc «Chỉ micro»."
+            "Không có nguồn âm thanh. Thử «Âm thanh hệ thống», quay màn hình kèm âm thanh, hoặc «Chỉ micro»."
           );
         }
 
@@ -172,8 +225,12 @@ export function useAudioCapture() {
 
   const clearError = useCallback(() => setError(null), []);
 
+  const loopbackDevices = listLoopbackDeviceOptions(devices);
+
   return {
     devices,
+    loopbackDevices,
+    usesSystemAudioShare: () => systemAudioViaDisplayRef.current,
     error,
     clearError,
     refreshDevices,

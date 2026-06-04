@@ -14,12 +14,11 @@ const VIDEO_MIME_CANDIDATES = [
 
 const streamContextMap = new WeakMap<MediaStream, AudioContext>();
 
-export const LOOPBACK_DEVICE_RE =
-  /stereo mix|loopback|what u hear|monitor|blackhole|vb-audio|cable output|mix|cable input|wave out/i;
-
-export function isLoopbackDeviceLabel(label: string): boolean {
-  return LOOPBACK_DEVICE_RE.test(label);
-}
+export {
+  isLoopbackDeviceLabel,
+  isStereoMixLabel,
+  isVirtualLoopbackLabel,
+} from "./audioDevices";
 
 export function canUseMediaRecorder(
   stream: MediaStream,

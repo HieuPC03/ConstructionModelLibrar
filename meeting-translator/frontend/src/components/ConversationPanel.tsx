@@ -13,10 +13,8 @@ import {
   translateCaptionOpenAI,
 } from "../api";
 import { copyText } from "../utils/clipboard";
-import {
-  friendlyMediaError,
-  isLoopbackDeviceLabel,
-} from "../utils/mediaRecorder";
+import { SYSTEM_AUDIO_AUTO_ID, deviceOptionLabel } from "../utils/audioDevices";
+import { friendlyMediaError } from "../utils/mediaRecorder";
 
 function statusLabel(
   status: string,
@@ -86,11 +84,7 @@ export default function ConversationPanel() {
     }
   }, [session.isLive, captureMode, audio]);
 
-  const loopbackDevices = audio.devices.filter((d) =>
-    isLoopbackDeviceLabel(d.label)
-  );
-  const displayDevices =
-    loopbackDevices.length > 0 ? loopbackDevices : audio.devices;
+  const loopbackDevices = audio.loopbackDevices;
 
   const handlePlay = async () => {
     setStarting(true);
@@ -100,8 +94,8 @@ export default function ConversationPanel() {
       const mixMic = captureMode === "screen" ? true : includeMic;
       const loopDevice =
         captureMode === "loopback"
-          ? loopbackId || loopbackDevices[0]?.deviceId
-          : loopbackId || undefined;
+          ? loopbackId || SYSTEM_AUDIO_AUTO_ID
+          : undefined;
       const stream = await audio.startCapture(captureMode, loopDevice, mixMic);
       const videoStream = audio.getCompositeRecordStream();
       await session.startSession(
@@ -269,7 +263,11 @@ export default function ConversationPanel() {
       </div>
 
       <div className="hint-box">
-        {isTranslate ? tr("hintRealtime") : tr("hintTranscript")}
+        {captureMode === "loopback"
+          ? tr("hintLoopback")
+          : isTranslate
+            ? tr("hintRealtime")
+            : tr("hintTranscript")}
       </div>
 
       <div className="panel-header">
@@ -293,10 +291,12 @@ export default function ConversationPanel() {
                 value={loopbackId}
                 onChange={(e) => setLoopbackId(e.target.value)}
               >
-                <option value="">—</option>
-                {displayDevices.map((d) => (
+                <option value={SYSTEM_AUDIO_AUTO_ID}>
+                  {tr("systemAudioAuto")}
+                </option>
+                {loopbackDevices.map((d) => (
                   <option key={d.deviceId} value={d.deviceId}>
-                    {d.label}
+                    {deviceOptionLabel(d)}
                   </option>
                 ))}
               </select>
