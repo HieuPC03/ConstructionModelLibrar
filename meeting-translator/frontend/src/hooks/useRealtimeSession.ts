@@ -21,6 +21,12 @@ import {
 
 const CHUNK_MS = 3000;
 const MODE_TRANSCRIPT: SessionMode = "transcript";
+const MODE_REALTIME: SessionMode = "translate_realtime";
+
+function isSentenceComplete(text: string): boolean {
+  const t = text.trim();
+  return t.length >= 2 && /[.?!。．？！…]$/.test(t);
+}
 
 function newSegment(index: number): TranscriptSegment {
   return {
@@ -71,8 +77,26 @@ export function useRealtimeSession() {
     setActiveSegmentId(first.id);
   }, []);
 
-  const appendUtterance = useCallback((u: Utterance) => {
-    setUtterances((prev) => [...prev, u]);
+  const appendRealtimeUtterance = useCallback((u: Utterance) => {
+    setUtterances((prev) => {
+      if (
+        prev.length === 0 ||
+        isSentenceComplete(prev[prev.length - 1].original)
+      ) {
+        return [...prev, u];
+      }
+      const last = prev[prev.length - 1];
+      return [
+        ...prev.slice(0, -1),
+        {
+          ...last,
+          id: u.id,
+          timestamp: u.timestamp,
+          original: appendChunkText(last.original, u.original),
+          translation: u.translation || last.translation,
+        },
+      ];
+    });
   }, []);
 
   const appendTranscriptChunk = useCallback((text: string) => {
@@ -200,8 +224,8 @@ export function useRealtimeSession() {
         } else if (data.type === "utterance" && data.original) {
           if (sessionModeRef.current === MODE_TRANSCRIPT) {
             appendTranscriptChunk(data.original);
-          } else {
-            appendUtterance({
+          } else if (sessionModeRef.current === MODE_REALTIME) {
+            appendRealtimeUtterance({
               id: data.id,
               timestamp: data.timestamp,
               speaker: data.speaker,
@@ -238,7 +262,7 @@ export function useRealtimeSession() {
         }
       }
     },
-    [appendUtterance, appendTranscriptChunk, resetTranscript, startChunkPipeline]
+    [appendRealtimeUtterance, appendTranscriptChunk, resetTranscript, startChunkPipeline]
   );
 
   const beginNextSegmentAfterTranslate = useCallback((segmentId: string) => {

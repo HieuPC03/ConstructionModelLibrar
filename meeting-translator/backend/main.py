@@ -44,6 +44,10 @@ from services.session_modes import (
     stt_engine_for_mode,
     text_translate_provider_for_mode,
 )
+from services.realtime_buffer import (
+    merge_stt_fragments,
+    should_flush_buffer,
+)
 from services.stt import transcribe_audio
 from services.translate import translate_text
 
@@ -391,6 +395,52 @@ async def session_websocket(websocket: WebSocket) -> None:
     transcript_log: list[dict[str, Any]] = []
 
     pending_meta: dict[str, Any] = {}
+    pending_rt_text = ""
+    rt_silence_streak = 0
+    last_source_lang = "auto"
+    last_target_lang = "vi"
+    last_speaker = "remote"
+    last_session_mode = SESSION_TRANSCRIPT
+
+    async def emit_utterance(
+        original: str,
+        translation: str,
+        speaker: str,
+        session_mode: str,
+    ) -> None:
+        if not original.strip():
+            return
+        entry = {
+            "id": str(uuid.uuid4()),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "speaker": speaker,
+            "original": original.strip(),
+            "translation": translation,
+            "session_mode": session_mode,
+        }
+        transcript_log.append(entry)
+        await websocket.send_json({"type": "utterance", **entry})
+
+    async def flush_realtime_buffer() -> None:
+        nonlocal pending_rt_text, rt_silence_streak
+        text = pending_rt_text.strip()
+        if not text:
+            return
+        pending_rt_text = ""
+        rt_silence_streak = 0
+        src = last_source_lang if last_source_lang != "auto" else "en"
+        tr = await translate_text(
+            text,
+            src,
+            last_target_lang,
+            provider_override="openai",
+        )
+        await emit_utterance(
+            text,
+            tr.text,
+            last_speaker,
+            SESSION_TRANSLATE,
+        )
 
     try:
         await websocket.send_json(
@@ -414,6 +464,8 @@ async def session_websocket(websocket: WebSocket) -> None:
                     await websocket.send_json({"type": "pong"})
                     continue
                 if msg_type == "end_session":
+                    if last_session_mode == SESSION_TRANSLATE:
+                        await flush_realtime_buffer()
                     await _save_session(session_id, transcript_log, payload)
                     await websocket.send_json(
                         {"type": "session_saved", "session_id": session_id}
@@ -434,33 +486,36 @@ async def session_websocket(websocket: WebSocket) -> None:
                 stt_engine = stt_engine_for_mode(session_mode)
 
                 try:
+                    last_source_lang = source_lang
+                    last_target_lang = target_lang
+                    last_speaker = speaker
+                    last_session_mode = session_mode
+
                     text = await transcribe_audio(
                         data,
                         meta.get("filename", "chunk.webm"),
                         source_lang,
                         engine=stt_engine,
                     )
-                    translation = ""
-                    if text and session_mode == SESSION_TRANSLATE:
-                        src = source_lang if source_lang != "auto" else "en"
-                        tr = await translate_text(
-                            text,
-                            src,
-                            target_lang,
-                            provider_override="openai",
-                        )
-                        translation = tr.text
 
-                    entry = {
-                        "id": str(uuid.uuid4()),
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "speaker": speaker,
-                        "original": text,
-                        "translation": translation,
-                        "session_mode": session_mode,
-                    }
-                    transcript_log.append(entry)
-                    await websocket.send_json({"type": "utterance", **entry})
+                    if session_mode == SESSION_TRANSLATE:
+                        chunk = (text or "").strip()
+                        if not chunk:
+                            rt_silence_streak += 1
+                        else:
+                            rt_silence_streak = 0
+                            pending_rt_text = merge_stt_fragments(
+                                pending_rt_text, chunk
+                            )
+                        if should_flush_buffer(pending_rt_text, rt_silence_streak):
+                            await flush_realtime_buffer()
+                    elif text and text.strip():
+                        await emit_utterance(
+                            text.strip(),
+                            "",
+                            speaker,
+                            session_mode,
+                        )
                 except Exception as exc:
                     await websocket.send_json(
                         {"type": "error", "message": friendly_api_error(exc)}
@@ -468,6 +523,11 @@ async def session_websocket(websocket: WebSocket) -> None:
                 continue
 
     except WebSocketDisconnect:
+        if last_session_mode == SESSION_TRANSLATE and pending_rt_text.strip():
+            try:
+                await flush_realtime_buffer()
+            except Exception:
+                pass
         if transcript_log:
             await _save_session(session_id, transcript_log, {})
     except Exception as exc:

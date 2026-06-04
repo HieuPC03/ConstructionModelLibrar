@@ -25,7 +25,7 @@ const vi = {
   hintTranscript:
     "Ghi một văn bản dài liên tục (OpenAI STT). Nút «Dịch đoạn» khóa đoạn hiện tại và mở đoạn mới — vẫn ghi trong lúc dịch. Cần OPENAI_API_KEY.",
   hintRealtime:
-    "Dịch realtime dùng ChatGPT (OpenAI). Cần OPENAI_API_KEY. Nút Play / Stop.",
+    "Dịch realtime (ChatGPT): mỗi câu hoàn chỉnh mới hiện một đoạn (chờ dấu câu hoặc ngắt nói ~3–6 giây). Cần OPENAI_API_KEY.",
   source: "Nguồn",
   sourceScreen: "Quay màn hình (loa + micro)",
   sourceDisplay: "Chia sẻ tab / màn hình",
@@ -110,7 +110,7 @@ const ja: Record<MessageKey, string> = {
   hintTranscript:
     "連続テキストを記録（OpenAI STT）。「段落を翻訳」で現在段落を固定し新段落へ。翻訳中も録音継続。OPENAI_API_KEY必須。",
   hintRealtime:
-    "リアルタイム翻訳はChatGPT（OpenAI）。OPENAI_API_KEYが必要。Play / Stop。",
+    "リアルタイム翻訳（ChatGPT）：文が終わってから1段落表示（句読点または約3–6秒の無音）。OPENAI_API_KEY必須。",
   source: "ソース",
   sourceScreen: "画面録画（スピーカー＋マイク）",
   sourceDisplay: "タブ／画面共有",

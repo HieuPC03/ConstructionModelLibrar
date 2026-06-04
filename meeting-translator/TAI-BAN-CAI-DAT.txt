@@ -1,18 +1,11 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.6.3
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.6.4
 ============================================
 
-Trang releases:
-https://github.com/HieuPC03/ConstructionModelLibrar/releases
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.6.4/Meeting-Translator-Setup-1.6.4.exe
+(404 = đợi CI ~5 phút)
 
-File cài v1.6.3 (link 404 = CI đang build ~5 phút):
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.6.3/Meeting-Translator-Setup-1.6.3.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.6.4
 
-Trang release:
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.6.3
-
-Tạm thời:
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.6.2/Meeting-Translator-Setup-1.6.2.exe
-
-v1.6.3 — sửa Live Caption không ghi chữ (race đoạn transcript + chờ WS ready)
-v1.6.2 — «Dịch đoạn» đưa script vào ô Dịch văn bản
-v1.6.1 — đoạn văn bản dài + Dịch đoạn
+v1.6.4 — Dịch realtime: chờ hết câu mới tách đoạn (dấu câu / ngắt nói)
+v1.6.3 — Sửa Live Caption không ghi chữ
+v1.6.2 — Dịch đoạn → ô Dịch văn bản
