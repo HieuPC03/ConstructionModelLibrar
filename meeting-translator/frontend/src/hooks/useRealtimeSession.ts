@@ -15,6 +15,10 @@ import {
   wsUrl,
 } from "../api";
 import {
+  applyChunkToSegmentText,
+  splitCompletedSentences,
+} from "../utils/transcriptText";
+import {
   chunkFilenameForMime,
   createMediaRecorder,
   friendlyMediaError,
@@ -22,7 +26,8 @@ import {
   tryCreateVideoRecorder,
 } from "../utils/mediaRecorder";
 
-const CHUNK_MS = 3000;
+/** Chunk ngắn hơn → STT và chữ trên màn hình nhanh hơn (~1.8s). */
+const CHUNK_MS = 1800;
 /** Chunk nhỏ hơn vẫn gửi STT (micro / Stereo Mix thường ít dữ liệu hơn quay màn hình). */
 const MIN_CHUNK_BYTES = 256;
 const MODE_TRANSCRIPT: SessionMode = "transcript";
@@ -38,6 +43,8 @@ function newSegment(index: number): TranscriptSegment {
     id: crypto.randomUUID(),
     index,
     original: "",
+    completedSentences: [],
+    liveTail: "",
     translation: "",
     translating: false,
     closed: false,
@@ -45,11 +52,15 @@ function newSegment(index: number): TranscriptSegment {
 }
 
 function appendChunkText(prev: string, chunk: string): string {
-  const t = chunk.trim();
-  if (!t) return prev;
-  if (!prev.trim()) return t;
-  const needsSpace = !prev.endsWith(" ") && !/^[,.;:!?)]/.test(t);
-  return needsSpace ? `${prev} ${t}` : `${prev}${t}`;
+  return applyChunkToSegmentText(prev, chunk);
+}
+
+function withSplitSentences(
+  original: string,
+  extra?: Partial<TranscriptSegment>
+): Pick<TranscriptSegment, "original" | "completedSentences" | "liveTail"> {
+  const { completedSentences, liveTail } = splitCompletedSentences(original);
+  return { original, completedSentences, liveTail, ...extra };
 }
 
 export function useRealtimeSession() {
@@ -61,6 +72,8 @@ export function useRealtimeSession() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [status, setStatus] = useState("idle");
+  /** Dải live: dịch realtime — câu đang gom trước khi dịch xong. */
+  const [liveDraft, setLiveDraft] = useState("");
   const wsRef = useRef<WebSocket | null>(null);
   const chunkPumpIntervalRef = useRef<number | null>(null);
   const videoRecorderRef = useRef<MediaRecorder | null>(null);
@@ -125,11 +138,11 @@ export function useRealtimeSession() {
         openId = open.id;
         openSegmentIdRef.current = openId;
       }
-      return list.map((s) =>
-        s.id === openId
-          ? { ...s, original: appendChunkText(s.original, text) }
-          : s
-      );
+      return list.map((s) => {
+        if (s.id !== openId) return s;
+        const original = appendChunkText(s.original, text);
+        return { ...s, ...withSplitSentences(original) };
+      });
     });
   }, []);
 
@@ -204,6 +217,7 @@ export function useRealtimeSession() {
     ) => {
       sessionModeRef.current = sessionMode;
       setUtterances([]);
+      setLiveDraft("");
       flushSync(() => {
         resetTranscript();
       });
@@ -245,10 +259,15 @@ export function useRealtimeSession() {
               setStatus(`error:${friendlyMediaError(e)}`);
             }
           }
+        } else if (data.type === "partial" && data.original) {
+          if (sessionModeRef.current === MODE_REALTIME) {
+            setLiveDraft(String(data.original));
+          }
         } else if (data.type === "utterance" && data.original) {
           if (sessionModeRef.current === MODE_TRANSCRIPT) {
             appendTranscriptChunk(data.original);
           } else if (sessionModeRef.current === MODE_REALTIME) {
+            setLiveDraft("");
             appendRealtimeUtterance({
               id: data.id,
               timestamp: data.timestamp,
@@ -329,6 +348,7 @@ export function useRealtimeSession() {
     setSessionId(null);
     setIsLive(false);
     setUtterances([]);
+    setLiveDraft("");
     setTranscriptSegments([]);
     setActiveSegmentId(null);
     openSegmentIdRef.current = null;
@@ -433,6 +453,7 @@ export function useRealtimeSession() {
     transcriptSegments,
     activeSegment,
     activeSegmentId,
+    liveDraft,
     sessionId,
     isLive,
     status,

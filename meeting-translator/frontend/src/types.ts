@@ -17,6 +17,10 @@ export interface TranscriptSegment {
   id: string;
   index: number;
   original: string;
+  /** Câu đã chốt (có dấu kết thúc) trong đoạn — hiển thị phía dưới. */
+  completedSentences: string[];
+  /** Phần đang nghe, chưa hết câu — hiển thị trên dải live. */
+  liveTail: string;
   translation: string;
   translating: boolean;
   closed: boolean;

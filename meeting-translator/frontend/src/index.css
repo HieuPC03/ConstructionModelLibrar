@@ -342,6 +342,63 @@ textarea {
   margin-bottom: 0.5rem;
 }
 
+.live-caption-strip {
+  margin: 0 1rem 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 2px solid var(--accent, #3b82f6);
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.12),
+    rgba(0, 0, 0, 0.2)
+  );
+  flex-shrink: 0;
+}
+
+.live-caption-strip-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.live-caption-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.live-caption-stream {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 1.5em;
+  color: var(--text);
+}
+
+.live-waiting {
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-style: italic;
+}
+
+.segment-sentences {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.segment-sentence {
+  margin: 0;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding-left: 0.65rem;
+  border-left: 3px solid var(--border);
+}
+
 .transcript-segment {
   margin-bottom: 1rem;
   padding: 0.85rem 1rem;

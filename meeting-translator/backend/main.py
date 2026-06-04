@@ -507,6 +507,13 @@ async def session_websocket(websocket: WebSocket) -> None:
                             pending_rt_text = merge_stt_fragments(
                                 pending_rt_text, chunk
                             )
+                        if pending_rt_text.strip():
+                            await websocket.send_json(
+                                {
+                                    "type": "partial",
+                                    "original": pending_rt_text.strip(),
+                                }
+                            )
                         if should_flush_buffer(pending_rt_text, rt_silence_streak):
                             await flush_realtime_buffer()
                     elif text and text.strip():

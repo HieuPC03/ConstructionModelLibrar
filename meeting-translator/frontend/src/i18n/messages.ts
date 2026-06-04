@@ -23,9 +23,13 @@ const vi = {
   meeting: "Phiên họp",
   live: "LIVE",
   hintTranscript:
-    "Ghi một văn bản dài liên tục (OpenAI STT). Nút «Dịch đoạn» khóa đoạn hiện tại và mở đoạn mới — vẫn ghi trong lúc dịch. Cần OPENAI_API_KEY.",
+    "Trên: chữ đang nghe (cập nhật liên tục). Dưới: từng câu hoàn chỉnh. «Dịch đoạn» khóa đoạn. Cần OPENAI_API_KEY.",
+  listeningNow: "đang nghe",
+  liveStripHint: "Nghe đến đâu hiện đến đó",
+  waitingSpeech: "Đang chờ giọng nói…",
+  completedSentencesLabel: "Câu đã hoàn chỉnh",
   hintRealtime:
-    "Dịch realtime (ChatGPT): mỗi câu hoàn chỉnh mới hiện một đoạn (chờ dấu câu hoặc ngắt nói ~3–6 giây). Cần OPENAI_API_KEY.",
+    "Trên: đang nghe (chưa dịch). Dưới: câu hoàn chỉnh + bản dịch ChatGPT. Cần OPENAI_API_KEY.",
   source: "Nguồn",
   sourceScreen: "Quay màn hình (loa + micro)",
   sourceDisplay: "Chia sẻ tab / màn hình",
@@ -108,9 +112,13 @@ const ja: Record<MessageKey, string> = {
   meeting: "会議セッション",
   live: "LIVE",
   hintTranscript:
-    "連続テキストを記録（OpenAI STT）。「段落を翻訳」で現在段落を固定し新段落へ。翻訳中も録音継続。OPENAI_API_KEY必須。",
+    "上：聞こえたところまで表示。下：完成した文。OPENAI_API_KEY必須。",
+  listeningNow: "聴取中",
+  liveStripHint: "聞こえた分をその都度表示",
+  waitingSpeech: "音声を待っています…",
+  completedSentencesLabel: "完成した文",
   hintRealtime:
-    "リアルタイム翻訳（ChatGPT）：文が終わってから1段落表示（句読点または約3–6秒の無音）。OPENAI_API_KEY必須。",
+    "上：聞こえたところまで。下：完成文＋翻訳。OPENAI_API_KEY必須。",
   source: "ソース",
   sourceScreen: "画面録画（スピーカー＋マイク）",
   sourceDisplay: "タブ／画面共有",

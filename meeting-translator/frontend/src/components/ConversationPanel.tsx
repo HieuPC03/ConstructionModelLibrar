@@ -67,7 +67,13 @@ export default function ConversationPanel() {
   useEffect(() => {
     const el = feedRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [session.utterances, session.transcriptSegments]);
+  }, [
+    session.utterances,
+    session.transcriptSegments,
+    session.liveDraft,
+    session.activeSegment?.liveTail,
+    session.activeSegment?.completedSentences,
+  ]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -421,6 +427,27 @@ export default function ConversationPanel() {
         </div>
       )}
 
+      {session.isLive && (
+        <div className="live-caption-strip" aria-live="polite">
+          <div className="live-caption-strip-header">
+            <span className="badge live small">{tr("listeningNow")}</span>
+            <span className="live-caption-hint">{tr("liveStripHint")}</span>
+          </div>
+          <p className="live-caption-stream">
+            {isTranslate
+              ? session.liveDraft || (
+                  <span className="live-waiting">{tr("waitingSpeech")}</span>
+                )
+              : session.activeSegment?.liveTail ||
+                (session.activeSegment && !session.activeSegment.closed
+                  ? session.activeSegment.original
+                  : "") || (
+                  <span className="live-waiting">{tr("waitingSpeech")}</span>
+                )}
+          </p>
+        </div>
+      )}
+
       <div className="conversation-feed" ref={feedRef}>
         {!isTranslate ? (
           session.transcriptSegments.length === 0 ? (
@@ -453,22 +480,37 @@ export default function ConversationPanel() {
                     </button>
                   )}
                 </div>
-                {seg.original ? (
+                {seg.completedSentences.length > 0 ? (
+                  <div className="segment-sentences">
+                    {seg.completedSentences.map((sent, i) => (
+                      <p key={`${seg.id}-s-${i}`} className="segment-sentence">
+                        {sent}
+                      </p>
+                    ))}
+                  </div>
+                ) : seg.closed && seg.original ? (
                   <p className="segment-original">{seg.original}</p>
                 ) : (
-                  !seg.closed && (
+                  seg.closed && (
                     <p className="empty-hint segment-placeholder">
                       {tr("segmentRecording")}
                     </p>
                   )
                 )}
+                {!seg.closed &&
+                  seg.completedSentences.length === 0 &&
+                  !seg.liveTail && (
+                    <p className="empty-hint segment-placeholder">
+                      {tr("segmentRecording")}
+                    </p>
+                  )}
                 {seg.translation && (
                   <p className="segment-translation">{seg.translation}</p>
                 )}
               </article>
             ))
           )
-        ) : session.utterances.length === 0 ? (
+        ) : session.utterances.length === 0 && !session.liveDraft ? (
           <p className="empty-hint">{tr("emptyRealtime")}</p>
         ) : (
           session.utterances.map((u: Utterance) => (
