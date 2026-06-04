@@ -13,13 +13,8 @@ import {
   translateCaptionOpenAI,
 } from "../api";
 import { copyText } from "../utils/clipboard";
-import {
-  deviceOptionLabel,
-  isWindowsSystemAudioShare,
-  SYSTEM_AUDIO_WINDOWS_SHARE,
-} from "../utils/audioDevices";
+import { SYSTEM_AUDIO_AUTO_ID, deviceOptionLabel } from "../utils/audioDevices";
 import { friendlyMediaError } from "../utils/mediaRecorder";
-import { langBadge } from "../utils/langLabel";
 
 function statusLabel(
   status: string,
@@ -44,9 +39,9 @@ export default function ConversationPanel() {
   const { tr, exportDir, recordingsDir } = useAppSettings();
   const [sourceLang, setSourceLang] = useState<LangCode>("auto");
   const [targetLang, setTargetLang] = useState<LangCode>("vi");
-  const [captureMode, setCaptureMode] = useState<CaptureMode>("system");
-  const [loopbackId, setLoopbackId] = useState(SYSTEM_AUDIO_WINDOWS_SHARE);
-  const [includeMic, setIncludeMic] = useState(false);
+  const [captureMode, setCaptureMode] = useState<CaptureMode>("loopback");
+  const [loopbackId, setLoopbackId] = useState("");
+  const [includeMic, setIncludeMic] = useState(true);
   const [hearLoopback, setHearLoopback] = useState(true);
   const [starting, setStarting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -74,20 +69,11 @@ export default function ConversationPanel() {
     session.utterances,
     session.transcriptSegments,
     session.liveDraft,
-    session.liveDetectedLang,
     session.activeSegment?.liveTail,
     session.activeSegment?.completedSentences,
   ]);
 
   const loopbackDevices = audio.loopbackDevices;
-
-  const applyPresetMicViJa = () => {
-    setCaptureMode("mic");
-    setIncludeMic(true);
-    setSourceLang("vi");
-    setTargetLang("ja");
-    setSessionMode("translate_realtime");
-  };
 
   const handlePlay = async () => {
     setStarting(true);
@@ -95,28 +81,19 @@ export default function ConversationPanel() {
     session.setStatus("opening");
     try {
       await checkHealth();
-      const mixMic = captureMode === "mic" || includeMic;
-      const loopDevice =
-        captureMode === "loopback" || captureMode === "system"
-          ? captureMode === "system"
-            ? SYSTEM_AUDIO_WINDOWS_SHARE
-            : loopbackId
-          : undefined;
-      const useVbCable =
-        captureMode === "loopback" && !isWindowsSystemAudioShare(loopbackId);
       const stream = await audio.startCapture(
         captureMode,
-        loopDevice,
-        mixMic,
+        captureMode === "loopback" ? loopbackId || SYSTEM_AUDIO_AUTO_ID : undefined,
+        includeMic,
         undefined,
-        useVbCable && hearLoopback
+        captureMode === "loopback" ? hearLoopback : false
       );
       await session.startSession(
         stream,
         sourceLang,
         targetLang,
         sessionMode,
-        captureMode === "mic" ? "local" : "remote"
+        "remote"
       );
     } catch (e) {
       session.setStatus(`error:${friendlyMediaError(e)}`);
@@ -139,9 +116,9 @@ export default function ConversationPanel() {
     setRefreshing(true);
     try {
       await resetToDefaults();
-      setCaptureMode("system");
-      setLoopbackId(SYSTEM_AUDIO_WINDOWS_SHARE);
-      setIncludeMic(false);
+      setCaptureMode("loopback");
+      setLoopbackId("");
+      setIncludeMic(true);
       setSourceLang("auto");
       setTargetLang("vi");
       await audio.refreshDevices();
@@ -238,8 +215,6 @@ export default function ConversationPanel() {
     activeSeg.original.trim().length > 0 &&
     !activeSeg.closed;
 
-  const showAutoHint = sourceLang === "auto";
-
   return (
     <section className="panel">
       <div className="panel-header">
@@ -264,28 +239,14 @@ export default function ConversationPanel() {
         >
           {tr("modeRealtime")}
         </button>
-        <button
-          type="button"
-          className="mode-btn secondary preset-btn"
-          onClick={applyPresetMicViJa}
-          disabled={session.isLive}
-          title={tr("presetMicViJa")}
-        >
-          {tr("presetMicViJa")}
-        </button>
       </div>
 
       <div className="hint-box">
-        {captureMode === "system"
-          ? tr("hintSystemNoCable")
-          : captureMode === "loopback"
-            ? tr("hintLoopback")
-            : isTranslate
-              ? tr("hintRealtime")
-              : tr("hintTranscript")}
-        {showAutoHint && (
-          <p className="hint-sub">{tr("autoLangHint")}</p>
-        )}
+        {captureMode === "loopback"
+          ? tr("hintLoopback")
+          : isTranslate
+            ? tr("hintRealtime")
+            : tr("hintTranscript")}
       </div>
 
       <div className="panel-header">
@@ -296,55 +257,46 @@ export default function ConversationPanel() {
               value={captureMode}
               onChange={(e) => setCaptureMode(e.target.value as CaptureMode)}
             >
-              <option value="system">{tr("sourceSystemNoCable")}</option>
-              <option value="loopback">{tr("sourceLoopbackVb")}</option>
+              <option value="loopback">{tr("sourceLoopback")}</option>
               <option value="mic">{tr("sourceMic")}</option>
             </select>
           </label>
           {captureMode === "loopback" && (
             <>
               <label>
-                {tr("loopbackMethod")}
+                {tr("device")}
                 <select
                   value={loopbackId}
                   onChange={(e) => setLoopbackId(e.target.value)}
                 >
-                  <option value={SYSTEM_AUDIO_WINDOWS_SHARE}>
-                    {tr("systemAudioNoCable")}
+                  <option value={SYSTEM_AUDIO_AUTO_ID}>
+                    {tr("systemAudioAuto")}
                   </option>
-                  {loopbackDevices.length > 0 && (
-                    <optgroup label={tr("loopbackDevicesGroup")}>
-                      {loopbackDevices.map((d) => (
-                        <option key={d.deviceId} value={d.deviceId}>
-                          {deviceOptionLabel(d)}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
+                  {loopbackDevices.map((d) => (
+                    <option key={d.deviceId} value={d.deviceId}>
+                      {deviceOptionLabel(d)}
+                    </option>
+                  ))}
                 </select>
               </label>
-              {!isWindowsSystemAudioShare(loopbackId) && (
-                <label title={tr("hearLoopbackHint")}>
-                  <input
-                    type="checkbox"
-                    checked={hearLoopback}
-                    onChange={(e) => setHearLoopback(e.target.checked)}
-                  />
-                  {tr("hearLoopback")}
-                </label>
-              )}
+              <label title={tr("hearLoopbackHint")}>
+                <input
+                  type="checkbox"
+                  checked={hearLoopback}
+                  onChange={(e) => setHearLoopback(e.target.checked)}
+                />
+                {tr("hearLoopback")}
+              </label>
             </>
           )}
-          {captureMode !== "mic" && (
-            <label>
-              <input
-                type="checkbox"
-                checked={includeMic}
-                onChange={(e) => setIncludeMic(e.target.checked)}
-              />
-              {tr("addMic")}
-            </label>
-          )}
+          <label>
+            <input
+              type="checkbox"
+              checked={includeMic}
+              onChange={(e) => setIncludeMic(e.target.checked)}
+            />
+            {tr("addMic")}
+          </label>
           <label>
             {tr("spokenLang")}
             <select
@@ -400,9 +352,9 @@ export default function ConversationPanel() {
               type="button"
               className="secondary"
               disabled={
-                (isTranslate
-                  ? session.utterances.length === 0
-                  : !hasTranscriptContent) && !session.sessionId
+                ((!hasTranscriptContent && !isTranslate) ||
+                  (isTranslate && session.utterances.length === 0)) &&
+                !session.sessionId
               }
               onClick={() => setExportOpen((o) => !o)}
             >
@@ -451,11 +403,6 @@ export default function ConversationPanel() {
         <div className="live-caption-strip" aria-live="polite">
           <div className="live-caption-strip-header">
             <span className="badge live small">{tr("listeningNow")}</span>
-            {sourceLang === "auto" && session.liveDetectedLang && (
-              <span className="lang-badge" title={tr("langDetected")}>
-                {langBadge(session.liveDetectedLang)}
-              </span>
-            )}
             <span className="live-caption-hint">{tr("liveStripHint")}</span>
           </div>
           <p className="live-caption-stream">
@@ -488,9 +435,6 @@ export default function ConversationPanel() {
                 <div className="segment-header">
                   <span className="segment-label">
                     {tr("segment")} {seg.index}
-                    {sourceLang === "auto" && seg.detectedLang && (
-                      <span className="lang-badge">{langBadge(seg.detectedLang)}</span>
-                    )}
                     {!seg.closed && session.isLive && (
                       <span className="badge live small">{tr("recordingNow")}</span>
                     )}
@@ -550,12 +494,6 @@ export default function ConversationPanel() {
                 <span>
                   {u.speaker === "local" ? tr("you") : tr("meetingSpeaker")} ·{" "}
                   {new Date(u.timestamp).toLocaleTimeString()}
-                  {sourceLang === "auto" && u.detectedLang && (
-                    <>
-                      {" "}
-                      · <span className="lang-badge">{langBadge(u.detectedLang)}</span>
-                    </>
-                  )}
                 </span>
                 <button
                   type="button"

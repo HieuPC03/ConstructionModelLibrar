@@ -33,21 +33,10 @@ const vi = {
   source: "Nguồn",
   sourceScreen: "Quay màn hình (loa + micro)",
   sourceDisplay: "Chia sẻ tab / màn hình",
-  sourceSystemNoCable: "Âm thanh hệ thống (không VB-Cable)",
   sourceLoopback: "Âm thanh hệ thống",
-  sourceLoopbackVb: "VB-Cable / loopback",
-  systemAudioNoCable: "Không cần VB-Cable — chia sẻ Windows",
-  systemAudioAuto: "Không cần VB-Cable — chia sẻ Windows",
-  loopbackMethod: "Cách bắt âm thanh",
-  loopbackDevicesGroup: "Cần cài VB-Cable / Voicemeeter",
-  hintSystemNoCable:
-    "Khuyên dùng: bấm Play → chọn «Toàn màn hình» → bật «Chia sẻ âm thanh hệ thống». Tai nghe vẫn nghe bình thường; không thu micro trừ khi bạn bật «Thêm micro».",
-  autoLangHint:
-    "Chế độ «Tự động»: nhiều người nói tiếng khác nhau — app gắn nhãn VI / JA / EN theo từng câu.",
-  presetMicViJa: "Micro Việt → dịch Nhật",
-  langDetected: "Nhận dạng",
+  systemAudioAuto: "Tự động (Windows / VB-Cable…)",
   hintLoopback:
-    "Chọn «Không cần VB-Cable» hoặc nguồn «Âm thanh hệ thống (không VB-Cable)». Với VB-Cable: loa mặc định = tai nghe, phát ra CABLE Input, bật «Nghe lại qua tai nghe».",
+    "VB-Cable: đặt loa mặc định = tai nghe; phát nhạc/ứng dụng ra «CABLE Input». Bật «Nghe lại qua tai nghe» để app phát CABLE Output ra tai nghe trong khi ghi script. Hoặc dùng «Tự động» (chia sẻ âm Windows) — vừa nghe vừa ghi không cần VB-Cable.",
   hearLoopback: "Nghe lại qua tai nghe",
   hearLoopbackHint:
     "Phát âm từ VB-Cable ra tai nghe khi đang ghi (loa mặc định phải là tai nghe, không phải CABLE Input)",
@@ -139,21 +128,10 @@ const ja: Record<MessageKey, string> = {
   source: "ソース",
   sourceScreen: "画面録画（スピーカー＋マイク）",
   sourceDisplay: "タブ／画面共有",
-  sourceSystemNoCable: "システム音声（VB-Cable不要）",
   sourceLoopback: "システム音声",
-  sourceLoopbackVb: "VB-Cable / ループバック",
-  systemAudioNoCable: "VB-Cable不要 — Windows共有",
-  systemAudioAuto: "VB-Cable不要 — Windows共有",
-  loopbackMethod: "取得方法",
-  loopbackDevicesGroup: "VB-Cable等が必要",
-  hintSystemNoCable:
-    "推奨: Play →「画面全体」→「システム音声を共有」。ヘッドホンで聞けます。マイクは「マイクを追加」時のみ。",
-  autoLangHint:
-    "「自動」: 複数言語の会話 — 文ごとに VI / JA / EN ラベルを表示。",
-  presetMicViJa: "マイク越→日本語翻訳",
-  langDetected: "検出",
+  systemAudioAuto: "自動（Windows共有 / VB-Cable…）",
   hintLoopback:
-    "「VB-Cable不要」または「システム音声（VB-Cable不要）」を選択。",
+    "VB-Cable: 既定の再生=ヘッドホン、アプリ出力=CABLE Input。「ヘッドホンで聞く」で録音しながら再生。",
   hearLoopback: "ヘッドホンで聞く",
   hearLoopbackHint: "VB-Cableの音をヘッドホンに再生しながら記録",
   sourceMic: "マイクのみ",

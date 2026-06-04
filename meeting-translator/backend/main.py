@@ -48,7 +48,6 @@ from services.realtime_buffer import (
     merge_stt_fragments,
     should_flush_buffer,
 )
-from services.lang_detect import resolve_source_lang
 from services.stt import transcribe_audio
 from services.translate import translate_text
 
@@ -380,13 +379,12 @@ async def transcribe_endpoint(
     speaker: str = Form("remote"),
 ) -> dict[str, Any]:
     data = await audio.read()
-    result = await transcribe_audio(data, audio.filename or "chunk.webm", source_lang)
+    text = await transcribe_audio(data, audio.filename or "chunk.webm", source_lang)
     return {
         "speaker": speaker,
-        "original": result.text,
+        "original": text,
         "translation": "",
         "source_lang": source_lang,
-        "detected_lang": result.detected_lang,
     }
 
 
@@ -403,14 +401,12 @@ async def session_websocket(websocket: WebSocket) -> None:
     last_target_lang = "vi"
     last_speaker = "remote"
     last_session_mode = SESSION_TRANSCRIPT
-    last_detected_lang: str | None = None
 
     async def emit_utterance(
         original: str,
         translation: str,
         speaker: str,
         session_mode: str,
-        detected_lang: str | None = None,
     ) -> None:
         if not original.strip():
             return
@@ -421,7 +417,6 @@ async def session_websocket(websocket: WebSocket) -> None:
             "original": original.strip(),
             "translation": translation,
             "session_mode": session_mode,
-            "detected_lang": detected_lang,
         }
         transcript_log.append(entry)
         await websocket.send_json({"type": "utterance", **entry})
@@ -433,9 +428,7 @@ async def session_websocket(websocket: WebSocket) -> None:
             return
         pending_rt_text = ""
         rt_silence_streak = 0
-        src = resolve_source_lang(
-            last_source_lang, last_detected_lang, text
-        )
+        src = last_source_lang if last_source_lang != "auto" else "en"
         tr = await translate_text(
             text,
             src,
@@ -447,7 +440,6 @@ async def session_websocket(websocket: WebSocket) -> None:
             tr.text,
             last_speaker,
             SESSION_TRANSLATE,
-            detected_lang=src if last_source_lang == "auto" else None,
         )
 
     try:
@@ -499,15 +491,12 @@ async def session_websocket(websocket: WebSocket) -> None:
                     last_speaker = speaker
                     last_session_mode = session_mode
 
-                    stt = await transcribe_audio(
+                    text = await transcribe_audio(
                         data,
                         meta.get("filename", "chunk.webm"),
                         source_lang,
                         engine=stt_engine,
                     )
-                    text = stt.text
-                    if source_lang == "auto" and stt.detected_lang:
-                        last_detected_lang = stt.detected_lang
 
                     if session_mode == SESSION_TRANSLATE:
                         chunk = (text or "").strip()
@@ -519,27 +508,20 @@ async def session_websocket(websocket: WebSocket) -> None:
                                 pending_rt_text, chunk
                             )
                         if pending_rt_text.strip():
-                            partial: dict[str, Any] = {
-                                "type": "partial",
-                                "original": pending_rt_text.strip(),
-                            }
-                            if source_lang == "auto" and last_detected_lang:
-                                partial["detected_lang"] = last_detected_lang
-                            await websocket.send_json(partial)
+                            await websocket.send_json(
+                                {
+                                    "type": "partial",
+                                    "original": pending_rt_text.strip(),
+                                }
+                            )
                         if should_flush_buffer(pending_rt_text, rt_silence_streak):
                             await flush_realtime_buffer()
                     elif text and text.strip():
-                        det = (
-                            last_detected_lang
-                            if source_lang == "auto"
-                            else None
-                        )
                         await emit_utterance(
                             text.strip(),
                             "",
                             speaker,
                             session_mode,
-                            detected_lang=det,
                         )
                 except Exception as exc:
                     await websocket.send_json(

@@ -80,8 +80,7 @@ MEETING TRANSLATOR - Ban cai dat
    %APPDATA%\meeting-translator-desktop\.env
 
 Khong can cai Python hay Node.js tren may nguoi dung.
-STT va dich realtime: can Internet va OPENAI_API_KEY.
-Ban cai dat nhe hon (khong kem Whisper/ffmpeg offline).
+STT va dich: can Internet va OPENAI_API_KEY (khong kem Whisper offline).
 "@
     Set-Content -Path (Join-Path $ReleaseDir "DOC-DAI.txt") -Value $readme -Encoding UTF8
 }

@@ -72,7 +72,6 @@ export function useRealtimeSession() {
   const [status, setStatus] = useState("idle");
   /** Dải live: dịch realtime — câu đang gom trước khi dịch xong. */
   const [liveDraft, setLiveDraft] = useState("");
-  const [liveDetectedLang, setLiveDetectedLang] = useState<LangCode | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const chunkPumpIntervalRef = useRef<number | null>(null);
   const recordChunksRef = useRef<Blob[]>([]);
@@ -112,8 +111,7 @@ export function useRealtimeSession() {
     });
   }, []);
 
-  const appendTranscriptChunk = useCallback(
-    (text: string, detectedLang?: LangCode) => {
+  const appendTranscriptChunk = useCallback((text: string) => {
     setTranscriptSegments((prev) => {
       let list = prev;
       let openId = openSegmentIdRef.current;
@@ -138,16 +136,10 @@ export function useRealtimeSession() {
       return list.map((s) => {
         if (s.id !== openId) return s;
         const original = appendChunkText(s.original, text);
-        return {
-          ...s,
-          ...withSplitSentences(original),
-          ...(detectedLang ? { detectedLang } : {}),
-        };
+        return { ...s, ...withSplitSentences(original) };
       });
     });
-  },
-    []
-  );
+  }, []);
 
   const sendAudioChunk = useCallback(
     (blob: Blob, meta: Record<string, string>) => {
@@ -220,7 +212,6 @@ export function useRealtimeSession() {
       sessionModeRef.current = sessionMode;
       setUtterances([]);
       setLiveDraft("");
-      setLiveDetectedLang(null);
       flushSync(() => {
         resetTranscript();
       });
@@ -259,24 +250,18 @@ export function useRealtimeSession() {
         } else if (data.type === "partial" && data.original) {
           if (sessionModeRef.current === MODE_REALTIME) {
             setLiveDraft(String(data.original));
-            if (data.detected_lang) {
-              setLiveDetectedLang(data.detected_lang as LangCode);
-            }
           }
         } else if (data.type === "utterance" && data.original) {
-          const det = data.detected_lang as LangCode | undefined;
           if (sessionModeRef.current === MODE_TRANSCRIPT) {
-            appendTranscriptChunk(data.original, det);
+            appendTranscriptChunk(data.original);
           } else if (sessionModeRef.current === MODE_REALTIME) {
             setLiveDraft("");
-            setLiveDetectedLang(null);
             appendRealtimeUtterance({
               id: data.id,
               timestamp: data.timestamp,
               speaker: data.speaker,
               original: data.original,
               translation: data.translation || "",
-              detectedLang: det,
             });
           }
         } else if (data.type === "error") {
@@ -337,7 +322,6 @@ export function useRealtimeSession() {
     setIsLive(false);
     setUtterances([]);
     setLiveDraft("");
-    setLiveDetectedLang(null);
     setTranscriptSegments([]);
     setActiveSegmentId(null);
     openSegmentIdRef.current = null;
@@ -417,7 +401,6 @@ export function useRealtimeSession() {
     activeSegment,
     activeSegmentId,
     liveDraft,
-    liveDetectedLang,
     sessionId,
     isLive,
     status,

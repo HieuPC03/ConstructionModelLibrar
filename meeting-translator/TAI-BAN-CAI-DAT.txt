@@ -1,17 +1,12 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.0
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.7.2
+(Nền v1.7.0: nghe lại VB-Cable qua tai nghe — bỏ quay màn hình, installer nhẹ hơn)
 ============================================
 
-Bản mới nhất (sau khi CI xong ~5 phút):
 https://github.com/HieuPC03/ConstructionModelLibrar/releases/latest
 
-Trực tiếp file .exe (tag meeting-translator-v1.8.0):
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.0/Meeting-Translator-Setup-1.8.0.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.7.2/Meeting-Translator-Setup-1.7.2.exe
 
-Trang release v1.8.0:
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.0
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.7.2
 
-Nếu link .exe báo 404: đợi workflow «Build Meeting Translator Installer» chạy xong
-(hoặc tải tạm v1.7.1):
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.7.1/Meeting-Translator-Setup-1.7.1.exe
-
-Artifact CI (khi chưa có release): tab Actions → run mới nhất → Meeting-Translator-v1.8.0
+Nếu 404: đợi CI ~5 phút hoặc dùng v1.7.0:
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.7.0/Meeting-Translator-Setup-1.7.0.exe

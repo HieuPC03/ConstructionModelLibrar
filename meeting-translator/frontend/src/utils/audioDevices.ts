@@ -1,18 +1,7 @@
 import type { AudioDeviceOption } from "../types";
 
-/** Chia sẻ âm thanh hệ thống Windows — không cần VB-Cable (khuyên dùng). */
-export const SYSTEM_AUDIO_WINDOWS_SHARE = "__windows_share__";
-
-/** @deprecated Dùng SYSTEM_AUDIO_WINDOWS_SHARE */
-export const SYSTEM_AUDIO_AUTO_ID = SYSTEM_AUDIO_WINDOWS_SHARE;
-
-export function isWindowsSystemAudioShare(deviceId: string | undefined): boolean {
-  return (
-    !deviceId ||
-    deviceId === SYSTEM_AUDIO_WINDOWS_SHARE ||
-    deviceId === SYSTEM_AUDIO_AUTO_ID
-  );
-}
+/** Giá trị dropdown: tự chọn thiết bị hoặc chia sẻ âm thanh Windows. */
+export const SYSTEM_AUDIO_AUTO_ID = "";
 
 export function isStereoMixLabel(label: string): boolean {
   return /stereo mix|what u hear|wave out mix|mixed output/i.test(label);
