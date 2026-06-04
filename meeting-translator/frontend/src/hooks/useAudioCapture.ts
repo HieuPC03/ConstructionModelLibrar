@@ -6,6 +6,10 @@ import {
   SYSTEM_AUDIO_AUTO_ID,
 } from "../utils/audioDevices";
 import {
+  startLoopbackMonitor,
+  stopLoopbackMonitor,
+} from "../utils/loopbackMonitor";
+import {
   friendlyMediaError,
   pickRecordableAudioStream,
 } from "../utils/mediaRecorder";
@@ -115,6 +119,7 @@ export function useAudioCapture() {
   }, [refreshDevices]);
 
   const stopAll = useCallback(() => {
+    stopLoopbackMonitor();
     streamsRef.current.forEach((s) =>
       s.getTracks().forEach((t) => t.stop())
     );
@@ -130,11 +135,13 @@ export function useAudioCapture() {
       mode: CaptureMode,
       loopbackDeviceId?: string,
       includeMic = false,
-      micDeviceId?: string
+      micDeviceId?: string,
+      hearLoopback = true
     ): Promise<MediaStream> => {
       stopAll();
       setError(null);
       const audioStreams: MediaStream[] = [];
+      let loopbackRawForMonitor: MediaStream | null = null;
 
       try {
         let mixMic = includeMic;
@@ -163,10 +170,14 @@ export function useAudioCapture() {
             : pickBestLoopbackDevice(inputs);
 
           if (explicitId) {
-            audioStreams.push(await openLoopbackDevice(explicitId));
+            const loop = await openLoopbackDevice(explicitId);
+            loopbackRawForMonitor = loop;
+            audioStreams.push(loop);
           } else if (autoPick) {
             try {
-              audioStreams.push(await openLoopbackDevice(autoPick.deviceId));
+              const loop = await openLoopbackDevice(autoPick.deviceId);
+              loopbackRawForMonitor = loop;
+              audioStreams.push(loop);
             } catch {
               /* thiết bị loopback lỗi → thử chia sẻ hệ thống */
             }
@@ -202,6 +213,17 @@ export function useAudioCapture() {
         streamsRef.current = audioStreams;
         const recordable = await pickRecordableAudioStream(audioStreams);
         mixedRef.current = recordable;
+
+        if (
+          mode === "loopback" &&
+          hearLoopback &&
+          loopbackRawForMonitor &&
+          !systemAudioViaDisplayRef.current
+        ) {
+          const vol = includeMic ? 0.85 : 1;
+          await startLoopbackMonitor(loopbackRawForMonitor, vol);
+        }
+
         return recordable;
       } catch (e) {
         stopAll();

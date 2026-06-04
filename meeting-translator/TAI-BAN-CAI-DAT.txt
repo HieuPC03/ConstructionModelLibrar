@@ -1,9 +1,9 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.6.9
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.7.0
 ============================================
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.6.9/Meeting-Translator-Setup-1.6.9.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.7.0/Meeting-Translator-Setup-1.7.0.exe
 (404 = đợi CI ~5 phút)
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.6.9
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.7.0
 
-v1.6.9 — Sửa WebSocket lỗi (URL desktop 17888, thử lại, backend trước Play)
+v1.7.0 — VB-Cable: «Nghe lại qua tai nghe» khi ghi script

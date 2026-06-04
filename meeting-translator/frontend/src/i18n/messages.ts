@@ -36,7 +36,10 @@ const vi = {
   sourceLoopback: "Âm thanh hệ thống",
   systemAudioAuto: "Tự động (Windows / VB-Cable…)",
   hintLoopback:
-    "Không cần Stereo Mix: chọn «Tự động» để chia sẻ âm thanh hệ thống Windows, hoặc thiết bị VB-Cable / Voicemeeter nếu đã cài.",
+    "VB-Cable: đặt loa mặc định = tai nghe; phát nhạc/ứng dụng ra «CABLE Input». Bật «Nghe lại qua tai nghe» để app phát CABLE Output ra tai nghe trong khi ghi script. Hoặc dùng «Tự động» (chia sẻ âm Windows) — vừa nghe vừa ghi không cần VB-Cable.",
+  hearLoopback: "Nghe lại qua tai nghe",
+  hearLoopbackHint:
+    "Phát âm từ VB-Cable ra tai nghe khi đang ghi (loa mặc định phải là tai nghe, không phải CABLE Input)",
   sourceMic: "Chỉ micro",
   device: "Thiết bị",
   addMic: "Thêm micro",
@@ -128,7 +131,9 @@ const ja: Record<MessageKey, string> = {
   sourceLoopback: "システム音声",
   systemAudioAuto: "自動（Windows共有 / VB-Cable…）",
   hintLoopback:
-    "Stereo Mix不要。「自動」でWindowsのシステム音声共有、またはVB-Cable等を選択。",
+    "VB-Cable: 既定の再生=ヘッドホン、アプリ出力=CABLE Input。「ヘッドホンで聞く」で録音しながら再生。",
+  hearLoopback: "ヘッドホンで聞く",
+  hearLoopbackHint: "VB-Cableの音をヘッドホンに再生しながら記録",
   sourceMic: "マイクのみ",
   device: "デバイス",
   addMic: "マイクを追加",

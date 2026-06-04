@@ -44,6 +44,7 @@ export default function ConversationPanel() {
   const [captureMode, setCaptureMode] = useState<CaptureMode>("screen");
   const [loopbackId, setLoopbackId] = useState("");
   const [includeMic, setIncludeMic] = useState(true);
+  const [hearLoopback, setHearLoopback] = useState(true);
   const [starting, setStarting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
@@ -98,7 +99,13 @@ export default function ConversationPanel() {
         captureMode === "loopback"
           ? loopbackId || SYSTEM_AUDIO_AUTO_ID
           : undefined;
-      const stream = await audio.startCapture(captureMode, loopDevice, mixMic);
+      const stream = await audio.startCapture(
+        captureMode,
+        loopDevice,
+        mixMic,
+        undefined,
+        captureMode === "loopback" ? hearLoopback : false
+      );
       const videoStream = audio.getCompositeRecordStream();
       await session.startSession(
         stream,
@@ -287,22 +294,32 @@ export default function ConversationPanel() {
             </select>
           </label>
           {captureMode === "loopback" && (
-            <label>
-              {tr("device")}
-              <select
-                value={loopbackId}
-                onChange={(e) => setLoopbackId(e.target.value)}
-              >
-                <option value={SYSTEM_AUDIO_AUTO_ID}>
-                  {tr("systemAudioAuto")}
-                </option>
-                {loopbackDevices.map((d) => (
-                  <option key={d.deviceId} value={d.deviceId}>
-                    {deviceOptionLabel(d)}
+            <>
+              <label>
+                {tr("device")}
+                <select
+                  value={loopbackId}
+                  onChange={(e) => setLoopbackId(e.target.value)}
+                >
+                  <option value={SYSTEM_AUDIO_AUTO_ID}>
+                    {tr("systemAudioAuto")}
                   </option>
-                ))}
-              </select>
-            </label>
+                  {loopbackDevices.map((d) => (
+                    <option key={d.deviceId} value={d.deviceId}>
+                      {deviceOptionLabel(d)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label title={tr("hearLoopbackHint")}>
+                <input
+                  type="checkbox"
+                  checked={hearLoopback}
+                  onChange={(e) => setHearLoopback(e.target.checked)}
+                />
+                {tr("hearLoopback")}
+              </label>
+            </>
           )}
           {captureMode !== "screen" && (
             <label>
