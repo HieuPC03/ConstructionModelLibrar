@@ -12,6 +12,15 @@ const VIDEO_MIME_CANDIDATES = [
   "video/mp4",
 ];
 
+const streamContextMap = new WeakMap<MediaStream, AudioContext>();
+
+export const LOOPBACK_DEVICE_RE =
+  /stereo mix|loopback|what u hear|monitor|blackhole|vb-audio|cable output|mix|cable input|wave out/i;
+
+export function isLoopbackDeviceLabel(label: string): boolean {
+  return LOOPBACK_DEVICE_RE.test(label);
+}
+
 export function canUseMediaRecorder(
   stream: MediaStream,
   mimeCandidates: string[] = AUDIO_MIME_CANDIDATES
@@ -39,8 +48,22 @@ export function canUseMediaRecorder(
   }
 }
 
+async function resumeContext(ctx: AudioContext): Promise<void> {
+  if (ctx.state === "suspended") {
+    await ctx.resume();
+  }
+}
+
+/** Đảm bảo AudioContext (khi trộn loopback + micro) không bị im lặng. */
+export async function resumeStreamAudioContext(stream: MediaStream): Promise<void> {
+  const ctx = streamContextMap.get(stream);
+  if (ctx) await resumeContext(ctx);
+}
+
 /** Chọn luồng âm thanh ghi được (tránh AudioContext không tương thích Windows/Electron). */
-export function pickRecordableAudioStream(streams: MediaStream[]): MediaStream {
+export async function pickRecordableAudioStream(
+  streams: MediaStream[]
+): Promise<MediaStream> {
   const withAudio = streams.filter((s) => s.getAudioTracks().length > 0);
   if (!withAudio.length) {
     throw new Error(
@@ -57,12 +80,14 @@ export function pickRecordableAudioStream(streams: MediaStream[]): MediaStream {
   withAudio.forEach((s) => {
     ctx.createMediaStreamSource(s).connect(dest);
   });
+  await resumeContext(ctx);
+  streamContextMap.set(dest.stream, ctx);
   if (canUseMediaRecorder(dest.stream)) return dest.stream;
 
   const fallback = withAudio[0];
   if (canUseMediaRecorder(fallback)) return fallback;
   throw new Error(
-    "Không ghi được âm thanh từ nguồn này. Thử «Chia sẻ tab / màn hình» và bật âm thanh, hoặc «Chỉ micro»."
+    "Không ghi được âm thanh từ nguồn này. Thử «Chỉ micro» hoặc bật Stereo Mix trong Cài đặt âm thanh Windows."
   );
 }
 
@@ -109,7 +134,7 @@ export function friendlyMediaError(err: unknown): string {
   const msg = (err as Error)?.message || String(err);
   if (/not supported/i.test(msg)) {
     return (
-      "Không ghi được âm thanh từ nguồn này. Khi quay màn hình: bật «Chia sẻ âm thanh». Hoặc thử «Chỉ micro»."
+      "Không ghi được âm thanh từ nguồn này. Thử «Chỉ micro», bật Stereo Mix, hoặc quay màn hình kèm «Chia sẻ âm thanh»."
     );
   }
   return msg;

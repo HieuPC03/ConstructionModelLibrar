@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AudioDeviceOption } from "../types";
 import {
   friendlyMediaError,
+  isLoopbackDeviceLabel,
   pickRecordableAudioStream,
 } from "../utils/mediaRecorder";
 
@@ -103,10 +104,20 @@ export function useAudioCapture() {
           if (mode === "screen") {
             mixMic = true;
           }
-        } else if (mode === "loopback" && loopbackDeviceId) {
+        } else if (mode === "loopback") {
+          let deviceId = loopbackDeviceId;
+          if (!deviceId) {
+            const inputs = await listAudioInputs();
+            deviceId = inputs.find((d) => isLoopbackDeviceLabel(d.label))?.deviceId;
+          }
+          if (!deviceId) {
+            throw new Error(
+              "Không tìm thấy Stereo Mix / loopback. Bật «Stereo Mix» trong Cài đặt âm thanh Windows (Recording devices), rồi chọn thiết bị trong danh sách."
+            );
+          }
           const loop = await navigator.mediaDevices.getUserMedia({
             audio: {
-              deviceId: { exact: loopbackDeviceId },
+              deviceId: { exact: deviceId },
               echoCancellation: false,
               noiseSuppression: false,
               autoGainControl: false,
@@ -136,7 +147,7 @@ export function useAudioCapture() {
         }
 
         streamsRef.current = audioStreams;
-        const recordable = pickRecordableAudioStream(audioStreams);
+        const recordable = await pickRecordableAudioStream(audioStreams);
         mixedRef.current = recordable;
         return recordable;
       } catch (e) {

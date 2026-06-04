@@ -16,10 +16,14 @@ import {
 } from "../api";
 import {
   createMediaRecorder,
+  friendlyMediaError,
+  resumeStreamAudioContext,
   tryCreateVideoRecorder,
 } from "../utils/mediaRecorder";
 
 const CHUNK_MS = 3000;
+/** Chunk nhỏ hơn vẫn gửi STT (micro / Stereo Mix thường ít dữ liệu hơn quay màn hình). */
+const MIN_CHUNK_BYTES = 256;
 const MODE_TRANSCRIPT: SessionMode = "transcript";
 const MODE_REALTIME: SessionMode = "translate_realtime";
 
@@ -62,7 +66,6 @@ export function useRealtimeSession() {
   const recordChunksRef = useRef<Blob[]>([]);
   const videoChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
-  const chunkIntervalRef = useRef<number | null>(null);
   const audioMimeRef = useRef("audio/webm");
   const videoMimeRef = useRef("video/webm");
   const sessionModeRef = useRef<SessionMode>("transcript");
@@ -139,37 +142,27 @@ export function useRealtimeSession() {
     []
   );
 
-  const startChunkPipeline = useCallback(
+  const startLiveAudioRecording = useCallback(
     (stream: MediaStream, meta: Record<string, string>) => {
-      const pump = () => {
-        try {
-          const { recorder: rec, mimeType } = createMediaRecorder(stream);
-          const chunks: Blob[] = [];
-          rec.ondataavailable = (e) => {
-            if (e.data.size > 0) chunks.push(e.data);
-          };
-          rec.onstop = () => {
-            if (chunks.length > 0) {
-              const blob = new Blob(chunks, { type: mimeType });
-              if (blob.size > 800) {
-                const ext = mimeType.includes("ogg") ? "chunk.ogg" : "chunk.webm";
-                sendAudioChunk(blob, { ...meta, filename: ext });
-              }
-            }
-          };
-          rec.start();
-          setTimeout(() => {
-            if (rec.state === "recording") rec.stop();
-          }, CHUNK_MS);
-        } catch {
-          /* skip chunk */
+      if (recorderRef.current && recorderRef.current.state !== "inactive") {
+        return;
+      }
+      recordChunksRef.current = [];
+      const { recorder: rec, mimeType } = createMediaRecorder(stream);
+      audioMimeRef.current = mimeType;
+      rec.ondataavailable = (e) => {
+        if (!e.data.size) return;
+        recordChunksRef.current.push(e.data);
+        if (e.data.size >= MIN_CHUNK_BYTES) {
+          const ext = mimeType.includes("ogg") ? "chunk.ogg" : "chunk.webm";
+          sendAudioChunk(e.data, { ...meta, filename: ext });
         }
       };
-
-      const { mimeType } = createMediaRecorder(stream);
-      audioMimeRef.current = mimeType;
-      pump();
-      chunkIntervalRef.current = window.setInterval(pump, CHUNK_MS);
+      rec.onerror = () => {
+        setStatus("error:MediaRecorder lỗi khi ghi âm từ nguồn này");
+      };
+      rec.start(CHUNK_MS);
+      recorderRef.current = rec;
     },
     [sendAudioChunk]
   );
@@ -190,6 +183,7 @@ export function useRealtimeSession() {
       });
       setStatus("connecting");
       streamRef.current = stream;
+      await resumeStreamAudioContext(stream);
 
       const meta = {
         source_lang: sourceLang,
@@ -218,8 +212,12 @@ export function useRealtimeSession() {
             sessionMode === "translate_realtime" ? "liveRealtime" : "liveTranscript"
           );
           const chunkStream = chunkStreamRef.current;
-          if (chunkStream && !chunkIntervalRef.current) {
-            startChunkPipeline(chunkStream, chunkMetaRef.current);
+          if (chunkStream) {
+            try {
+              startLiveAudioRecording(chunkStream, chunkMetaRef.current);
+            } catch (e) {
+              setStatus(`error:${friendlyMediaError(e)}`);
+            }
           }
         } else if (data.type === "utterance" && data.original) {
           if (sessionModeRef.current === MODE_TRANSCRIPT) {
@@ -240,15 +238,6 @@ export function useRealtimeSession() {
         }
       };
 
-      recordChunksRef.current = [];
-      const { recorder: fullRec, mimeType } = createMediaRecorder(stream);
-      audioMimeRef.current = mimeType;
-      fullRec.ondataavailable = (e) => {
-        if (e.data.size > 0) recordChunksRef.current.push(e.data);
-      };
-      fullRec.start(1000);
-      recorderRef.current = fullRec;
-
       if (videoStream && videoStream.getTracks().length > 0) {
         const videoRec = tryCreateVideoRecorder(videoStream);
         if (videoRec) {
@@ -262,7 +251,7 @@ export function useRealtimeSession() {
         }
       }
     },
-    [appendRealtimeUtterance, appendTranscriptChunk, resetTranscript, startChunkPipeline]
+    [appendRealtimeUtterance, appendTranscriptChunk, resetTranscript, startLiveAudioRecording]
   );
 
   const beginNextSegmentAfterTranslate = useCallback((segmentId: string) => {
@@ -302,10 +291,6 @@ export function useRealtimeSession() {
   }, []);
 
   const abortSession = useCallback(() => {
-    if (chunkIntervalRef.current) {
-      clearInterval(chunkIntervalRef.current);
-      chunkIntervalRef.current = null;
-    }
     wsRef.current?.close();
     wsRef.current = null;
     recorderRef.current?.stop();
@@ -328,11 +313,6 @@ export function useRealtimeSession() {
 
   const stopSession = useCallback(
     async (exportDir?: string, videoExportDir?: string) => {
-      if (chunkIntervalRef.current) {
-        clearInterval(chunkIntervalRef.current);
-        chunkIntervalRef.current = null;
-      }
-
       const ws = wsRef.current;
       if (ws?.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "end_session" }));

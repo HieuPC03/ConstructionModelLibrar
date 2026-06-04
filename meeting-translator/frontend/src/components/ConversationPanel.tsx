@@ -13,7 +13,10 @@ import {
   translateCaptionOpenAI,
 } from "../api";
 import { copyText } from "../utils/clipboard";
-import { friendlyMediaError } from "../utils/mediaRecorder";
+import {
+  friendlyMediaError,
+  isLoopbackDeviceLabel,
+} from "../utils/mediaRecorder";
 
 function statusLabel(
   status: string,
@@ -78,9 +81,7 @@ export default function ConversationPanel() {
   }, [session.isLive, captureMode, audio]);
 
   const loopbackDevices = audio.devices.filter((d) =>
-    /stereo mix|loopback|what u hear|monitor|blackhole|vb-audio|cable output|mix/i.test(
-      d.label
-    )
+    isLoopbackDeviceLabel(d.label)
   );
   const displayDevices =
     loopbackDevices.length > 0 ? loopbackDevices : audio.devices;
@@ -91,11 +92,11 @@ export default function ConversationPanel() {
     session.setStatus("opening");
     try {
       const mixMic = captureMode === "screen" ? true : includeMic;
-      const stream = await audio.startCapture(
-        captureMode,
-        loopbackId || displayDevices[0]?.deviceId,
-        mixMic
-      );
+      const loopDevice =
+        captureMode === "loopback"
+          ? loopbackId || loopbackDevices[0]?.deviceId
+          : loopbackId || undefined;
+      const stream = await audio.startCapture(captureMode, loopDevice, mixMic);
       const videoStream = audio.getCompositeRecordStream();
       await session.startSession(
         stream,
