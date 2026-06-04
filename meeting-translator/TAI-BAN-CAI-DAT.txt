@@ -1,20 +1,18 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.6.2
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.6.3
 ============================================
 
 Trang releases:
 https://github.com/HieuPC03/ConstructionModelLibrar/releases
 
-File cài v1.6.2 (link 404 = CI đang build ~5 phút sau khi push tag):
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.6.2/Meeting-Translator-Setup-1.6.2.exe
+File cài v1.6.3 (link 404 = CI đang build ~5 phút):
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.6.3/Meeting-Translator-Setup-1.6.3.exe
 
 Trang release:
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.6.2
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.6.3
 
-Tạm thời (nếu v1.6.2 chưa có file):
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.6.1/Meeting-Translator-Setup-1.6.1.exe
+Tạm thời:
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.6.2/Meeting-Translator-Setup-1.6.2.exe
 
-v1.6.2 mới:
-- «Dịch đoạn» (Live Caption): tự động đưa script vào ô nhập «Dịch văn bản»
-
-v1.6.1:
-- Live Caption: đoạn văn bản dài + «Dịch đoạn» (ChatGPT), ghi tiếp đoạn mới khi dịch
+v1.6.3 — sửa Live Caption không ghi chữ (race đoạn transcript + chờ WS ready)
+v1.6.2 — «Dịch đoạn» đưa script vào ô Dịch văn bản
+v1.6.1 — đoạn văn bản dài + Dịch đoạn

@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type {
   LangCode,
   SessionMode,
@@ -59,9 +60,13 @@ export function useRealtimeSession() {
   const audioMimeRef = useRef("audio/webm");
   const videoMimeRef = useRef("video/webm");
   const sessionModeRef = useRef<SessionMode>("transcript");
+  const openSegmentIdRef = useRef<string | null>(null);
+  const chunkMetaRef = useRef<Record<string, string>>({});
+  const chunkStreamRef = useRef<MediaStream | null>(null);
 
   const resetTranscript = useCallback(() => {
     const first = newSegment(1);
+    openSegmentIdRef.current = first.id;
     setTranscriptSegments([first]);
     setActiveSegmentId(first.id);
   }, []);
@@ -71,13 +76,33 @@ export function useRealtimeSession() {
   }, []);
 
   const appendTranscriptChunk = useCallback((text: string) => {
-    setTranscriptSegments((prev) =>
-      prev.map((s) =>
-        !s.closed
+    setTranscriptSegments((prev) => {
+      let list = prev;
+      let openId = openSegmentIdRef.current;
+      let open = openId ? list.find((s) => s.id === openId && !s.closed) : undefined;
+      if (!open) {
+        open = list.find((s) => !s.closed);
+      }
+      if (!open) {
+        const nextIndex = list.length
+          ? Math.max(...list.map((s) => s.index)) + 1
+          : 1;
+        const seg = newSegment(nextIndex);
+        openId = seg.id;
+        openSegmentIdRef.current = openId;
+        setActiveSegmentId(openId);
+        list = [...list, seg];
+        open = seg;
+      } else {
+        openId = open.id;
+        openSegmentIdRef.current = openId;
+      }
+      return list.map((s) =>
+        s.id === openId
           ? { ...s, original: appendChunkText(s.original, text) }
           : s
-      )
-    );
+      );
+    });
   }, []);
 
   const sendAudioChunk = useCallback(
@@ -136,9 +161,20 @@ export function useRealtimeSession() {
     ) => {
       sessionModeRef.current = sessionMode;
       setUtterances([]);
-      resetTranscript();
+      flushSync(() => {
+        resetTranscript();
+      });
       setStatus("connecting");
       streamRef.current = stream;
+
+      const meta = {
+        source_lang: sourceLang,
+        target_lang: targetLang,
+        session_mode: sessionMode,
+        speaker: remoteSpeaker,
+      };
+      chunkMetaRef.current = meta;
+      chunkStreamRef.current = stream;
 
       const ws = new WebSocket(wsUrl());
       wsRef.current = ws;
@@ -157,6 +193,10 @@ export function useRealtimeSession() {
           setStatus(
             sessionMode === "translate_realtime" ? "liveRealtime" : "liveTranscript"
           );
+          const chunkStream = chunkStreamRef.current;
+          if (chunkStream && !chunkIntervalRef.current) {
+            startChunkPipeline(chunkStream, chunkMetaRef.current);
+          }
         } else if (data.type === "utterance" && data.original) {
           if (sessionModeRef.current === MODE_TRANSCRIPT) {
             appendTranscriptChunk(data.original);
@@ -175,14 +215,6 @@ export function useRealtimeSession() {
           setStatus("saved");
         }
       };
-
-      const meta = {
-        source_lang: sourceLang,
-        target_lang: targetLang,
-        session_mode: sessionMode,
-        speaker: remoteSpeaker,
-      };
-      startChunkPipeline(stream, meta);
 
       recordChunksRef.current = [];
       const { recorder: fullRec, mimeType } = createMediaRecorder(stream);
@@ -213,6 +245,7 @@ export function useRealtimeSession() {
     setTranscriptSegments((prev) => {
       const nextIndex = prev.length ? Math.max(...prev.map((s) => s.index)) + 1 : 1;
       const seg = newSegment(nextIndex);
+      openSegmentIdRef.current = seg.id;
       setActiveSegmentId(seg.id);
       return [
         ...prev.map((s) =>
@@ -264,6 +297,8 @@ export function useRealtimeSession() {
     setUtterances([]);
     setTranscriptSegments([]);
     setActiveSegmentId(null);
+    openSegmentIdRef.current = null;
+    chunkStreamRef.current = null;
     setStatus("idle");
   }, []);
 
@@ -368,7 +403,9 @@ export function useRealtimeSession() {
     [sessionId, utterances, transcriptSegments]
   );
 
-  const activeSegment = transcriptSegments.find((s) => s.id === activeSegmentId);
+  const activeSegment =
+    transcriptSegments.find((s) => s.id === activeSegmentId) ??
+    transcriptSegments.find((s) => !s.closed);
 
   return {
     utterances,
