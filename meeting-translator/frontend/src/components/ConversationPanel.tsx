@@ -6,6 +6,7 @@ import type { CaptureMode } from "../hooks/useAudioCapture";
 import { useAudioCapture } from "../hooks/useAudioCapture";
 import { useRealtimeSession } from "../hooks/useRealtimeSession";
 import {
+  checkHealth,
   exportTranscript,
   exportTranscriptSegments,
   exportVideoToFolder,
@@ -91,6 +92,7 @@ export default function ConversationPanel() {
     audio.clearError();
     session.setStatus("opening");
     try {
+      await checkHealth();
       const mixMic = captureMode === "screen" ? true : includeMic;
       const loopDevice =
         captureMode === "loopback"

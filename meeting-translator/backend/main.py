@@ -64,7 +64,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -674,11 +674,22 @@ async def get_transcript(session_id: str) -> FileResponse:
     raise HTTPException(status_code=404, detail="Transcript not found")
 
 
+@app.get("/api/ws-check")
+async def ws_check() -> dict[str, str]:
+    """Kiểm tra API sống; client dùng trước khi mở WebSocket."""
+    return {"ok": "true", "ws_path": "/ws/session"}
+
+
 # Giao diện desktop: một cổng phục vụ cả API + React (không cần trình duyệt)
 _FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if _FRONTEND_DIST.is_dir() and (_FRONTEND_DIST / "index.html").exists():
+
+    @app.get("/")
+    async def spa_index() -> FileResponse:
+        return FileResponse(_FRONTEND_DIST / "index.html")
+
     app.mount(
-        "/",
-        StaticFiles(directory=str(_FRONTEND_DIST), html=True),
-        name="frontend",
+        "/assets",
+        StaticFiles(directory=str(_FRONTEND_DIST / "assets")),
+        name="frontend_assets",
     )

@@ -1,6 +1,21 @@
 import type { LangCode, TranscriptSegment, Utterance } from "./types";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
+/** URL gốc API + WebSocket (desktop luôn 127.0.0.1:17888). */
+export function getBackendOrigin(): string {
+  const env = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
+  if (env) return env;
+  if (window.desktopApp?.backendOrigin) {
+    return window.desktopApp.backendOrigin.replace(/\/$/, "");
+  }
+  if (import.meta.env.DEV) {
+    return window.location.origin;
+  }
+  return window.location.origin;
+}
+
+function apiBase(): string {
+  return import.meta.env.VITE_API_URL?.replace(/\/$/, "") ?? getBackendOrigin();
+}
 
 function parseApiError(err: unknown, fallback: string): string {
   if (!err || typeof err !== "object") return fallback;
@@ -18,26 +33,26 @@ export async function checkHealth(): Promise<{
   config_path?: string;
   message?: string | null;
 }> {
-  const res = await fetch(`${API_BASE}/api/health`);
+  const res = await fetch(`${apiBase()}/api/health`);
   if (!res.ok) throw new Error("Backend không phản hồi");
   return res.json();
 }
 
 export async function getOfflineSttStatus(): Promise<Record<string, string>> {
-  const res = await fetch(`${API_BASE}/api/stt/offline/status`);
+  const res = await fetch(`${apiBase()}/api/stt/offline/status`);
   if (!res.ok) return {};
   return res.json();
 }
 
 export async function warmupOfflineStt(): Promise<string> {
-  const res = await fetch(`${API_BASE}/api/stt/offline/warmup`, { method: "POST" });
+  const res = await fetch(`${apiBase()}/api/stt/offline/warmup`, { method: "POST" });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(parseApiError(data, "Tải Whisper offline thất bại"));
   return (data as { message?: string }).message ?? "OK";
 }
 
 export async function testApiKey(): Promise<string> {
-  const res = await fetch(`${API_BASE}/api/config/test`, { method: "POST" });
+  const res = await fetch(`${apiBase()}/api/config/test`, { method: "POST" });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(parseApiError(data, "Kiểm tra API thất bại"));
   return (data as { message?: string }).message ?? "OK";
@@ -67,7 +82,7 @@ export type AppSettings = {
 };
 
 export async function fetchSettings(): Promise<AppSettings> {
-  const res = await fetch(`${API_BASE}/api/settings`);
+  const res = await fetch(`${apiBase()}/api/settings`);
   if (!res.ok) throw new Error("Không tải được cài đặt");
   return res.json();
 }
@@ -90,7 +105,7 @@ export function fillTextTranslateInput(detail: TextTranslateFillDetail): void {
 }
 
 export async function resetSettings(): Promise<AppSettings> {
-  const res = await fetch(`${API_BASE}/api/settings/reset`, { method: "POST" });
+  const res = await fetch(`${apiBase()}/api/settings/reset`, { method: "POST" });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(parseApiError(data, "Đặt lại cài đặt thất bại"));
   return data as AppSettings;
@@ -99,7 +114,7 @@ export async function resetSettings(): Promise<AppSettings> {
 export async function updateSettings(
   patch: Partial<AppSettings>
 ): Promise<AppSettings> {
-  const res = await fetch(`${API_BASE}/api/settings`, {
+  const res = await fetch(`${apiBase()}/api/settings`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
@@ -120,7 +135,7 @@ export async function translateText(
   sourceLang: LangCode,
   targetLang: LangCode
 ): Promise<TextTranslateResult> {
-  const res = await fetch(`${API_BASE}/api/translate/text`, {
+  const res = await fetch(`${apiBase()}/api/translate/text`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -143,12 +158,68 @@ export async function translateText(
 export function wsUrl(): string {
   const base = import.meta.env.VITE_WS_URL;
   if (base) return base;
-  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const host =
-    import.meta.env.DEV && !window.desktopApp?.isDesktop
-      ? "127.0.0.1:8000"
-      : window.location.host;
-  return `${proto}//${host}/ws/session`;
+  const origin = getBackendOrigin();
+  const wsProto = origin.startsWith("https") ? "wss:" : "ws:";
+  const host = origin.replace(/^https?:\/\//, "");
+  return `${wsProto}//${host}/ws/session`;
+}
+
+/** Mở WebSocket phiên — kiểm tra backend, thử lại, báo lỗi rõ. */
+export async function openSessionWebSocket(): Promise<WebSocket> {
+  try {
+    await checkHealth();
+  } catch {
+    throw new Error(
+      "Backend chưa chạy. Khởi động lại Meeting Translator (cổng 17888) hoặc chạy: uvicorn main:app --port 17888"
+    );
+  }
+
+  const url = wsUrl();
+  let lastMsg = "WebSocket lỗi";
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const ws = await new Promise<WebSocket>((resolve, reject) => {
+        const sock = new WebSocket(url);
+        const timer = window.setTimeout(() => {
+          sock.close();
+          reject(new Error("Timeout kết nối WebSocket (10s)"));
+        }, 10000);
+
+        const fail = (msg: string) => {
+          window.clearTimeout(timer);
+          lastMsg = msg;
+          reject(new Error(msg));
+        };
+
+        sock.onopen = () => {
+          window.clearTimeout(timer);
+          resolve(sock);
+        };
+        sock.onerror = () => {
+          fail(
+            `Không kết nối WebSocket (${url}). Kiểm tra backend đang chạy — lần thử ${attempt}/3`
+          );
+        };
+        sock.onclose = (ev) => {
+          if (sock.readyState !== WebSocket.OPEN) {
+            fail(
+              ev.reason ||
+                `WebSocket đóng (mã ${ev.code}). URL: ${url}`
+            );
+          }
+        };
+      });
+      return ws;
+    } catch (e) {
+      lastMsg = (e as Error).message;
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, 600 * attempt));
+      }
+    }
+  }
+
+  throw new Error(lastMsg);
 }
 
 export async function uploadRecording(
@@ -167,7 +238,7 @@ export async function uploadRecording(
     const ext = videoBlob.type.includes("mp4") ? "mp4" : "webm";
     form.append("video", videoBlob, `recording-video.${ext}`);
   }
-  const res = await fetch(`${API_BASE}/api/recordings/upload`, {
+  const res = await fetch(`${apiBase()}/api/recordings/upload`, {
     method: "POST",
     body: form,
   });
@@ -179,7 +250,7 @@ export async function exportVideoToFolder(
   saveDir: string,
   filename: string
 ): Promise<string> {
-  const res = await fetch(`${API_BASE}/api/export/video`, {
+  const res = await fetch(`${apiBase()}/api/export/video`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -200,7 +271,7 @@ export async function translateCaptionOpenAI(
   targetLang: LangCode
 ): Promise<TextTranslateResult> {
   const src = sourceLang === "auto" ? "vi" : sourceLang;
-  const res = await fetch(`${API_BASE}/api/translate/text`, {
+  const res = await fetch(`${apiBase()}/api/translate/text`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -224,7 +295,7 @@ export async function exportTranscriptSegments(
   saveDir: string,
   filename: string
 ): Promise<string> {
-  const res = await fetch(`${API_BASE}/api/export/text`, {
+  const res = await fetch(`${apiBase()}/api/export/text`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -247,7 +318,7 @@ export async function exportTranscript(
   saveDir: string,
   filename: string
 ): Promise<string> {
-  const res = await fetch(`${API_BASE}/api/export/text`, {
+  const res = await fetch(`${apiBase()}/api/export/text`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

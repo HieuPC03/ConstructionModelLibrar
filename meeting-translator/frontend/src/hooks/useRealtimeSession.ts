@@ -11,8 +11,8 @@ import {
   exportTranscript,
   exportTranscriptSegments,
   exportVideoToFolder,
+  openSessionWebSocket,
   uploadRecording,
-  wsUrl,
 } from "../api";
 import {
   applyChunkToSegmentText,
@@ -234,14 +234,8 @@ export function useRealtimeSession() {
       chunkMetaRef.current = meta;
       chunkStreamRef.current = stream;
 
-      const ws = new WebSocket(wsUrl());
+      const ws = await openSessionWebSocket();
       wsRef.current = ws;
-
-      await new Promise<void>((resolve, reject) => {
-        ws.onopen = () => resolve();
-        ws.onerror = () => reject(new Error("WebSocket lỗi"));
-        setTimeout(() => reject(new Error("Timeout kết nối")), 8000);
-      });
 
       ws.onmessage = (ev) => {
         const data = JSON.parse(ev.data as string);
