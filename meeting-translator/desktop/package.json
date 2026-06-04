@@ -1,6 +1,6 @@
 {
   "name": "meeting-translator-desktop",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "description": "Meeting Translator — ứng dụng desktop offline (cửa sổ riêng)",
   "main": "main.js",
   "author": "Meeting Translator",
@@ -48,16 +48,6 @@
       {
         "from": "../backend/.env.example",
         "to": "backend/.env.example"
-      },
-      {
-        "from": "../runtime/ffmpeg",
-        "to": "runtime/ffmpeg",
-        "filter": ["**/*"]
-      },
-      {
-        "from": "../runtime/whisper-models",
-        "to": "runtime/whisper-models",
-        "filter": ["**/*"]
       }
     ],
     "win": {
@@ -68,7 +58,7 @@
         }
       ]
     },
-    "compression": "store",
+    "compression": "maximum",
     "nsis": {
       "oneClick": false,
       "perMachine": false,

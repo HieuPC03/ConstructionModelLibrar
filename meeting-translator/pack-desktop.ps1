@@ -28,10 +28,7 @@ Push-Location $Root
 if (-not $SkipPythonBundle -and -not $SkipRuntimeBundle) {
     Write-Host "[1/6] Dong goi Python runtime..." -ForegroundColor Yellow
     & "$Root\scripts\bundle-python.ps1" -Root $Root
-    Write-Host "[1b/6] FFmpeg (offline STT)..." -ForegroundColor Yellow
-    & "$Root\scripts\bundle-ffmpeg.ps1" -Root $Root
-    Write-Host "[1c/6] Whisper model small (~500MB, kem trong installer)..." -ForegroundColor Yellow
-    & "$Root\scripts\bundle-whisper.ps1" -Root $Root -Model "small"
+    Write-Host "[1b/6] Bo qua FFmpeg/Whisper (STT qua OpenAI, giam dung luong cai dat)" -ForegroundColor DarkYellow
 } elseif ($SkipRuntimeBundle) {
     Write-Host "[1/6] Bo qua bundle runtime (da chay o buoc CI truoc)" -ForegroundColor DarkYellow
 } else {
@@ -83,8 +80,8 @@ MEETING TRANSLATOR - Ban cai dat
    %APPDATA%\meeting-translator-desktop\.env
 
 Khong can cai Python hay Node.js tren may nguoi dung.
-Live Caption: Whisper small da gói san trong file cai (~500MB them).
-Can Internet khi dung dich van ban / dich realtime.
+STT va dich realtime: can Internet va OPENAI_API_KEY.
+Ban cai dat nhe hon (khong kem Whisper/ffmpeg offline).
 "@
     Set-Content -Path (Join-Path $ReleaseDir "DOC-DAI.txt") -Value $readme -Encoding UTF8
 }

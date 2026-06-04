@@ -38,12 +38,10 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Bundle Python and FFmpeg
+      - name: Bundle Python runtime
         shell: pwsh
         timeout-minutes: 25
-        run: |
-          ./scripts/bundle-python.ps1
-          ./scripts/bundle-ffmpeg.ps1
+        run: ./scripts/bundle-python.ps1
 
       - name: Build installer (NSIS)
         shell: pwsh

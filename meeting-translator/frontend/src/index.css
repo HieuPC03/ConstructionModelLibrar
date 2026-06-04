@@ -252,6 +252,29 @@ textarea {
   color: var(--danger);
 }
 
+.hint-box .hint-sub {
+  margin: 0.5rem 0 0;
+  font-size: 0.9em;
+  opacity: 0.9;
+}
+
+.lang-badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  background: var(--accent-muted, rgba(56, 189, 248, 0.2));
+  color: var(--accent, #38bdf8);
+  vertical-align: middle;
+}
+
+.mode-switch .preset-btn {
+  margin-left: auto;
+}
+
 .hint-box {
   margin: 0 1rem 0.75rem;
   padding: 0.65rem 0.85rem;

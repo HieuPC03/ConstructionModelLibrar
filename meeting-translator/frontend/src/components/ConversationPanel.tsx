@@ -9,7 +9,6 @@ import {
   checkHealth,
   exportTranscript,
   exportTranscriptSegments,
-  exportVideoToFolder,
   fillTextTranslateInput,
   translateCaptionOpenAI,
 } from "../api";
@@ -20,6 +19,7 @@ import {
   SYSTEM_AUDIO_WINDOWS_SHARE,
 } from "../utils/audioDevices";
 import { friendlyMediaError } from "../utils/mediaRecorder";
+import { langBadge } from "../utils/langLabel";
 
 function statusLabel(
   status: string,
@@ -40,14 +40,13 @@ function statusLabel(
 
 export default function ConversationPanel() {
   const feedRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const { sessionMode, setSessionMode, resetToDefaults } = useSessionMode();
   const { tr, exportDir, recordingsDir } = useAppSettings();
   const [sourceLang, setSourceLang] = useState<LangCode>("auto");
   const [targetLang, setTargetLang] = useState<LangCode>("vi");
   const [captureMode, setCaptureMode] = useState<CaptureMode>("system");
   const [loopbackId, setLoopbackId] = useState(SYSTEM_AUDIO_WINDOWS_SHARE);
-  const [includeMic, setIncludeMic] = useState(true);
+  const [includeMic, setIncludeMic] = useState(false);
   const [hearLoopback, setHearLoopback] = useState(true);
   const [starting, setStarting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -75,22 +74,20 @@ export default function ConversationPanel() {
     session.utterances,
     session.transcriptSegments,
     session.liveDraft,
+    session.liveDetectedLang,
     session.activeSegment?.liveTail,
     session.activeSegment?.completedSentences,
   ]);
 
-  useEffect(() => {
-    const video = videoRef.current;
-    const stream = audio.getScreenVideoStream();
-    if (video && stream) {
-      video.srcObject = stream;
-      video.play().catch(() => undefined);
-    } else if (video) {
-      video.srcObject = null;
-    }
-  }, [session.isLive, captureMode, audio]);
-
   const loopbackDevices = audio.loopbackDevices;
+
+  const applyPresetMicViJa = () => {
+    setCaptureMode("mic");
+    setIncludeMic(true);
+    setSourceLang("vi");
+    setTargetLang("ja");
+    setSessionMode("translate_realtime");
+  };
 
   const handlePlay = async () => {
     setStarting(true);
@@ -98,7 +95,7 @@ export default function ConversationPanel() {
     session.setStatus("opening");
     try {
       await checkHealth();
-      const mixMic = captureMode === "screen" ? true : includeMic;
+      const mixMic = captureMode === "mic" || includeMic;
       const loopDevice =
         captureMode === "loopback" || captureMode === "system"
           ? captureMode === "system"
@@ -114,14 +111,12 @@ export default function ConversationPanel() {
         undefined,
         useVbCable && hearLoopback
       );
-      const videoStream = audio.getCompositeRecordStream();
       await session.startSession(
         stream,
         sourceLang,
         targetLang,
         sessionMode,
-        "remote",
-        videoStream
+        captureMode === "mic" ? "local" : "remote"
       );
     } catch (e) {
       session.setStatus(`error:${friendlyMediaError(e)}`);
@@ -131,7 +126,7 @@ export default function ConversationPanel() {
   };
 
   const handleStop = async () => {
-    await session.stopSession(exportBaseDir, exportBaseDir);
+    await session.stopSession(exportBaseDir);
     audio.stopAll();
   };
 
@@ -146,7 +141,7 @@ export default function ConversationPanel() {
       await resetToDefaults();
       setCaptureMode("system");
       setLoopbackId(SYSTEM_AUDIO_WINDOWS_SHARE);
-      setIncludeMic(true);
+      setIncludeMic(false);
       setSourceLang("auto");
       setTargetLang("vi");
       await audio.refreshDevices();
@@ -156,37 +151,27 @@ export default function ConversationPanel() {
     }
   };
 
-  const handleExport = async (kind: "txt" | "video") => {
+  const handleExportTxt = async () => {
     if (!exportBaseDir) {
       session.setStatus(`error:${tr("exportNeedDir")}`);
       return;
     }
     setExportOpen(false);
     try {
-      if (kind === "txt") {
-        if (isTranslate) {
-          if (!session.utterances.length) return;
-          const msg = await exportTranscript(
-            session.utterances,
-            exportBaseDir,
-            `transcript-${Date.now()}.txt`
-          );
-          session.setStatus(`saved:${msg}`);
-        } else {
-          if (!hasTranscriptContent) return;
-          const msg = await exportTranscriptSegments(
-            session.transcriptSegments,
-            exportBaseDir,
-            `transcript-${Date.now()}.txt`
-          );
-          session.setStatus(`saved:${msg}`);
-        }
-      } else {
-        if (!session.sessionId) return;
-        const msg = await exportVideoToFolder(
-          session.sessionId,
+      if (isTranslate) {
+        if (!session.utterances.length) return;
+        const msg = await exportTranscript(
+          session.utterances,
           exportBaseDir,
-          `meeting-${Date.now()}.mp4`
+          `transcript-${Date.now()}.txt`
+        );
+        session.setStatus(`saved:${msg}`);
+      } else {
+        if (!hasTranscriptContent) return;
+        const msg = await exportTranscriptSegments(
+          session.transcriptSegments,
+          exportBaseDir,
+          `transcript-${Date.now()}.txt`
         );
         session.setStatus(`saved:${msg}`);
       }
@@ -253,6 +238,8 @@ export default function ConversationPanel() {
     activeSeg.original.trim().length > 0 &&
     !activeSeg.closed;
 
+  const showAutoHint = sourceLang === "auto";
+
   return (
     <section className="panel">
       <div className="panel-header">
@@ -277,6 +264,15 @@ export default function ConversationPanel() {
         >
           {tr("modeRealtime")}
         </button>
+        <button
+          type="button"
+          className="mode-btn secondary preset-btn"
+          onClick={applyPresetMicViJa}
+          disabled={session.isLive}
+          title={tr("presetMicViJa")}
+        >
+          {tr("presetMicViJa")}
+        </button>
       </div>
 
       <div className="hint-box">
@@ -287,6 +283,9 @@ export default function ConversationPanel() {
             : isTranslate
               ? tr("hintRealtime")
               : tr("hintTranscript")}
+        {showAutoHint && (
+          <p className="hint-sub">{tr("autoLangHint")}</p>
+        )}
       </div>
 
       <div className="panel-header">
@@ -299,8 +298,6 @@ export default function ConversationPanel() {
             >
               <option value="system">{tr("sourceSystemNoCable")}</option>
               <option value="loopback">{tr("sourceLoopbackVb")}</option>
-              <option value="screen">{tr("sourceScreen")}</option>
-              <option value="display">{tr("sourceDisplay")}</option>
               <option value="mic">{tr("sourceMic")}</option>
             </select>
           </label>
@@ -338,7 +335,7 @@ export default function ConversationPanel() {
               )}
             </>
           )}
-          {captureMode !== "screen" && captureMode !== "system" && (
+          {captureMode !== "mic" && (
             <label>
               <input
                 type="checkbox"
@@ -403,9 +400,9 @@ export default function ConversationPanel() {
               type="button"
               className="secondary"
               disabled={
-                ((!hasTranscriptContent && !isTranslate) ||
-                  (isTranslate && session.utterances.length === 0)) &&
-                !session.sessionId
+                (isTranslate
+                  ? session.utterances.length === 0
+                  : !hasTranscriptContent) && !session.sessionId
               }
               onClick={() => setExportOpen((o) => !o)}
             >
@@ -420,16 +417,9 @@ export default function ConversationPanel() {
                       ? session.utterances.length === 0
                       : !hasTranscriptContent
                   }
-                  onClick={() => void handleExport("txt")}
+                  onClick={() => void handleExportTxt()}
                 >
                   {tr("exportAsTxt")}
-                </button>
-                <button
-                  type="button"
-                  disabled={!session.sessionId}
-                  onClick={() => void handleExport("video")}
-                >
-                  {tr("exportAsVideo")}
                 </button>
               </div>
             )}
@@ -457,16 +447,15 @@ export default function ConversationPanel() {
         </div>
       </div>
 
-      {session.isLive && audio.getScreenVideoStream() && (
-        <div className="screen-preview-wrap">
-          <video ref={videoRef} className="screen-preview" muted playsInline />
-        </div>
-      )}
-
       {session.isLive && (
         <div className="live-caption-strip" aria-live="polite">
           <div className="live-caption-strip-header">
             <span className="badge live small">{tr("listeningNow")}</span>
+            {sourceLang === "auto" && session.liveDetectedLang && (
+              <span className="lang-badge" title={tr("langDetected")}>
+                {langBadge(session.liveDetectedLang)}
+              </span>
+            )}
             <span className="live-caption-hint">{tr("liveStripHint")}</span>
           </div>
           <p className="live-caption-stream">
@@ -499,6 +488,9 @@ export default function ConversationPanel() {
                 <div className="segment-header">
                   <span className="segment-label">
                     {tr("segment")} {seg.index}
+                    {sourceLang === "auto" && seg.detectedLang && (
+                      <span className="lang-badge">{langBadge(seg.detectedLang)}</span>
+                    )}
                     {!seg.closed && session.isLive && (
                       <span className="badge live small">{tr("recordingNow")}</span>
                     )}
@@ -558,6 +550,12 @@ export default function ConversationPanel() {
                 <span>
                   {u.speaker === "local" ? tr("you") : tr("meetingSpeaker")} ·{" "}
                   {new Date(u.timestamp).toLocaleTimeString()}
+                  {sourceLang === "auto" && u.detectedLang && (
+                    <>
+                      {" "}
+                      · <span className="lang-badge">{langBadge(u.detectedLang)}</span>
+                    </>
+                  )}
                 </span>
                 <button
                   type="button"

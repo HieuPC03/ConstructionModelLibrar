@@ -41,7 +41,11 @@ const vi = {
   loopbackMethod: "Cách bắt âm thanh",
   loopbackDevicesGroup: "Cần cài VB-Cable / Voicemeeter",
   hintSystemNoCable:
-    "Khuyên dùng: bấm Play → chọn màn hình/cửa sổ → bật «Chia sẻ âm thanh hệ thống». Tai nghe vẫn nghe bình thường, không cần VB-Cable.",
+    "Khuyên dùng: bấm Play → chọn «Toàn màn hình» → bật «Chia sẻ âm thanh hệ thống». Tai nghe vẫn nghe bình thường; không thu micro trừ khi bạn bật «Thêm micro».",
+  autoLangHint:
+    "Chế độ «Tự động»: nhiều người nói tiếng khác nhau — app gắn nhãn VI / JA / EN theo từng câu.",
+  presetMicViJa: "Micro Việt → dịch Nhật",
+  langDetected: "Nhận dạng",
   hintLoopback:
     "Chọn «Không cần VB-Cable» hoặc nguồn «Âm thanh hệ thống (không VB-Cable)». Với VB-Cable: loa mặc định = tai nghe, phát ra CABLE Input, bật «Nghe lại qua tai nghe».",
   hearLoopback: "Nghe lại qua tai nghe",
@@ -143,7 +147,11 @@ const ja: Record<MessageKey, string> = {
   loopbackMethod: "取得方法",
   loopbackDevicesGroup: "VB-Cable等が必要",
   hintSystemNoCable:
-    "推奨: Play → 画面共有 →「システム音声を共有」。ヘッドホンでそのまま聞けます。",
+    "推奨: Play →「画面全体」→「システム音声を共有」。ヘッドホンで聞けます。マイクは「マイクを追加」時のみ。",
+  autoLangHint:
+    "「自動」: 複数言語の会話 — 文ごとに VI / JA / EN ラベルを表示。",
+  presetMicViJa: "マイク越→日本語翻訳",
+  langDetected: "検出",
   hintLoopback:
     "「VB-Cable不要」または「システム音声（VB-Cable不要）」を選択。",
   hearLoopback: "ヘッドホンで聞く",

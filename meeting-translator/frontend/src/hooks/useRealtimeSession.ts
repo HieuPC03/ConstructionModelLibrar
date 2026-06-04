@@ -10,7 +10,6 @@ import type {
 import {
   exportTranscript,
   exportTranscriptSegments,
-  exportVideoToFolder,
   openSessionWebSocket,
   uploadRecording,
 } from "../api";
@@ -23,7 +22,6 @@ import {
   createMediaRecorder,
   friendlyMediaError,
   resumeStreamAudioContext,
-  tryCreateVideoRecorder,
 } from "../utils/mediaRecorder";
 
 /** Chunk ngắn hơn → STT và chữ trên màn hình nhanh hơn (~1.8s). */
@@ -74,14 +72,12 @@ export function useRealtimeSession() {
   const [status, setStatus] = useState("idle");
   /** Dải live: dịch realtime — câu đang gom trước khi dịch xong. */
   const [liveDraft, setLiveDraft] = useState("");
+  const [liveDetectedLang, setLiveDetectedLang] = useState<LangCode | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const chunkPumpIntervalRef = useRef<number | null>(null);
-  const videoRecorderRef = useRef<MediaRecorder | null>(null);
   const recordChunksRef = useRef<Blob[]>([]);
-  const videoChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const audioMimeRef = useRef("audio/webm");
-  const videoMimeRef = useRef("video/webm");
   const sessionModeRef = useRef<SessionMode>("transcript");
   const openSegmentIdRef = useRef<string | null>(null);
   const chunkMetaRef = useRef<Record<string, string>>({});
@@ -116,7 +112,8 @@ export function useRealtimeSession() {
     });
   }, []);
 
-  const appendTranscriptChunk = useCallback((text: string) => {
+  const appendTranscriptChunk = useCallback(
+    (text: string, detectedLang?: LangCode) => {
     setTranscriptSegments((prev) => {
       let list = prev;
       let openId = openSegmentIdRef.current;
@@ -141,10 +138,16 @@ export function useRealtimeSession() {
       return list.map((s) => {
         if (s.id !== openId) return s;
         const original = appendChunkText(s.original, text);
-        return { ...s, ...withSplitSentences(original) };
+        return {
+          ...s,
+          ...withSplitSentences(original),
+          ...(detectedLang ? { detectedLang } : {}),
+        };
       });
     });
-  }, []);
+  },
+    []
+  );
 
   const sendAudioChunk = useCallback(
     (blob: Blob, meta: Record<string, string>) => {
@@ -212,12 +215,12 @@ export function useRealtimeSession() {
       sourceLang: LangCode,
       targetLang: LangCode,
       sessionMode: SessionMode,
-      remoteSpeaker: Speaker,
-      videoStream?: MediaStream | null
+      remoteSpeaker: Speaker
     ) => {
       sessionModeRef.current = sessionMode;
       setUtterances([]);
       setLiveDraft("");
+      setLiveDetectedLang(null);
       flushSync(() => {
         resetTranscript();
       });
@@ -256,18 +259,24 @@ export function useRealtimeSession() {
         } else if (data.type === "partial" && data.original) {
           if (sessionModeRef.current === MODE_REALTIME) {
             setLiveDraft(String(data.original));
+            if (data.detected_lang) {
+              setLiveDetectedLang(data.detected_lang as LangCode);
+            }
           }
         } else if (data.type === "utterance" && data.original) {
+          const det = data.detected_lang as LangCode | undefined;
           if (sessionModeRef.current === MODE_TRANSCRIPT) {
-            appendTranscriptChunk(data.original);
+            appendTranscriptChunk(data.original, det);
           } else if (sessionModeRef.current === MODE_REALTIME) {
             setLiveDraft("");
+            setLiveDetectedLang(null);
             appendRealtimeUtterance({
               id: data.id,
               timestamp: data.timestamp,
               speaker: data.speaker,
               original: data.original,
               translation: data.translation || "",
+              detectedLang: det,
             });
           }
         } else if (data.type === "error") {
@@ -277,18 +286,6 @@ export function useRealtimeSession() {
         }
       };
 
-      if (videoStream && videoStream.getTracks().length > 0) {
-        const videoRec = tryCreateVideoRecorder(videoStream);
-        if (videoRec) {
-          videoMimeRef.current = videoRec.mimeType;
-          videoChunksRef.current = [];
-          videoRec.recorder.ondataavailable = (e) => {
-            if (e.data.size > 0) videoChunksRef.current.push(e.data);
-          };
-          videoRec.recorder.start(1000);
-          videoRecorderRef.current = videoRec.recorder;
-        }
-      }
     },
     [appendRealtimeUtterance, appendTranscriptChunk, resetTranscript, startLiveAudioRecording]
   );
@@ -333,16 +330,14 @@ export function useRealtimeSession() {
     clearChunkPump();
     wsRef.current?.close();
     wsRef.current = null;
-    videoRecorderRef.current?.stop();
-    videoRecorderRef.current = null;
     recordChunksRef.current = [];
-    videoChunksRef.current = [];
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     setSessionId(null);
     setIsLive(false);
     setUtterances([]);
     setLiveDraft("");
+    setLiveDetectedLang(null);
     setTranscriptSegments([]);
     setActiveSegmentId(null);
     openSegmentIdRef.current = null;
@@ -350,8 +345,7 @@ export function useRealtimeSession() {
     setStatus("idle");
   }, [clearChunkPump]);
 
-  const stopSession = useCallback(
-    async (exportDir?: string, videoExportDir?: string) => {
+  const stopSession = useCallback(async (exportDir?: string) => {
       clearChunkPump();
       const ws = wsRef.current;
       if (ws?.readyState === WebSocket.OPEN) {
@@ -361,70 +355,45 @@ export function useRealtimeSession() {
       }
       wsRef.current = null;
 
-      const vRec = videoRecorderRef.current;
-      if (vRec && vRec.state !== "inactive") {
-        await new Promise<void>((resolve) => {
-          vRec.onstop = () => resolve();
-          vRec.stop();
-        });
-      }
-      videoRecorderRef.current = null;
-
       const sid = sessionId;
       const audioBlob =
         recordChunksRef.current.length > 0
           ? new Blob(recordChunksRef.current, { type: audioMimeRef.current })
           : null;
-      const videoBlob =
-        videoChunksRef.current.length > 0
-          ? new Blob(videoChunksRef.current, { type: videoMimeRef.current })
-          : null;
-
       const transcriptJson =
         sessionModeRef.current === MODE_TRANSCRIPT
           ? JSON.stringify({ segments: transcriptSegments }, null, 2)
           : JSON.stringify(utterances, null, 2);
 
-      if (sid && (audioBlob?.size || videoBlob?.size)) {
+      if (sid && audioBlob?.size) {
         try {
-          await uploadRecording(sid, audioBlob, transcriptJson, videoBlob);
+          await uploadRecording(sid, audioBlob, transcriptJson, null);
         } catch {
           /* ignore */
         }
       }
 
-      const txtDir = exportDir || videoExportDir;
       const parts: string[] = [];
       try {
-        if (txtDir) {
+        if (exportDir) {
           if (
             sessionModeRef.current === MODE_TRANSCRIPT &&
             transcriptSegments.some((s) => s.original.trim())
           ) {
             const msg = await exportTranscriptSegments(
               transcriptSegments,
-              txtDir,
+              exportDir,
               `transcript-${sid?.slice(0, 8) || Date.now()}.txt`
             );
             parts.push(msg);
           } else if (utterances.length > 0) {
             const msg = await exportTranscript(
               utterances,
-              txtDir,
+              exportDir,
               `transcript-${sid?.slice(0, 8) || Date.now()}.txt`
             );
             parts.push(msg);
           }
-        }
-        const vidDir = videoExportDir || exportDir;
-        if (vidDir && videoBlob?.size && sid) {
-          const ext = videoMimeRef.current.includes("mp4") ? "mp4" : "webm";
-          const vmsg = await exportVideoToFolder(
-            sid,
-            vidDir,
-            `meeting-${sid.slice(0, 8)}.${ext}`
-          );
-          parts.push(vmsg);
         }
         setStatus(parts.length ? `saved:${parts.join("; ")}` : "saved");
       } catch {
@@ -448,6 +417,7 @@ export function useRealtimeSession() {
     activeSegment,
     activeSegmentId,
     liveDraft,
+    liveDetectedLang,
     sessionId,
     isLive,
     status,

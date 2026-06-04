@@ -10,6 +10,8 @@ export interface Utterance {
   speaker: Speaker;
   original: string;
   translation: string;
+  /** Whisper / heuristic khi ngôn ngữ nói = Tự động */
+  detectedLang?: LangCode;
 }
 
 /** Live Caption: một khối văn bản dài (đoạn 1, 2, …). */
@@ -24,6 +26,7 @@ export interface TranscriptSegment {
   translation: string;
   translating: boolean;
   closed: boolean;
+  detectedLang?: LangCode;
 }
 
 export interface AudioDeviceOption {
