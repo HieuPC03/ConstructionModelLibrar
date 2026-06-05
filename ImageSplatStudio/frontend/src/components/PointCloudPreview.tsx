@@ -2,10 +2,20 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { useI18n } from "../i18n/I18nProvider";
-import { previewPointClouds, type PointCloudPreviewData } from "../api";
+import {
+  fetchPreviewGeometry,
+  previewPointClouds,
+  type PointCloudPreviewGeometry,
+  type PointCloudPreviewMeta,
+} from "../api";
 import { formatFileSize } from "../utils/pointcloud";
 
 const DEFAULT_PERCENT = 20;
+const DEFAULT_POINT_SIZE_M = 0.3;
+const MIN_POINT_SIZE_M = 0.1;
+const MAX_POINT_SIZE_M = 1.0;
+
+type PreviewData = PointCloudPreviewMeta & PointCloudPreviewGeometry;
 
 interface PointCloudPreviewProps {
   files: File[];
@@ -14,17 +24,20 @@ interface PointCloudPreviewProps {
 export function PointCloudPreview({ files }: PointCloudPreviewProps) {
   const { tr } = useI18n();
   const mountRef = useRef<HTMLDivElement>(null);
+  const materialRef = useRef<THREE.PointsMaterial | null>(null);
   const sessionRef = useRef<string | null>(null);
-  const [data, setData] = useState<PointCloudPreviewData | null>(null);
+  const [data, setData] = useState<PreviewData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [samplePercent, setSamplePercent] = useState(DEFAULT_PERCENT);
   const [debouncedPercent, setDebouncedPercent] = useState(DEFAULT_PERCENT);
+  const [pointSizeM, setPointSizeM] = useState(DEFAULT_POINT_SIZE_M);
 
   useEffect(() => {
     sessionRef.current = null;
     setSamplePercent(DEFAULT_PERCENT);
     setDebouncedPercent(DEFAULT_PERCENT);
+    setPointSizeM(DEFAULT_POINT_SIZE_M);
   }, [files]);
 
   useEffect(() => {
@@ -37,26 +50,38 @@ export function PointCloudPreview({ files }: PointCloudPreviewProps) {
     setLoading(true);
     setError(null);
 
-    const request = previewPointClouds(
-      files,
-      debouncedPercent,
-      sessionRef.current ?? undefined,
-    );
+    const load = async () => {
+      try {
+        if (sessionRef.current) {
+          const geometry = await fetchPreviewGeometry(sessionRef.current, debouncedPercent);
+          if (cancelled) return;
+          setData((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              ...geometry,
+              preview_count: geometry.count,
+              preview_percent: debouncedPercent,
+              preview_fraction: geometry.count / prev.total_points,
+            };
+          });
+          return;
+        }
 
-    request
-      .then((result) => {
+        const result = await previewPointClouds(files, debouncedPercent);
         if (cancelled) return;
         if (result.preview_session_id) {
           sessionRef.current = result.preview_session_id;
         }
         setData(result);
-      })
-      .catch((e: unknown) => {
+      } catch (e: unknown) {
         if (!cancelled) setError(String(e));
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    };
+
+    void load();
 
     return () => {
       cancelled = true;
@@ -64,26 +89,31 @@ export function PointCloudPreview({ files }: PointCloudPreviewProps) {
   }, [files, debouncedPercent]);
 
   useEffect(() => {
+    if (materialRef.current) {
+      materialRef.current.size = pointSizeM;
+      materialRef.current.needsUpdate = true;
+    }
+  }, [pointSizeM]);
+
+  useEffect(() => {
     const mount = mountRef.current;
-    if (!mount || !data?.positions.length) return;
+    if (!mount || !data?.count) return;
 
     let cancelled = false;
+    materialRef.current = null;
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x06080c);
 
-    const positions = new Float32Array(data.positions.length * 3);
-    const colors = new Float32Array(data.positions.length * 3);
-    for (let i = 0; i < data.positions.length; i++) {
-      const [x, y, z] = data.positions[i];
-      positions[i * 3] = x;
-      positions[i * 3 + 1] = y;
-      positions[i * 3 + 2] = z;
-      if (data.colors?.[i]) {
-        colors[i * 3] = data.colors[i][0] / 255;
-        colors[i * 3 + 1] = data.colors[i][1] / 255;
-        colors[i * 3 + 2] = data.colors[i][2] / 255;
+    const count = data.count;
+    const positions = data.positions;
+    const colors = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      if (data.colors) {
+        colors[i * 3] = data.colors[i * 3] / 255;
+        colors[i * 3 + 1] = data.colors[i * 3 + 1] / 255;
+        colors[i * 3 + 2] = data.colors[i * 3 + 2] / 255;
       } else {
-        const t = i / Math.max(data.positions.length - 1, 1);
+        const t = i / Math.max(count - 1, 1);
         colors[i * 3] = 0.45 + t * 0.3;
         colors[i * 3 + 1] = 0.55 + t * 0.2;
         colors[i * 3 + 2] = 0.95;
@@ -91,19 +121,19 @@ export function PointCloudPreview({ files }: PointCloudPreviewProps) {
     }
 
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions.slice(0, count * 3), 3));
     geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
     geometry.computeBoundingBox();
     const box = geometry.boundingBox!;
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z, 0.001);
-    const pointSize = Math.max(maxDim / 200, 0.004);
 
     const material = new THREE.PointsMaterial({
-      size: pointSize,
+      size: pointSizeM,
       vertexColors: true,
       sizeAttenuation: true,
     });
+    materialRef.current = material;
     scene.add(new THREE.Points(geometry, material));
 
     const camera = new THREE.PerspectiveCamera(50, 1, maxDim * 0.001, maxDim * 100);
@@ -148,6 +178,7 @@ export function PointCloudPreview({ files }: PointCloudPreviewProps) {
       controls.dispose();
       geometry.dispose();
       material.dispose();
+      materialRef.current = null;
       renderer.dispose();
       mount.removeChild(renderer.domElement);
     };
@@ -169,7 +200,6 @@ export function PointCloudPreview({ files }: PointCloudPreviewProps) {
                 · {data.total_points.toLocaleString()} {tr("pcPreviewPoints")}
                 {" "}
                 ({tr("pcPreviewShowing")} {data.preview_count.toLocaleString()} = {displayPercent}%)
-                {data.preview_capped ? ` · ${tr("pcPreviewCapped")}` : null}
               </>
             )}
           </p>
@@ -193,6 +223,26 @@ export function PointCloudPreview({ files }: PointCloudPreviewProps) {
             <span>1%</span>
             <span>50%</span>
             <span>100%</span>
+          </div>
+
+          <label className="pc-sample-label" htmlFor="pc-point-size">
+            {tr("pcPreviewPointSize")}: <strong>{pointSizeM.toFixed(2)} m</strong>
+          </label>
+          <input
+            id="pc-point-size"
+            className="pc-sample-slider"
+            type="range"
+            min={MIN_POINT_SIZE_M}
+            max={MAX_POINT_SIZE_M}
+            step={0.05}
+            value={pointSizeM}
+            disabled={!data}
+            onChange={(e) => setPointSizeM(Number(e.target.value))}
+          />
+          <div className="pc-sample-ticks" aria-hidden="true">
+            <span>0.1 m</span>
+            <span>0.5 m</span>
+            <span>1.0 m</span>
           </div>
         </div>
       </div>

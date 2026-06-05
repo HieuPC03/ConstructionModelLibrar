@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 
 from app.config import settings
 from app.models import HealthResponse, JobCreateResponse, JobInfo, JobStatus, JobType, OutputFormat
@@ -142,6 +142,27 @@ async def pointcloud_preview(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/pointcloud-preview/{session_id}/geometry")
+def pointcloud_preview_geometry(session_id: str, percent: float = 20) -> Response:
+    if not check_open3d_available():
+        raise HTTPException(status_code=503, detail="Open3D chưa sẵn sàng.")
+    from app.services.pointcloud_preview import pack_preview_geometry, sample_session_geometry
+
+    try:
+        pts, cols, _meta = sample_session_geometry(session_id, percent=percent)
+        payload = pack_preview_geometry(pts, cols)
+        return Response(
+            content=payload,
+            media_type="application/octet-stream",
+            headers={
+                "Cache-Control": "no-store",
+                "X-Preview-Count": str(len(pts)),
+            },
+        )
+    except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
