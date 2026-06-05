@@ -105,30 +105,42 @@ async def create_image_job(
 
 
 @router.post("/pointcloud-preview")
-async def pointcloud_preview(files: list[UploadFile] = File(...)) -> dict:
+async def pointcloud_preview(
+    files: list[UploadFile] = File(default=[]),
+    percent: float = Form(20),
+    session_id: str = Form(""),
+) -> dict:
     if not check_open3d_available():
         raise HTTPException(status_code=503, detail="Open3D chưa sẵn sàng.")
-    if not files:
-        raise HTTPException(status_code=400, detail="Chọn ít nhất 1 file point cloud.")
 
-    payloads: list[tuple[bytes, str]] = []
-    for upload in files:
-        suffix = Path(upload.filename or "").suffix.lower()
-        if suffix not in settings.pointcloud_extensions:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Định dạng không hỗ trợ: {upload.filename}. Dùng PLY, TXT, LAS, LAZ, XYZ...",
-            )
-        content = await upload.read()
-        if len(content) == 0:
-            continue
-        payloads.append((content, suffix))
-
-    if not payloads:
-        raise HTTPException(status_code=400, detail="Tất cả file rỗng.")
+    from app.services.pointcloud_preview import preview_from_session
 
     try:
-        return preview_upload_files(payloads)
+        if session_id.strip() and not files:
+            return preview_from_session(session_id.strip(), percent=percent)
+
+        if not files:
+            raise HTTPException(status_code=400, detail="Chọn ít nhất 1 file point cloud.")
+
+        payloads: list[tuple[bytes, str]] = []
+        for upload in files:
+            suffix = Path(upload.filename or "").suffix.lower()
+            if suffix not in settings.pointcloud_extensions:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Định dạng không hỗ trợ: {upload.filename}. Dùng PLY, TXT, LAS, LAZ, XYZ...",
+                )
+            content = await upload.read()
+            if len(content) == 0:
+                continue
+            payloads.append((content, suffix))
+
+        if not payloads:
+            raise HTTPException(status_code=400, detail="Tất cả file rỗng.")
+
+        return preview_upload_files(payloads, percent=percent)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

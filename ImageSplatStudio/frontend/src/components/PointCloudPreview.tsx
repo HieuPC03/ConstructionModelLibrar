@@ -5,6 +5,8 @@ import { useI18n } from "../i18n/I18nProvider";
 import { previewPointClouds, type PointCloudPreviewData } from "../api";
 import { formatFileSize } from "../utils/pointcloud";
 
+const DEFAULT_PERCENT = 20;
+
 interface PointCloudPreviewProps {
   files: File[];
 }
@@ -12,17 +14,42 @@ interface PointCloudPreviewProps {
 export function PointCloudPreview({ files }: PointCloudPreviewProps) {
   const { tr } = useI18n();
   const mountRef = useRef<HTMLDivElement>(null);
+  const sessionRef = useRef<string | null>(null);
   const [data, setData] = useState<PointCloudPreviewData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [samplePercent, setSamplePercent] = useState(DEFAULT_PERCENT);
+  const [debouncedPercent, setDebouncedPercent] = useState(DEFAULT_PERCENT);
+
+  useEffect(() => {
+    sessionRef.current = null;
+    setSamplePercent(DEFAULT_PERCENT);
+    setDebouncedPercent(DEFAULT_PERCENT);
+  }, [files]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedPercent(samplePercent), 350);
+    return () => window.clearTimeout(timer);
+  }, [samplePercent]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    previewPointClouds(files)
+
+    const request = previewPointClouds(
+      files,
+      debouncedPercent,
+      sessionRef.current ?? undefined,
+    );
+
+    request
       .then((result) => {
-        if (!cancelled) setData(result);
+        if (cancelled) return;
+        if (result.preview_session_id) {
+          sessionRef.current = result.preview_session_id;
+        }
+        setData(result);
       })
       .catch((e: unknown) => {
         if (!cancelled) setError(String(e));
@@ -30,10 +57,11 @@ export function PointCloudPreview({ files }: PointCloudPreviewProps) {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
-  }, [files]);
+  }, [files, debouncedPercent]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -126,6 +154,7 @@ export function PointCloudPreview({ files }: PointCloudPreviewProps) {
   }, [data]);
 
   const totalSize = files.reduce((s, f) => s + f.size, 0);
+  const displayPercent = data?.preview_percent ?? samplePercent;
 
   return (
     <div className="pc-preview">
@@ -139,10 +168,32 @@ export function PointCloudPreview({ files }: PointCloudPreviewProps) {
                 {" "}
                 · {data.total_points.toLocaleString()} {tr("pcPreviewPoints")}
                 {" "}
-                ({tr("pcPreviewShowing")} {data.preview_count.toLocaleString()} = 20%)
+                ({tr("pcPreviewShowing")} {data.preview_count.toLocaleString()} = {displayPercent}%)
+                {data.preview_capped ? ` · ${tr("pcPreviewCapped")}` : null}
               </>
             )}
           </p>
+        </div>
+        <div className="pc-preview-controls">
+          <label className="pc-sample-label" htmlFor="pc-sample-percent">
+            {tr("pcPreviewDensity")}: <strong>{samplePercent}%</strong>
+          </label>
+          <input
+            id="pc-sample-percent"
+            className="pc-sample-slider"
+            type="range"
+            min={1}
+            max={100}
+            step={1}
+            value={samplePercent}
+            disabled={loading && !data}
+            onChange={(e) => setSamplePercent(Number(e.target.value))}
+          />
+          <div className="pc-sample-ticks" aria-hidden="true">
+            <span>1%</span>
+            <span>50%</span>
+            <span>100%</span>
+          </div>
         </div>
       </div>
       <div className="pc-preview-viewport">

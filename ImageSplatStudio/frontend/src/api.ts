@@ -69,7 +69,11 @@ export async function deleteJob(jobId: string): Promise<void> {
 export interface PointCloudPreviewData {
   total_points: number;
   preview_count: number;
+  preview_percent?: number;
   preview_fraction?: number;
+  preview_capped?: boolean;
+  max_preview_points?: number;
+  preview_session_id?: string;
   file_count?: number;
   format: string;
   positions: [number, number, number][];
@@ -81,10 +85,19 @@ export interface PointCloudPreviewData {
   };
 }
 
-export async function previewPointClouds(files: File[]): Promise<PointCloudPreviewData> {
+export async function previewPointClouds(
+  files: File[],
+  percent = 20,
+  sessionId?: string,
+): Promise<PointCloudPreviewData> {
   const form = new FormData();
-  for (const file of files) {
-    form.append("files", file);
+  form.append("percent", String(percent));
+  if (sessionId) {
+    form.append("session_id", sessionId);
+  } else {
+    for (const file of files) {
+      form.append("files", file);
+    }
   }
   return parseJson(
     await fetch(`${API}/pointcloud-preview`, {
