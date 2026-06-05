@@ -9,12 +9,14 @@ interface PointCloudPanelProps {
     demo: boolean,
     method: "luma" | "standard",
   ) => Promise<void>;
+  onFileChange?: (file: File | null) => void;
   busy: boolean;
   open3dAvailable: boolean;
 }
 
 export function PointCloudPanel({
   onSubmit,
+  onFileChange,
   busy,
   open3dAvailable,
 }: PointCloudPanelProps) {
@@ -28,16 +30,24 @@ export function PointCloudPanel({
 
   const handleFile = (incoming: FileList | File[]) => {
     const picked = Array.from(incoming).find(isPointCloudFile);
-    if (picked) setFile(picked);
+    if (picked) {
+      setFile(picked);
+      onFileChange?.(picked);
+    }
+  };
+
+  const clearFile = () => {
+    setFile(null);
+    onFileChange?.(null);
+    if (inputRef.current) inputRef.current.value = "";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await onSubmit(name.trim() || "Point Cloud", demo ? null : file, demo, method);
     setName("");
-    setFile(null);
+    clearFile();
     setDemo(false);
-    if (inputRef.current) inputRef.current.value = "";
   };
 
   const canSubmit = demo || file !== null;
@@ -108,10 +118,8 @@ export function PointCloudPanel({
             <button
               type="button"
               className="button-link danger"
-              onClick={() => {
-                setFile(null);
-                if (inputRef.current) inputRef.current.value = "";
-              }}
+              onClick={clearFile}
+              disabled={busy}
             >
               {tr("remove")}
             </button>
@@ -119,6 +127,7 @@ export function PointCloudPanel({
         ) : (
           <p className="file-count">{tr("noPcFile")}</p>
         )}
+        <p className="muted pc-formats-hint">{tr("pcFormatsHint")}</p>
       </div>
 
       <label className="checkbox-row">

@@ -72,7 +72,7 @@ Write-Host "    Verifying bundled Python..."
 if ($LASTEXITCODE -ne 0) { throw "Bundled Python verification failed" }
 
 $PipelineDir = Join-Path $Root "pipeline"
-& "$PythonDir\python.exe" -c "import sys; sys.path.insert(0, r'$PipelineDir'); import _bootstrap; from write_splat import pack_rotation; print('Pipeline imports OK')"
+& "$PythonDir\python.exe" -c "import sys; sys.path.insert(0, r'$PipelineDir'); from write_splat import pack_rotation; print('Pipeline imports OK')"
 if ($LASTEXITCODE -ne 0) { throw "Pipeline import verification failed" }
 
 $pySize = (Get-ChildItem $PythonDir -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
@@ -98,7 +98,7 @@ if (-not (Test-Path $bundledInApp)) {
 Write-Host "    Verified python.exe inside app package" -ForegroundColor Green
 
 $packagedPipeline = Join-Path $winUnpacked "resources\pipeline"
-foreach ($required in @("_bootstrap.py", "write_splat.py", "pointcloud_io.py", "pointcloud_to_gaussian.py")) {
+foreach ($required in @("write_splat.py", "pointcloud_io.py", "pointcloud_to_gaussian.py")) {
     if (-not (Test-Path (Join-Path $packagedPipeline $required))) {
         throw "Missing pipeline file in app: $required"
     }

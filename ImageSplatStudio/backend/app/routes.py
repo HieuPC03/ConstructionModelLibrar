@@ -8,6 +8,7 @@ from app.models import HealthResponse, JobCreateResponse, JobInfo, JobStatus, Jo
 from app.services.capabilities import check_colmap_available, check_gpu_available, check_open3d_available
 from app.services.export_service import create_export_zip, safe_filename
 from app.services.job_store import job_store
+from app.services.pointcloud_preview import preview_upload
 from app.services.pipeline_runner import pipeline_runner
 from app.services.pointcloud_runner import pointcloud_runner
 from app.services.upload_helpers import resolve_image_suffix, supported_image_formats_hint
@@ -101,6 +102,28 @@ async def create_image_job(
         job_id=job.job_id,
         message="Job đã tạo. Đang xử lý...",
     )
+
+
+@router.post("/pointcloud-preview")
+async def pointcloud_preview(file: UploadFile = File(...)) -> dict:
+    if not check_open3d_available():
+        raise HTTPException(status_code=503, detail="Open3D chưa sẵn sàng.")
+
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in settings.pointcloud_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Định dạng không hỗ trợ. Dùng: {', '.join(sorted(settings.pointcloud_extensions))}",
+        )
+
+    content = await file.read()
+    if len(content) == 0:
+        raise HTTPException(status_code=400, detail="File rỗng.")
+
+    try:
+        return preview_upload(content, suffix)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/pointcloud-jobs", response_model=JobCreateResponse)

@@ -53,9 +53,29 @@ def load_xyz_point_cloud(path: Path):
     import numpy as np
     import open3d as o3d
 
-    data = np.loadtxt(str(path))
-    if data.ndim == 1:
-        raise ValueError("XYZ file must have at least 3 columns")
+    rows: list[list[float]] = []
+    for raw in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or line.startswith("//"):
+            continue
+        line = line.split("#")[0].split("//")[0].strip()
+        if not line:
+            continue
+        parts = line.replace(",", " ").replace(";", " ").split()
+        if len(parts) < 3:
+            continue
+        try:
+            row = [float(parts[0]), float(parts[1]), float(parts[2])]
+            if len(parts) >= 6:
+                row.extend([float(parts[3]), float(parts[4]), float(parts[5])])
+            rows.append(row)
+        except ValueError:
+            continue
+
+    if not rows:
+        raise ValueError(f"Không đọc được dữ liệu XYZ/TXT: {path.name}")
+
+    data = np.asarray(rows, dtype=np.float64)
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(data[:, :3])
     if data.shape[1] >= 6:
@@ -81,6 +101,10 @@ def load_point_cloud_file(path: Path):
         header = path.read_bytes()[:8192].decode("ascii", errors="ignore")
         if is_3dgs_ply_header(header):
             return ("3dgs_ply", path)
+        # Standard PLY via Open3D (ascii + binary)
+        pcd = o3d.io.read_point_cloud(str(path))
+        if not pcd.is_empty():
+            return pcd
 
     pcd = o3d.io.read_point_cloud(str(path))
     if pcd.is_empty() and suffix == ".obj":

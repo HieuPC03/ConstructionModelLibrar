@@ -15,7 +15,10 @@ import struct
 import sys
 from pathlib import Path
 
-import _bootstrap  # noqa: F401 — add pipeline dir to sys.path
+# Windows embeddable Python: add script dir before local imports
+_ROOT = str(Path(__file__).resolve().parent)
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 from write_splat import pack_rotation
 from pointcloud_io import is_3dgs_ply_header, load_point_cloud_file
