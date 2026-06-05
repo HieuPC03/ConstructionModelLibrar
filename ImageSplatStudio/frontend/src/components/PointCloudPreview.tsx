@@ -15,6 +15,8 @@ import { viewerToWorld, formatWorldCoords, type NormMeta } from "../utils/coordT
 import { buildGeoreferencedBasemap, effectiveBasemapMode, type BasemapMode } from "../utils/basemapTiles";
 import { applyViewDirection, createAxesHelper, ViewCube, type ViewDirection } from "./ViewCube";
 import { OSNAP_CURSOR, TOOL_CURSORS, toolHintKey, type EditorTool, type OsnapMode } from "../utils/editorTools";
+import { applyColorMode, type ColorMode } from "../utils/colorModes";
+import { fetchGridSurface } from "../api/editor";
 import {
   formatSnapLabel,
   ndcFromEvent,
@@ -37,6 +39,8 @@ type PreviewData = PointCloudPreviewMeta & PointCloudPreviewGeometry;
 
 export interface PickMeta {
   vertexIndex?: number;
+  pointIndex?: number;
+  rgb?: [number, number, number];
 }
 
 interface PointCloudPreviewProps {
@@ -60,8 +64,11 @@ interface PointCloudPreviewProps {
   measurements?: { id: string; type: string; points: number[][]; value: number; unit: string }[];
   measureStart?: [number, number, number] | null;
   regionStart?: [number, number, number] | null;
+  colorMode?: ColorMode;
+  showGridSurface?: boolean;
   onSessionReady?: (sessionId: string) => void;
   onPick?: (position: [number, number, number], meta?: PickMeta) => void;
+  onInspect?: (position: [number, number, number], meta?: PickMeta) => void;
   onSnapHover?: (position: [number, number, number] | null) => void;
 }
 
@@ -128,8 +135,11 @@ export function PointCloudPreview({
   measurements = [],
   measureStart = null,
   regionStart = null,
+  colorMode = "rgb",
+  showGridSurface = false,
   onSessionReady,
   onPick,
+  onInspect,
   onSnapHover,
 }: PointCloudPreviewProps) {
   const { tr } = useI18n();
@@ -148,6 +158,7 @@ export function PointCloudPreview({
     snapMarker: THREE.Mesh;
     regionGroup: THREE.Group;
     annotationGroup: THREE.Group;
+    gridSurfaceGroup: THREE.Group;
     axesGroup: THREE.Group;
     basemapPlane: THREE.Mesh | null;
     maxDim: number;
@@ -158,6 +169,7 @@ export function PointCloudPreview({
   const toolRef = useRef(activeTool);
   const osnapRef = useRef(osnapMode);
   const onPickRef = useRef(onPick);
+  const onInspectRef = useRef(onInspect);
   const onSnapHoverRef = useRef(onSnapHover);
   const onSessionReadyRef = useRef(onSessionReady);
   const cameraSavedRef = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
@@ -170,7 +182,14 @@ export function PointCloudPreview({
   const [debouncedPercent, setDebouncedPercent] = useState(DEFAULT_PERCENT);
   const [pointSizeM, setPointSizeM] = useState(DEFAULT_POINT_SIZE_M);
   const [snapLabel, setSnapLabel] = useState<string | null>(null);
+  const colorModeRef = useRef(colorMode);
+  const rawColorsRef = useRef<Uint8Array | null>(null);
+  const positionsRef = useRef<Float32Array | null>(null);
   const viewCubeCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+
+  useEffect(() => {
+    colorModeRef.current = colorMode;
+  }, [colorMode]);
 
   useEffect(() => {
     toolRef.current = activeTool;
@@ -184,6 +203,9 @@ export function PointCloudPreview({
   useEffect(() => {
     onPickRef.current = onPick;
   }, [onPick]);
+  useEffect(() => {
+    onInspectRef.current = onInspect;
+  }, [onInspect]);
   useEffect(() => {
     onSnapHoverRef.current = onSnapHover;
   }, [onSnapHover]);
@@ -267,11 +289,23 @@ export function PointCloudPreview({
     }
   }, [pointSizeM]);
 
+  useEffect(() => {
+    const ctx = sceneCtxRef.current;
+    if (!ctx || !positionsRef.current) return;
+    const geom = ctx.points.geometry;
+    const colorAttr = geom.getAttribute("color") as THREE.BufferAttribute;
+    if (!colorAttr) return;
+    const count = colorAttr.count;
+    const next = applyColorMode(count, positionsRef.current, rawColorsRef.current, colorMode);
+    colorAttr.array.set(next);
+    colorAttr.needsUpdate = true;
+  }, [colorMode, data?.count]);
+
   const resolvePick = useCallback(
     (
       raycaster: THREE.Raycaster,
       ctx: NonNullable<typeof sceneCtxRef.current>,
-    ): { point: THREE.Vector3; vertexIndex?: number } | null => {
+    ): { point: THREE.Vector3; vertexIndex?: number; pointIndex?: number } | null => {
       const tool = toolRef.current;
       const osnap = osnapRef.current;
       const useOsnap = osnap !== "off";
@@ -287,10 +321,10 @@ export function PointCloudPreview({
 
       if (osnap === "point" || tool === "delete_point" || tool === "add_point" || tool === "coord_point") {
         const ptSnap = snapToPointCloud(raycaster, ctx.points, threshold);
-        if (ptSnap) return { point: ptSnap };
+        if (ptSnap) return { point: ptSnap.point, pointIndex: ptSnap.index };
       } else {
         const ptSnap = snapToPointCloud(raycaster, ctx.points, threshold);
-        if (ptSnap) return { point: ptSnap };
+        if (ptSnap) return { point: ptSnap.point, pointIndex: ptSnap.index };
       }
 
       if (!useOsnap && (tool === "add_point" || tool === "breakline" || tool === "coord_point")) {
@@ -315,23 +349,13 @@ export function PointCloudPreview({
     scene.background = new THREE.Color(0x06080c);
 
     const count = data.count;
-    const positions = data.positions;
-    const colors = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      if (data.colors) {
-        colors[i * 3] = data.colors[i * 3] / 255;
-        colors[i * 3 + 1] = data.colors[i * 3 + 1] / 255;
-        colors[i * 3 + 2] = data.colors[i * 3 + 2] / 255;
-      } else {
-        const t = i / Math.max(count - 1, 1);
-        colors[i * 3] = 0.45 + t * 0.3;
-        colors[i * 3 + 1] = 0.55 + t * 0.2;
-        colors[i * 3 + 2] = 0.95;
-      }
-    }
+    const positions = data.positions.slice(0, count * 3);
+    positionsRef.current = positions;
+    rawColorsRef.current = data.colors ?? null;
+    const colors = applyColorMode(count, positions, data.colors, colorModeRef.current);
 
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(positions.slice(0, count * 3), 3));
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
     geometry.computeBoundingBox();
     const box = geometry.boundingBox!;
@@ -422,6 +446,9 @@ export function PointCloudPreview({
     const annotationGroup = new THREE.Group();
     scene.add(annotationGroup);
 
+    const gridSurfaceGroup = new THREE.Group();
+    scene.add(gridSurfaceGroup);
+
     const snapMarker = new THREE.Mesh(
       new THREE.SphereGeometry(maxDim * 0.008, 12, 12),
       new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.9 }),
@@ -443,6 +470,7 @@ export function PointCloudPreview({
       snapMarker,
       regionGroup,
       annotationGroup,
+      gridSurfaceGroup,
       axesGroup,
       basemapPlane,
       maxDim,
@@ -545,14 +573,28 @@ export function PointCloudPreview({
     const onClick = (event: MouseEvent) => {
       const ctx = sceneCtxRef.current;
       const tool = toolRef.current;
-      if (!ctx || tool === "navigate") return;
+      if (!ctx) return;
       event.preventDefault();
       const ndc = ndcFromEvent(event, ctx.renderer.domElement);
       ctx.raycaster.setFromCamera(ndc, ctx.camera);
       const hit = resolvePick(ctx.raycaster, ctx);
       if (!hit) return;
       const pos: [number, number, number] = [hit.point.x, hit.point.y, hit.point.z];
-      onPickRef.current?.(pos, { vertexIndex: hit.vertexIndex });
+      let rgb: [number, number, number] | undefined;
+      if (hit.pointIndex != null && hit.pointIndex >= 0 && rawColorsRef.current) {
+        const idx = hit.pointIndex;
+        rgb = [
+          rawColorsRef.current[idx * 3],
+          rawColorsRef.current[idx * 3 + 1],
+          rawColorsRef.current[idx * 3 + 2],
+        ];
+      }
+      const meta: PickMeta = { vertexIndex: hit.vertexIndex, pointIndex: hit.pointIndex, rgb };
+      if (tool === "navigate") {
+        onInspectRef.current?.(pos, meta);
+        return;
+      }
+      onPickRef.current?.(pos, meta);
     };
 
     renderer.domElement.addEventListener("mousemove", onMove);
@@ -607,6 +649,77 @@ export function PointCloudPreview({
   const handleViewHome = () => {
     handleViewCube("front-right");
   };
+
+  useEffect(() => {
+    const ctx = sceneCtxRef.current;
+    const sid = sessionRef.current;
+    if (!ctx || !sid) return;
+
+    while (ctx.gridSurfaceGroup.children.length) {
+      const child = ctx.gridSurfaceGroup.children[0];
+      ctx.gridSurfaceGroup.remove(child);
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose();
+        (child.material as THREE.Material).dispose();
+      }
+    }
+
+    if (!showGridSurface) return;
+
+    let cancelled = false;
+    void fetchGridSurface(sid)
+      .then((grid) => {
+        if (cancelled) return;
+        const [nx, ny] = grid.size;
+        const positions = new Float32Array(nx * ny * 3);
+        let vi = 0;
+        for (let iy = 0; iy < ny; iy++) {
+          for (let ix = 0; ix < nx; ix++) {
+            const z = grid.values[iy]?.[ix];
+            positions[vi++] = grid.xs[ix] ?? grid.origin[0] + ix * grid.cell_size;
+            positions[vi++] = grid.ys[iy] ?? grid.origin[1] + iy * grid.cell_size;
+            positions[vi++] = Number.isFinite(z) ? z : grid.origin[0];
+          }
+        }
+        const indices: number[] = [];
+        for (let iy = 0; iy < ny - 1; iy++) {
+          for (let ix = 0; ix < nx - 1; ix++) {
+            const a = iy * nx + ix;
+            const b = a + 1;
+            const c = a + nx;
+            const d = c + 1;
+            const za = grid.values[iy][ix];
+            const zb = grid.values[iy][ix + 1];
+            const zc = grid.values[iy + 1][ix];
+            const zd = grid.values[iy + 1][ix + 1];
+            if (Number.isFinite(za) && Number.isFinite(zb) && Number.isFinite(zc)) {
+              indices.push(a, b, c);
+            }
+            if (Number.isFinite(zb) && Number.isFinite(zd) && Number.isFinite(zc)) {
+              indices.push(b, d, c);
+            }
+          }
+        }
+        if (indices.length === 0) return;
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+        geom.setIndex(indices);
+        geom.computeVertexNormals();
+        const mat = new THREE.MeshStandardMaterial({
+          color: 0x66aa88,
+          transparent: true,
+          opacity: 0.55,
+          side: THREE.DoubleSide,
+          wireframe: false,
+        });
+        ctx.gridSurfaceGroup.add(new THREE.Mesh(geom, mat));
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showGridSurface, refreshToken, gridEnabled]);
 
   useEffect(() => {
     const ctx = sceneCtxRef.current;

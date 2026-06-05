@@ -13,12 +13,12 @@ import { ExportBar } from "./components/ExportBar";
 import { JobList } from "./components/JobList";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { Logo } from "./components/Logo";
-import { PointCloudEditorChrome } from "./components/PointCloudEditorChrome";
+import { PointCloudProLayout } from "./components/pceditor/PointCloudProLayout";
+import type { InspectedPoint } from "./components/pceditor/PointCloudInspector";
 import { PointCloudPanel } from "./components/PointCloudPanel";
 import { PointCloudPreview, type PickMeta } from "./components/PointCloudPreview";
 import { PointCloudPropertyTable } from "./components/PointCloudPropertyTable";
 import { PointCloudStatusBar } from "./components/PointCloudStatusBar";
-import { ResizableSplit } from "./components/ResizableSplit";
 import { SplatViewer } from "./components/SplatViewer";
 import { UploadPanel } from "./components/UploadPanel";
 import { I18nProvider, useI18n } from "./i18n/I18nProvider";
@@ -46,6 +46,8 @@ import {
   type EditorTool,
   type OsnapMode,
 } from "./utils/editorTools";
+import { logConsole } from "./utils/consoleLog";
+import type { ColorMode } from "./utils/colorModes";
 import type { AppMode, HealthInfo, JobInfo } from "./types";
 import "./styles.css";
 
@@ -73,6 +75,7 @@ function AppContent() {
   const [meshReloadToken, setMeshReloadToken] = useState(0);
   const [snapCoords, setSnapCoords] = useState<[number, number, number] | null>(null);
   const [lastResult, setLastResult] = useState<string | null>(null);
+  const [inspectedPoint, setInspectedPoint] = useState<InspectedPoint | null>(null);
 
   const selectedJob = jobs.find((j) => j.job_id === selectedId) ?? null;
 
@@ -176,6 +179,7 @@ function AppContent() {
     setRegionStart(null);
     setMeasureStart(null);
     setLastResult(null);
+    setInspectedPoint(null);
     if (files.length > 0) setSelectedId(null);
   };
 
@@ -402,6 +406,16 @@ function AppContent() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  const handleInspect = (pos: [number, number, number], meta?: PickMeta) => {
+    setInspectedPoint({
+      viewer: pos,
+      index: meta?.pointIndex,
+      rgb: meta?.rgb,
+    });
+  };
+
+  const colorMode = (editorProperties?.view?.color_mode as ColorMode) ?? "rgb";
+
   const showPointCloudPreview =
     mode === "pointcloud" &&
     pcPreviewFiles.length > 0 &&
@@ -449,38 +463,81 @@ function AppContent() {
         </button>
       </div>
 
-      {mode === "pointcloud" && showPointCloudPreview && (
-        <PointCloudEditorChrome
-          sessionId={pcSessionId}
-          properties={editorProperties}
-          activeTool={activeTool}
-          osnapMode={osnapMode}
-          clipMode={clipMode}
-          deleteRadius={deleteRadius}
-          breaklineCount={breaklineDraft.length}
-          polygonCount={polygonDraft.length}
-          canUndo={!!editorProperties?.can_undo}
-          canRedo={!!editorProperties?.can_redo}
-          onUpdated={handleEditorUpdated}
-          onRefreshPreview={bumpPreview}
-          onError={setError}
-          onToolChange={setActiveTool}
-          onOsnapModeChange={setOsnapMode}
-          onClipModeChange={setClipMode}
-          onDeleteRadiusChange={setDeleteRadius}
-          onFinishBreakline={() => void handleFinishBreakline()}
-          onFinishPolygon={() => void handleFinishPolygon()}
-          onUndo={() => void handleUndo()}
-          onRedo={() => void handleRedo()}
-        />
-      )}
-
       {error && <div className="banner banner-error">{error}</div>}
 
-      <main className={`layout ${showPointCloudPreview ? "layout-resizable" : ""}`}>
+      <main className={`layout ${showPointCloudPreview ? "layout-pro-editor" : ""}`}>
         {showPointCloudPreview ? (
-          <ResizableSplit
-            sidebar={
+          <PointCloudProLayout
+            sessionId={pcSessionId}
+            properties={editorProperties}
+            activeTool={activeTool}
+            osnapMode={osnapMode}
+            clipMode={clipMode}
+            deleteRadius={deleteRadius}
+            breaklineCount={breaklineDraft.length}
+            polygonCount={polygonDraft.length}
+            inspectedPoint={inspectedPoint}
+            gridCellSize={gridCellSize}
+            onGridCellSizeChange={setGridCellSize}
+            onUpdated={handleEditorUpdated}
+            onRefreshPreview={bumpPreview}
+            onError={setError}
+            onToolChange={setActiveTool}
+            onOsnapModeChange={setOsnapMode}
+            onClipModeChange={setClipMode}
+            onDeleteRadiusChange={setDeleteRadius}
+            onFinishBreakline={() => void handleFinishBreakline()}
+            onFinishPolygon={() => void handleFinishPolygon()}
+            onUndo={() => void handleUndo()}
+            onRedo={() => void handleRedo()}
+            onStartGridRegion={() => {
+              setActiveTool("grid_region");
+              setRegionStart(null);
+            }}
+            onCreateGrid={async () => {
+              if (!pcSessionId) return;
+              const props = await editorConfigureGrid(pcSessionId, {
+                enabled: true,
+                cell_size: gridCellSize,
+                create_data: true,
+              });
+              handleEditorUpdated(props);
+              bumpPreview();
+              logConsole(tr("gridCreate"), "success");
+            }}
+            viewport={
+              <PointCloudPreview
+                files={pcPreviewFiles}
+                refreshToken={previewRefresh}
+                gridEnabled={!!editorProperties?.grid.enabled}
+                showMesh={!!editorProperties?.mesh}
+                meshReloadToken={meshReloadToken}
+                showAxes={editorProperties?.view?.show_axes ?? true}
+                basemapEnabled={!!editorProperties?.basemap?.enabled}
+                basemapMode={
+                  (editorProperties?.basemap?.mode as "aerial" | "road" | "hybrid" | "off") ?? "aerial"
+                }
+                crsEpsg={editorProperties?.crs?.epsg ?? 6668}
+                normMeta={editorProperties?.norm_meta}
+                swapXy={!!editorProperties?.swap_xy}
+                activeTool={activeTool}
+                osnapMode={osnapMode}
+                colorMode={colorMode}
+                showGridSurface={!!editorProperties?.view?.show_grid_surface}
+                breaklines={editorProperties?.breaklines ?? []}
+                breaklineDraft={breaklineDraft}
+                polygonDraft={polygonDraft}
+                coordPoints={editorProperties?.coord_points ?? []}
+                measurements={editorProperties?.measurements ?? []}
+                measureStart={measureStart}
+                regionStart={regionStart}
+                onSessionReady={handleSessionReady}
+                onPick={(pos, meta) => void handlePreviewPick(pos, meta)}
+                onInspect={handleInspect}
+                onSnapHover={setSnapCoords}
+              />
+            }
+            propertyPanel={
               <>
                 <PointCloudPanel
                   onSubmit={handlePointCloudSubmit}
@@ -488,31 +545,30 @@ function AppContent() {
                   busy={busy}
                   open3dAvailable={!!health?.open3d_available}
                 />
-                {pcPreviewFiles.length > 0 && (
-                  <PointCloudPropertyTable
-                    sessionId={pcSessionId}
-                    properties={editorProperties}
-                    gridCellSize={gridCellSize}
-                    onGridCellSizeChange={setGridCellSize}
-                    onUpdated={handleEditorUpdated}
-                    onRefreshPreview={bumpPreview}
-                    onError={setError}
-                    onStartGridRegion={() => {
-                      setActiveTool("grid_region");
-                      setRegionStart(null);
-                    }}
-                    onCreateGrid={async () => {
-                      if (!pcSessionId) return;
-                      const props = await editorConfigureGrid(pcSessionId, {
-                        enabled: true,
-                        cell_size: gridCellSize,
-                        create_data: true,
-                      });
-                      handleEditorUpdated(props);
-                      bumpPreview();
-                    }}
-                  />
-                )}
+                <PointCloudPropertyTable
+                  sessionId={pcSessionId}
+                  properties={editorProperties}
+                  gridCellSize={gridCellSize}
+                  onGridCellSizeChange={setGridCellSize}
+                  onUpdated={handleEditorUpdated}
+                  onRefreshPreview={bumpPreview}
+                  onError={setError}
+                  onStartGridRegion={() => {
+                    setActiveTool("grid_region");
+                    setRegionStart(null);
+                  }}
+                  onCreateGrid={async () => {
+                    if (!pcSessionId) return;
+                    const props = await editorConfigureGrid(pcSessionId, {
+                      enabled: true,
+                      cell_size: gridCellSize,
+                      create_data: true,
+                    });
+                    handleEditorUpdated(props);
+                    bumpPreview();
+                    logConsole(tr("gridCreate"), "success");
+                  }}
+                />
                 <JobList
                   jobs={jobs}
                   selectedId={selectedId}
@@ -524,43 +580,14 @@ function AppContent() {
                 />
               </>
             }
-            main={
-              <section className="viewer-section panel">
-                <PointCloudPreview
-                  files={pcPreviewFiles}
-                  refreshToken={previewRefresh}
-                  gridEnabled={!!editorProperties?.grid.enabled}
-                  showMesh={!!editorProperties?.mesh}
-                  meshReloadToken={meshReloadToken}
-                  showAxes={editorProperties?.view?.show_axes ?? true}
-                  basemapEnabled={!!editorProperties?.basemap?.enabled}
-                  basemapMode={
-                    (editorProperties?.basemap?.mode as "aerial" | "road" | "hybrid" | "off") ?? "aerial"
-                  }
-                  crsEpsg={editorProperties?.crs?.epsg ?? 6668}
-                  normMeta={editorProperties?.norm_meta}
-                  swapXy={!!editorProperties?.swap_xy}
-                  activeTool={activeTool}
-                  osnapMode={osnapMode}
-                  breaklines={editorProperties?.breaklines ?? []}
-                  breaklineDraft={breaklineDraft}
-                  polygonDraft={polygonDraft}
-                  coordPoints={editorProperties?.coord_points ?? []}
-                  measurements={editorProperties?.measurements ?? []}
-                  measureStart={measureStart}
-                  regionStart={regionStart}
-                  onSessionReady={handleSessionReady}
-                  onPick={(pos, meta) => void handlePreviewPick(pos, meta)}
-                  onSnapHover={setSnapCoords}
-                />
-                <PointCloudStatusBar
-                  activeTool={activeTool}
-                  snapCoords={snapCoords}
-                  totalPoints={editorProperties?.total_points ?? null}
-                  lastResult={lastResult}
-                  crsName={editorProperties?.crs?.name}
-                />
-              </section>
+            statusBar={
+              <PointCloudStatusBar
+                activeTool={activeTool}
+                snapCoords={snapCoords}
+                totalPoints={editorProperties?.total_points ?? null}
+                lastResult={lastResult}
+                crsName={editorProperties?.crs?.name}
+              />
             }
           />
         ) : (

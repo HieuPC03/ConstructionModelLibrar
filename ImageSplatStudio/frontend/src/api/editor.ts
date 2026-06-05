@@ -25,7 +25,7 @@ export interface EditorProperties {
   norm_meta: { center?: number[]; scale?: number; world_min?: number[]; world_max?: number[] };
   crs: { epsg: number; name: string };
   basemap: { enabled: boolean; mode?: string };
-  view: { show_axes: boolean; fov: number };
+  view: { show_axes: boolean; fov: number; color_mode?: string; show_grid_surface?: boolean };
   bounds: { min: number[]; max: number[] };
 }
 
@@ -339,6 +339,36 @@ export async function editorRedo(sessionId: string): Promise<EditorProperties> {
   return parseJson(await fetch(`${API}/${sessionId}/redo`, { method: "POST" }));
 }
 
+export async function editorClearRegions(sessionId: string): Promise<EditorProperties> {
+  return parseJson(await fetch(`${API}/${sessionId}/clear-regions`, { method: "POST" }));
+}
+
+export interface GridSurfaceData {
+  cell_size: number;
+  origin: [number, number];
+  size: [number, number];
+  xs: number[];
+  ys: number[];
+  values: number[][];
+}
+
+export async function fetchGridSurface(sessionId: string): Promise<GridSurfaceData> {
+  return parseJson(await fetch(`${API}/${sessionId}/grid-surface`));
+}
+
+export async function editorSubsample(
+  sessionId: string,
+  ratio: number,
+): Promise<EditorProperties & { removed_count?: number }> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/subsample`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ratio }),
+    }),
+  );
+}
+
 export async function editorConfigureView(
   sessionId: string,
   opts: {
@@ -346,6 +376,8 @@ export async function editorConfigureView(
     basemap_enabled?: boolean;
     basemap_mode?: string;
     show_axes?: boolean;
+    color_mode?: string;
+    show_grid_surface?: boolean;
   },
 ): Promise<EditorProperties> {
   return parseJson(

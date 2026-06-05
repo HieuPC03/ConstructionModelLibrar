@@ -107,7 +107,10 @@ def get_properties(session_id: str) -> dict:
         "norm_meta": state.get("norm_meta", {}),
         "crs": state.get("crs", {"epsg": 6668, "name": "JGD2011"}),
         "basemap": state.get("basemap", {"enabled": False, "mode": "aerial"}),
-        "view": state.get("view", {"show_axes": True, "fov": 50}),
+        "view": state.get(
+            "view",
+            {"show_axes": True, "fov": 50, "color_mode": "rgb", "show_grid_surface": False},
+        ),
     }
 
 
@@ -670,6 +673,8 @@ def configure_view(
     basemap_enabled: bool | None = None,
     basemap_mode: str | None = None,
     show_axes: bool | None = None,
+    color_mode: str | None = None,
+    show_grid_surface: bool | None = None,
 ) -> dict:
     state = load_state(session_id)
     if crs_epsg is not None:
@@ -680,9 +685,42 @@ def configure_view(
     if basemap_mode is not None and basemap_mode in ("aerial", "road", "hybrid", "off"):
         basemap["mode"] = basemap_mode
     state["basemap"] = basemap
+    view = state.get("view", {"show_axes": True, "fov": 50, "color_mode": "rgb", "show_grid_surface": False})
     if show_axes is not None:
-        view = state.get("view", {"show_axes": True, "fov": 50})
         view["show_axes"] = bool(show_axes)
-        state["view"] = view
+    if color_mode is not None and color_mode in ("rgb", "elevation", "intensity", "uniform"):
+        view["color_mode"] = color_mode
+    if show_grid_surface is not None:
+        view["show_grid_surface"] = bool(show_grid_surface)
+    state["view"] = view
     save_state(session_id, state)
     return get_properties(session_id)
+
+
+def get_grid_surface_json(session_id: str) -> dict | None:
+    path = _session_dir(session_id) / "grid_data.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def subsample_session(session_id: str, ratio: float = 0.5) -> dict:
+    """Randomly subsample visible point cloud to a fraction of current count."""
+    push_undo(session_id)
+    pts, cols = load_points_colors(session_id)
+    n = len(pts)
+    frac = min(max(float(ratio), 0.01), 1.0)
+    target = max(1, int(n * frac))
+    if target >= n:
+        return get_properties(session_id)
+    rng = np.random.default_rng(42)
+    idx = np.sort(rng.choice(n, target, replace=False))
+    new_pts = pts[idx]
+    new_cols = cols[idx] if cols is not None and len(cols) == n else None
+    save_points_colors(session_id, new_pts, new_cols)
+    state = load_state(session_id)
+    state = _sync_edited_files(state, len(new_pts))
+    save_state(session_id, state)
+    result = get_properties(session_id)
+    result["removed_count"] = n - target
+    return result

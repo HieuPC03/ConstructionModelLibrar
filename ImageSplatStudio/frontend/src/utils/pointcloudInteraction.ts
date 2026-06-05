@@ -5,10 +5,12 @@ export function snapToPointCloud(
   raycaster: THREE.Raycaster,
   points: THREE.Points,
   threshold: number,
-): THREE.Vector3 | null {
+): { point: THREE.Vector3; index: number } | null {
   raycaster.params.Points = { threshold };
   const hits = raycaster.intersectObject(points, false);
-  if (hits.length > 0) return hits[0].point.clone();
+  if (hits.length > 0) {
+    return { point: hits[0].point.clone(), index: hits[0].index ?? -1 };
+  }
   return null;
 }
 

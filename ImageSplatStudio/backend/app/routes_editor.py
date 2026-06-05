@@ -28,6 +28,7 @@ from app.services.pointcloud_editor import (
     delete_points_at,
     export_session,
     get_grid_binary,
+    get_grid_surface_json,
     get_properties,
     mesh_add_vertex,
     mesh_delete_vertex,
@@ -36,6 +37,7 @@ from app.services.pointcloud_editor import (
     set_file_visibility,
     show_all,
     split_session,
+    subsample_session,
     toggle_swap_xy,
     undo_session,
 )
@@ -130,6 +132,12 @@ class ViewSettingsBody(BaseModel):
     basemap_enabled: bool | None = None
     basemap_mode: str | None = None
     show_axes: bool | None = None
+    color_mode: str | None = None
+    show_grid_surface: bool | None = None
+
+
+class SubsampleBody(BaseModel):
+    ratio: float = Field(0.5, gt=0, le=1)
 
 
 def _ensure_session(session_id: str) -> None:
@@ -218,6 +226,24 @@ def editor_grid_data(session_id: str) -> Response:
     if data is None:
         raise HTTPException(status_code=404, detail="Grid chưa bật.")
     return Response(content=data, media_type="application/octet-stream")
+
+
+@router.get("/{session_id}/grid-surface")
+def editor_grid_surface(session_id: str) -> dict:
+    _ensure_session(session_id)
+    data = get_grid_surface_json(session_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Chưa có dữ liệu lưới IDW.")
+    return data
+
+
+@router.post("/{session_id}/subsample")
+def editor_subsample(session_id: str, body: SubsampleBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return subsample_session(session_id, body.ratio)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/{session_id}/mesh")
@@ -379,6 +405,8 @@ def editor_view_settings(session_id: str, body: ViewSettingsBody) -> dict:
         basemap_enabled=body.basemap_enabled,
         basemap_mode=body.basemap_mode,
         show_axes=body.show_axes,
+        color_mode=body.color_mode,
+        show_grid_surface=body.show_grid_surface,
     )
 
 

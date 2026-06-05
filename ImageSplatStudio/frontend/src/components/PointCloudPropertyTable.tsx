@@ -10,6 +10,7 @@ import {
 } from "../api/editor";
 import { useI18n } from "../i18n/I18nProvider";
 import { formatFileSize } from "../utils/pointcloud";
+import { COLOR_MODES, colorModeLabelKey, type ColorMode } from "../utils/colorModes";
 import { CRS_CATEGORIES, CRS_PRESETS } from "../utils/coordTransform";
 
 type PropTab = "files" | "crs" | "grid" | "results";
@@ -58,7 +59,9 @@ export function PointCloudPropertyTable({
         opts.basemap_enabled != null ||
         opts.basemap_mode != null ||
         opts.crs_epsg != null ||
-        opts.show_axes != null
+        opts.show_axes != null ||
+        opts.color_mode != null ||
+        opts.show_grid_surface != null
       ) {
         onRefreshPreview();
       }
@@ -214,6 +217,30 @@ export function PointCloudPropertyTable({
               onChange={(e) => void applyView({ show_axes: e.target.checked })}
             />
             {tr("pcAxesEnable")}
+          </label>
+          <h4>{tr("viewDisplayTitle")}</h4>
+          <label className="pc-grid-label">
+            {tr("colorModeLabel")}
+            <select
+              className="tp-select"
+              value={(properties.view?.color_mode as ColorMode) ?? "rgb"}
+              onChange={(e) => void applyView({ color_mode: e.target.value })}
+            >
+              {COLOR_MODES.map((m) => (
+                <option key={m} value={m}>
+                  {tr(colorModeLabelKey(m) as "colorModeRgb")}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="pc-grid-label">
+            <input
+              type="checkbox"
+              checked={properties.view?.show_grid_surface ?? false}
+              disabled={!properties.grid.has_data}
+              onChange={(e) => void applyView({ show_grid_surface: e.target.checked })}
+            />
+            {tr("viewGridSurface")}
           </label>
         </div>
       )}
