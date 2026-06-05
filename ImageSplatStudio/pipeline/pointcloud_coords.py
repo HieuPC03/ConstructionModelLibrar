@@ -30,10 +30,13 @@ def normalize_point_cloud(pcd):
     out.points = o3d.utility.Vector3dVector(pts)
     if pcd.has_colors():
         out.colors = pcd.colors
+    orig = np.asarray(pcd.points, dtype=np.float64)
     meta = {
         "center": center.tolist(),
         "scale": scale,
         "axis_fix": "z_up_to_y_up",
+        "world_min": np.min(orig, axis=0).tolist(),
+        "world_max": np.max(orig, axis=0).tolist(),
     }
     return out, meta
 

@@ -44,8 +44,9 @@ def _prepare_session_points(session_id: str) -> tuple[np.ndarray, np.ndarray | N
     pts = np.asarray(np.load(session.points_path), dtype=np.float32)
     cols = np.load(session.colors_path) if session.colors_path else None
     state = load_state(session_id)
+    meta = state.get("norm_meta", {})
     if state.get("swap_xy"):
-        pts = apply_swap_xy(pts)
+        pts = apply_swap_xy(pts, meta)
     mask = compute_visibility_mask(len(pts), state, pts)
     pts = pts[mask]
     if cols is not None and len(cols) == len(mask):

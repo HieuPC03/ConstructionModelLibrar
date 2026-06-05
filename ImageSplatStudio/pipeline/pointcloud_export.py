@@ -6,26 +6,9 @@ from pathlib import Path
 
 import numpy as np
 
+from pointcloud_transform import denormalize_points
 
-def denormalize_points(
-    points: np.ndarray,
-    meta: dict,
-    *,
-    swap_xy: bool = False,
-) -> np.ndarray:
-    pts = np.asarray(points, dtype=np.float64).copy()
-    scale = float(meta.get("scale", 1.0)) or 1.0
-    center = np.asarray(meta.get("center", [0, 0, 0]), dtype=np.float64)
-
-    pts = pts / scale
-    # Reverse Y-up → Z-up: viewer [x, y, z] → original [x, -z, y]
-    pts = np.stack([pts[:, 0], pts[:, 2], -pts[:, 1]], axis=1)
-
-    if swap_xy:
-        pts = np.stack([pts[:, 1], pts[:, 0], pts[:, 2]], axis=1)
-
-    pts = pts + center
-    return pts
+__all__ = ["denormalize_points", "write_xyz_txt", "write_las_file"]
 
 
 def write_xyz_txt(path: Path, points: np.ndarray, colors: np.ndarray | None = None) -> None:

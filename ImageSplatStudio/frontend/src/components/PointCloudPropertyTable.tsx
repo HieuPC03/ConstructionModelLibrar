@@ -1,13 +1,15 @@
-import { useI18n } from "../i18n/I18nProvider";
 import {
   editorConfigureGrid,
+  editorConfigureView,
   editorDeleteBreakline,
   editorDeleteMeasurement,
   editorDeleteRegion,
   editorSetVisibility,
   type EditorProperties,
 } from "../api/editor";
+import { useI18n } from "../i18n/I18nProvider";
 import { formatFileSize } from "../utils/pointcloud";
+import { CRS_PRESETS } from "../utils/coordTransform";
 
 interface PointCloudPropertyTableProps {
   sessionId: string | null;
@@ -32,12 +34,23 @@ export function PointCloudPropertyTable({
 
   if (!properties) {
     return (
-      <div className="panel pc-property-panel empty">
+      <div className="panel pc-property-panel tp-panel empty">
         <h3>{tr("pcPropertyTitle")}</h3>
         <p className="muted">{tr("pcPropertyEmpty")}</p>
       </div>
     );
   }
+
+  const applyView = async (opts: Parameters<typeof editorConfigureView>[1]) => {
+    if (!sessionId) return;
+    try {
+      const props = await editorConfigureView(sessionId, opts);
+      onUpdated(props);
+      if (opts.basemap_enabled != null || opts.show_axes != null) onRefreshPreview();
+    } catch (e: unknown) {
+      onError(String(e));
+    }
+  };
 
   const toggleVisible = async (index: number, visible: boolean) => {
     if (!sessionId) return;
@@ -92,15 +105,52 @@ export function PointCloudPropertyTable({
     }
   };
 
+  const wm = properties.norm_meta?.world_min;
+  const wx = properties.norm_meta?.world_max;
+
   return (
-    <div className="panel pc-property-panel">
+    <div className="panel pc-property-panel tp-panel">
       <h3>{tr("pcPropertyTitle")}</h3>
       <div className="pc-property-summary muted">
         {properties.total_points.toLocaleString()} {tr("pcPreviewPoints")}
         {properties.swap_xy ? ` · ${tr("pcMenuSwapXy")}` : ""}
-        {properties.hidden_regions.length > 0
-          ? ` · ${properties.hidden_regions.length} ${tr("pcHiddenRegions")}`
-          : ""}
+      </div>
+
+      <div className="tp-prop-section">
+        <h4>{tr("pcPropCrs")}</h4>
+        <select
+          className="tp-select"
+          value={properties.crs?.epsg ?? 6668}
+          onChange={(e) => void applyView({ crs_epsg: Number(e.target.value) })}
+        >
+          {CRS_PRESETS.map((c) => (
+            <option key={c.epsg} value={c.epsg}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        {wm && wx && (
+          <p className="tp-bounds muted">
+            X: {wm[0].toFixed(2)}…{wx[0].toFixed(2)} · Y: {wm[1].toFixed(2)}…{wx[1].toFixed(2)} · Z:{" "}
+            {wm[2].toFixed(2)}…{wx[2].toFixed(2)}
+          </p>
+        )}
+        <label className="pc-grid-label">
+          <input
+            type="checkbox"
+            checked={properties.basemap?.enabled ?? false}
+            onChange={(e) => void applyView({ basemap_enabled: e.target.checked })}
+          />
+          {tr("pcBasemapEnable")}
+        </label>
+        <label className="pc-grid-label">
+          <input
+            type="checkbox"
+            checked={properties.view?.show_axes ?? true}
+            onChange={(e) => void applyView({ show_axes: e.target.checked })}
+          />
+          {tr("pcAxesEnable")}
+        </label>
       </div>
 
       <div className="pc-property-grid-controls">
@@ -172,21 +222,6 @@ export function PointCloudPropertyTable({
                 <button type="button" className="pc-prop-del" onClick={() => void removeMeasurement(m.id)}>
                   ×
                 </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {properties.coord_points.length > 0 && (
-        <div className="pc-property-section">
-          <h4>{tr("pcPropCoordPoints")}</h4>
-          <ul className="pc-prop-list">
-            {properties.coord_points.map((p) => (
-              <li key={p.id}>
-                <span>
-                  {p.label}: {p.position.map((v) => v.toFixed(3)).join(", ")}
-                </span>
               </li>
             ))}
           </ul>

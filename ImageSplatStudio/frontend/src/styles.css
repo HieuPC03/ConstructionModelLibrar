@@ -1195,6 +1195,129 @@ h3 {
   }
 }
 
+/* TREND-POINT style editor chrome */
+.tp-editor .pc-menu-bar,
+.tp-editor .pc-tool-bar {
+  background: linear-gradient(180deg, #e8eaef 0%, #d8dce4 100%);
+  border-color: #b0b8c4;
+  color: #1a1f2e;
+}
+
+.tp-editor .pc-menu-label,
+.tp-editor .pc-tool-bar-label,
+.tp-editor .pc-tool-group-label {
+  color: #4a5568;
+}
+
+.tp-editor .pc-menu-btn,
+.tp-editor .pc-tool-btn {
+  background: #f4f6f9;
+  border-color: #c5ccd8;
+  color: #1a1f2e;
+}
+
+.tp-editor .pc-menu-btn:hover:not(:disabled),
+.tp-editor .pc-tool-btn:hover:not(:disabled) {
+  background: #fff;
+  border-color: #3b82f6;
+}
+
+.tp-editor .pc-tool-btn.active {
+  background: #dbeafe;
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+
+.tp-panel {
+  background: #f0f2f5 !important;
+  color: #1a1f2e;
+  border-color: #c5ccd8 !important;
+}
+
+.tp-panel h3,
+.tp-panel h4 {
+  color: #374151;
+}
+
+.tp-select {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #c5ccd8;
+  background: #fff;
+  font-size: 0.78rem;
+  margin-bottom: 6px;
+}
+
+.tp-bounds {
+  font-size: 0.68rem;
+  line-height: 1.4;
+  margin: 4px 0 8px;
+}
+
+.tp-prop-section {
+  margin: 8px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #d1d5db;
+}
+
+.tp-status-bar {
+  background: #e8eaef !important;
+  color: #374151 !important;
+  border-top-color: #b0b8c4 !important;
+}
+
+.tp-view-cube {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 4;
+  pointer-events: auto;
+}
+
+.tp-view-cube-grid {
+  display: grid;
+  grid-template-columns: 28px 28px 28px;
+  grid-template-rows: 22px 22px 22px 22px;
+  gap: 2px;
+  padding: 4px;
+  background: rgba(232, 234, 239, 0.92);
+  border: 1px solid #b0b8c4;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.tp-view-cube-face {
+  border: 1px solid #94a3b8;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.62rem;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0;
+}
+
+.tp-view-cube-face:hover {
+  background: #dbeafe;
+  border-color: #2563eb;
+}
+
+.tp-face-top {
+  background: #dcfce7;
+}
+.tp-face-bottom {
+  background: #fee2e2;
+}
+.tp-face-front,
+.tp-face-back {
+  background: #dbeafe;
+}
+.tp-face-left,
+.tp-face-right {
+  background: #ffedd5;
+}
+
 @media (max-width: 960px) {
   body {
     overflow: auto;

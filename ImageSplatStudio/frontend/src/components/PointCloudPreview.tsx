@@ -11,6 +11,8 @@ import {
   type PointCloudPreviewMeta,
 } from "../api";
 import { formatFileSize } from "../utils/pointcloud";
+import { viewerToWorld, formatWorldCoords } from "../utils/coordTransform";
+import { applyViewDirection, createAxesHelper, ViewCube, type ViewDirection } from "./ViewCube";
 import { OSNAP_CURSOR, TOOL_CURSORS, toolHintKey, type EditorTool, type OsnapMode } from "../utils/editorTools";
 import {
   formatSnapLabel,
@@ -42,6 +44,10 @@ interface PointCloudPreviewProps {
   gridEnabled?: boolean;
   showMesh?: boolean;
   meshReloadToken?: number;
+  showAxes?: boolean;
+  basemapEnabled?: boolean;
+  normMeta?: { center?: number[]; scale?: number; world_min?: number[]; world_max?: number[] };
+  swapXy?: boolean;
   activeTool?: EditorTool;
   osnapMode?: OsnapMode;
   breaklines?: { id: string; points: number[][] }[];
@@ -104,6 +110,10 @@ export function PointCloudPreview({
   gridEnabled = false,
   showMesh = false,
   meshReloadToken = 0,
+  showAxes = true,
+  basemapEnabled = false,
+  normMeta,
+  swapXy = false,
   activeTool = "navigate",
   osnapMode = "point",
   breaklines = [],
@@ -133,6 +143,8 @@ export function PointCloudPreview({
     snapMarker: THREE.Mesh;
     regionGroup: THREE.Group;
     annotationGroup: THREE.Group;
+    axesGroup: THREE.Group;
+    basemapPlane: THREE.Mesh | null;
     maxDim: number;
     raycaster: THREE.Raycaster;
     pickPlane: THREE.Plane;
@@ -142,6 +154,9 @@ export function PointCloudPreview({
   const osnapRef = useRef(osnapMode);
   const onPickRef = useRef(onPick);
   const onSnapHoverRef = useRef(onSnapHover);
+  const onSessionReadyRef = useRef(onSessionReady);
+  const cameraSavedRef = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
+  const filesKeyRef = useRef<string>("");
 
   const [data, setData] = useState<PreviewData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -158,6 +173,9 @@ export function PointCloudPreview({
     osnapRef.current = osnapMode;
   }, [osnapMode]);
   useEffect(() => {
+    onSessionReadyRef.current = onSessionReady;
+  }, [onSessionReady]);
+  useEffect(() => {
     onPickRef.current = onPick;
   }, [onPick]);
   useEffect(() => {
@@ -165,6 +183,11 @@ export function PointCloudPreview({
   }, [onSnapHover]);
 
   useEffect(() => {
+    const key = files.map((f) => `${f.name}:${f.size}`).join("|");
+    if (key !== filesKeyRef.current) {
+      filesKeyRef.current = key;
+      cameraSavedRef.current = null;
+    }
     sessionRef.current = null;
     setSamplePercent(DEFAULT_PERCENT);
     setDebouncedPercent(DEFAULT_PERCENT);
@@ -178,12 +201,22 @@ export function PointCloudPreview({
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    const isRefresh = !!sessionRef.current;
+    if (!isRefresh) {
+      setLoading(true);
+    }
     setError(null);
 
     const load = async () => {
       try {
         if (sessionRef.current) {
+          const ctx = sceneCtxRef.current;
+          if (ctx) {
+            cameraSavedRef.current = {
+              pos: ctx.camera.position.clone(),
+              target: ctx.controls.target.clone(),
+            };
+          }
           const geometry = await fetchPreviewGeometry(sessionRef.current, debouncedPercent);
           if (cancelled) return;
           setData((prev) => {
@@ -194,6 +227,7 @@ export function PointCloudPreview({
               preview_count: geometry.count,
               preview_percent: debouncedPercent,
               preview_fraction: geometry.count / prev.total_points,
+              total_points: prev.total_points,
             };
           });
           return;
@@ -203,7 +237,7 @@ export function PointCloudPreview({
         if (cancelled) return;
         if (result.preview_session_id) {
           sessionRef.current = result.preview_session_id;
-          onSessionReady?.(result.preview_session_id);
+          onSessionReadyRef.current?.(result.preview_session_id);
         }
         setData(result);
       } catch (e: unknown) {
@@ -218,7 +252,7 @@ export function PointCloudPreview({
     return () => {
       cancelled = true;
     };
-  }, [files, debouncedPercent, refreshToken, onSessionReady]);
+  }, [files, debouncedPercent, refreshToken]);
 
   useEffect(() => {
     if (materialRef.current) {
@@ -319,9 +353,50 @@ export function PointCloudPreview({
     controls.enableDamping = true;
     controls.target.copy(center);
 
+    const savedCam = cameraSavedRef.current;
+    if (savedCam) {
+      camera.position.copy(savedCam.pos);
+      controls.target.copy(savedCam.target);
+      cameraSavedRef.current = null;
+    }
+
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const floor = new THREE.GridHelper(maxDim * 2.5, 20, 0x2a3444, 0x1a2230);
     scene.add(floor);
+
+    const axesGroup = createAxesHelper(maxDim * 0.45);
+    axesGroup.visible = showAxes;
+    scene.add(axesGroup);
+
+    let basemapPlane: THREE.Mesh | null = null;
+    if (basemapEnabled) {
+      const planeSize = maxDim * 3;
+      const planeGeom = new THREE.PlaneGeometry(planeSize, planeSize);
+      const loader = new THREE.TextureLoader();
+      loader.load(
+        "https://cyberjapandrs.gsi.go.jp/xyz/seamlessphoto/15/29106/12901.jpg",
+        (tex) => {
+          tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+          tex.repeat.set(4, 4);
+          if (basemapPlane) {
+            (basemapPlane.material as THREE.MeshBasicMaterial).map = tex;
+            (basemapPlane.material as THREE.MeshBasicMaterial).needsUpdate = true;
+          }
+        },
+        undefined,
+        () => undefined,
+      );
+      const planeMat = new THREE.MeshBasicMaterial({
+        color: 0x888888,
+        transparent: true,
+        opacity: 0.55,
+        side: THREE.DoubleSide,
+      });
+      basemapPlane = new THREE.Mesh(planeGeom, planeMat);
+      basemapPlane.rotation.x = -Math.PI / 2;
+      basemapPlane.position.y = box.min.y - maxDim * 0.01;
+      scene.add(basemapPlane);
+    }
 
     const meshRoot = new THREE.Group();
     scene.add(meshRoot);
@@ -356,6 +431,8 @@ export function PointCloudPreview({
       snapMarker,
       regionGroup,
       annotationGroup,
+      axesGroup,
+      basemapPlane,
       maxDim,
       raycaster,
       pickPlane,
@@ -437,8 +514,14 @@ export function PointCloudPreview({
         ctx.snapMarker.position.copy(hit.point);
         ctx.snapMarker.visible = true;
         const pos: [number, number, number] = [hit.point.x, hit.point.y, hit.point.z];
-        setSnapLabel(formatSnapLabel(hit.point));
-        onSnapHoverRef.current?.(pos);
+        if (normMeta) {
+          const world = viewerToWorld(pos, normMeta, swapXy);
+          setSnapLabel(formatWorldCoords(world));
+          onSnapHoverRef.current?.(world);
+        } else {
+          setSnapLabel(formatSnapLabel(hit.point));
+          onSnapHoverRef.current?.(pos);
+        }
       } else {
         ctx.snapMarker.visible = false;
         setSnapLabel(null);
@@ -498,7 +581,19 @@ export function PointCloudPreview({
       mount.removeChild(renderer.domElement);
       sceneCtxRef.current = null;
     };
-  }, [data, pointSizeM, gridEnabled, showMesh, resolvePick]);
+  }, [data, resolvePick, showAxes, basemapEnabled]);
+
+  const handleViewCube = (dir: ViewDirection) => {
+    const ctx = sceneCtxRef.current;
+    if (!ctx) return;
+    const dist = ctx.maxDim * 1.8;
+    applyViewDirection(ctx.camera, ctx.controls, ctx.controls.target.clone(), dist, dir);
+  };
+
+  useEffect(() => {
+    const ctx = sceneCtxRef.current;
+    if (ctx) ctx.axesGroup.visible = showAxes;
+  }, [showAxes]);
 
   useEffect(() => {
     const ctx = sceneCtxRef.current;
@@ -782,6 +877,7 @@ export function PointCloudPreview({
           </div>
         )}
         <div ref={mountRef} className="pc-preview-mount" />
+        <ViewCube onSelect={handleViewCube} />
       </div>
     </div>
   );

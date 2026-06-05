@@ -22,6 +22,10 @@ export interface EditorProperties {
   measurements: { id: string; type: string; points: number[][]; value: number; unit: string }[];
   can_undo: boolean;
   can_redo: boolean;
+  norm_meta: { center?: number[]; scale?: number; world_min?: number[]; world_max?: number[] };
+  crs: { epsg: number; name: string };
+  basemap: { enabled: boolean };
+  view: { show_axes: boolean; fov: number };
   bounds: { min: number[]; max: number[] };
 }
 
@@ -327,4 +331,17 @@ export async function editorUndo(sessionId: string): Promise<EditorProperties> {
 
 export async function editorRedo(sessionId: string): Promise<EditorProperties> {
   return parseJson(await fetch(`${API}/${sessionId}/redo`, { method: "POST" }));
+}
+
+export async function editorConfigureView(
+  sessionId: string,
+  opts: { crs_epsg?: number; basemap_enabled?: boolean; show_axes?: boolean },
+): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/view`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(opts),
+    }),
+  );
 }

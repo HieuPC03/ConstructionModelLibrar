@@ -20,6 +20,7 @@ from app.services.pointcloud_editor import (
     clear_hidden_regions,
     clip_box,
     configure_grid,
+    configure_view,
     create_mesh,
     delete_breakline,
     delete_hidden_region,
@@ -118,6 +119,12 @@ class MeasurementBody(BaseModel):
 
 class IdBody(BaseModel):
     id: str
+
+
+class ViewSettingsBody(BaseModel):
+    crs_epsg: int | None = None
+    basemap_enabled: bool | None = None
+    show_axes: bool | None = None
 
 
 def _ensure_session(session_id: str) -> None:
@@ -348,6 +355,17 @@ def editor_region_delete(session_id: str, body: IdBody) -> dict:
 def editor_measurement_delete(session_id: str, body: IdBody) -> dict:
     _ensure_session(session_id)
     return delete_measurement(session_id, body.id)
+
+
+@router.post("/{session_id}/view")
+def editor_view_settings(session_id: str, body: ViewSettingsBody) -> dict:
+    _ensure_session(session_id)
+    return configure_view(
+        session_id,
+        crs_epsg=body.crs_epsg,
+        basemap_enabled=body.basemap_enabled,
+        show_axes=body.show_axes,
+    )
 
 
 @router.post("/{session_id}/undo")

@@ -178,7 +178,7 @@ function AppContent() {
     if (files.length > 0) setSelectedId(null);
   };
 
-  const handleSessionReady = async (sessionId: string) => {
+  const handleSessionReady = useCallback(async (sessionId: string) => {
     setPcSessionId(sessionId);
     try {
       const props = await fetchEditorProperties(sessionId);
@@ -187,7 +187,7 @@ function AppContent() {
     } catch (e: unknown) {
       setError(String(e));
     }
-  };
+  }, []);
 
   const bumpPreview = () => setPreviewRefresh((n) => n + 1);
   const bumpMesh = () => setMeshReloadToken((n) => n + 1);
@@ -378,7 +378,7 @@ function AppContent() {
     !selectedJob;
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${showPointCloudPreview ? "tp-editor" : ""}`}>
       <header className="app-header">
         <div className="brand">
           <Logo size={44} />
@@ -515,6 +515,10 @@ function AppContent() {
                 gridEnabled={!!editorProperties?.grid.enabled}
                 showMesh={!!editorProperties?.mesh}
                 meshReloadToken={meshReloadToken}
+                showAxes={editorProperties?.view?.show_axes ?? true}
+                basemapEnabled={!!editorProperties?.basemap?.enabled}
+                normMeta={editorProperties?.norm_meta}
+                swapXy={!!editorProperties?.swap_xy}
                 activeTool={activeTool}
                 osnapMode={osnapMode}
                 breaklines={editorProperties?.breaklines ?? []}
@@ -524,7 +528,7 @@ function AppContent() {
                 measurements={editorProperties?.measurements ?? []}
                 measureStart={measureStart}
                 regionStart={regionStart}
-                onSessionReady={(id) => void handleSessionReady(id)}
+                onSessionReady={handleSessionReady}
                 onPick={(pos, meta) => void handlePreviewPick(pos, meta)}
                 onSnapHover={setSnapCoords}
               />
@@ -533,6 +537,7 @@ function AppContent() {
                 snapCoords={snapCoords}
                 totalPoints={editorProperties?.total_points ?? null}
                 lastResult={lastResult}
+                crsName={editorProperties?.crs?.name}
               />
             </>
           ) : (

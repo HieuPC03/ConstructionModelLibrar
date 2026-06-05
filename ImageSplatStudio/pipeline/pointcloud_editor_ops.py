@@ -51,7 +51,12 @@ def build_square_grid_lines(
     return np.asarray(lines, dtype=np.float32)
 
 
-def apply_swap_xy(points: np.ndarray) -> np.ndarray:
+def apply_swap_xy(points: np.ndarray, meta: dict | None = None) -> np.ndarray:
+    """Swap GIS X↔Y — requires norm_meta; legacy 2-arg call uses viewer swap (deprecated)."""
+    if meta is not None:
+        from pointcloud_transform import apply_swap_xy as _swap
+
+        return _swap(points, meta)
     pts = np.asarray(points, dtype=np.float32).copy()
     pts[:, [0, 1]] = pts[:, [1, 0]]
     return pts
@@ -171,6 +176,9 @@ def default_state(*, files: list[dict], norm_meta: dict) -> dict:
         "measurements": [],
         "undo_stack": [],
         "redo_stack": [],
+        "crs": {"epsg": 6668, "name": "JGD2011"},
+        "basemap": {"enabled": False},
+        "view": {"show_axes": True, "fov": 50},
     }
 
 

@@ -1,5 +1,6 @@
 import { useI18n } from "../i18n/I18nProvider";
 import type { TranslationKey } from "../i18n/translations";
+import { formatWorldCoords } from "../utils/coordTransform";
 import { toolLabelKey, type EditorTool } from "../utils/editorTools";
 
 interface PointCloudStatusBarProps {
@@ -7,6 +8,7 @@ interface PointCloudStatusBarProps {
   snapCoords: [number, number, number] | null;
   totalPoints: number | null;
   lastResult: string | null;
+  crsName?: string;
 }
 
 export function PointCloudStatusBar({
@@ -14,14 +16,20 @@ export function PointCloudStatusBar({
   snapCoords,
   totalPoints,
   lastResult,
+  crsName,
 }: PointCloudStatusBarProps) {
   const { tr } = useI18n();
 
   return (
-    <div className="pc-status-bar">
+    <div className="pc-status-bar tp-status-bar">
       <span>
         {tr("statusTool")}: <strong>{tr(toolLabelKey(activeTool) as TranslationKey)}</strong>
       </span>
+      {crsName && (
+        <span>
+          CRS: <strong>{crsName}</strong>
+        </span>
+      )}
       {totalPoints != null && (
         <span>
           {tr("pcPreviewPoints")}: <strong>{totalPoints.toLocaleString()}</strong>
@@ -29,8 +37,7 @@ export function PointCloudStatusBar({
       )}
       {snapCoords && (
         <span>
-          X: <strong>{snapCoords[0].toFixed(4)}</strong> Y: <strong>{snapCoords[1].toFixed(4)}</strong> Z:{" "}
-          <strong>{snapCoords[2].toFixed(4)}</strong>
+          {tr("statusWorldCoords")}: <strong>{formatWorldCoords(snapCoords, 4)}</strong>
         </span>
       )}
       {lastResult && (

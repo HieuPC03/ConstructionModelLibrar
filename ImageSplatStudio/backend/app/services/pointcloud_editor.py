@@ -71,9 +71,10 @@ def get_visible_points(session_id: str) -> tuple[np.ndarray, np.ndarray | None, 
     from pointcloud_editor_ops import apply_swap_xy, compute_visibility_mask
 
     state = load_state(session_id)
+    meta = state.get("norm_meta", {})
     pts, cols = load_points_colors(session_id)
     if state.get("swap_xy"):
-        pts = apply_swap_xy(pts)
+        pts = apply_swap_xy(pts, meta)
     mask = compute_visibility_mask(len(pts), state, pts)
     visible_pts = pts[mask]
     visible_cols = cols[mask] if cols is not None and len(cols) == len(pts) else None
@@ -102,6 +103,9 @@ def get_properties(session_id: str) -> dict:
         "can_redo": len(state.get("redo_stack", [])) > 0,
         "bounds": bbox,
         "norm_meta": state.get("norm_meta", {}),
+        "crs": state.get("crs", {"epsg": 6668, "name": "JGD2011"}),
+        "basemap": state.get("basemap", {"enabled": False}),
+        "view": state.get("view", {"show_axes": True, "fov": 50}),
     }
 
 
@@ -262,7 +266,7 @@ def export_session(session_id: str, fmt: str) -> Path:
     if len(visible_pts) == 0:
         raise ValueError("Không có điểm để xuất.")
     meta = state.get("norm_meta", {})
-    world_pts = denormalize_points(visible_pts, meta, swap_xy=bool(state.get("swap_xy")))
+    world_pts = denormalize_points(visible_pts, meta, swap_xy=False)
     export_dir = _session_dir(session_id) / "exports"
     export_dir.mkdir(exist_ok=True)
     if fmt == "las":
@@ -620,5 +624,26 @@ def delete_measurement(session_id: str, measurement_id: str) -> dict:
     state = load_state(session_id)
     items = [m for m in state.get("measurements", []) if m.get("id") != measurement_id]
     state["measurements"] = items
+    save_state(session_id, state)
+    return get_properties(session_id)
+
+
+def configure_view(
+    session_id: str,
+    *,
+    crs_epsg: int | None = None,
+    basemap_enabled: bool | None = None,
+    show_axes: bool | None = None,
+) -> dict:
+    state = load_state(session_id)
+    if crs_epsg is not None:
+        names = {6668: "JGD2011", 6677: "JGD2011 / Plane VII", 4326: "WGS84", 0: "Local"}
+        state["crs"] = {"epsg": crs_epsg, "name": names.get(crs_epsg, f"EPSG:{crs_epsg}")}
+    if basemap_enabled is not None:
+        state["basemap"] = {"enabled": bool(basemap_enabled)}
+    if show_axes is not None:
+        view = state.get("view", {"show_axes": True, "fov": 50})
+        view["show_axes"] = bool(show_axes)
+        state["view"] = view
     save_state(session_id, state)
     return get_properties(session_id)
