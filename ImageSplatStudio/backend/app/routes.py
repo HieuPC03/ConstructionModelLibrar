@@ -122,7 +122,7 @@ async def pointcloud_preview(
         if not files:
             raise HTTPException(status_code=400, detail="Chọn ít nhất 1 file point cloud.")
 
-        payloads: list[tuple[bytes, str]] = []
+        payloads: list[tuple[bytes, str, str]] = []
         for upload in files:
             suffix = Path(upload.filename or "").suffix.lower()
             if suffix not in settings.pointcloud_extensions:
@@ -133,7 +133,7 @@ async def pointcloud_preview(
             content = await upload.read()
             if len(content) == 0:
                 continue
-            payloads.append((content, suffix))
+            payloads.append((content, suffix, upload.filename or f"upload{suffix}"))
 
         if not payloads:
             raise HTTPException(status_code=400, detail="Tất cả file rỗng.")

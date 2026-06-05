@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { useI18n } from "../i18n/I18nProvider";
+import { decodeGridLines, editorGridUrl, editorMeshUrl } from "../api/editor";
 import {
   fetchPreviewGeometry,
   previewPointClouds,
@@ -25,9 +27,19 @@ type PreviewData = PointCloudPreviewMeta & PointCloudPreviewGeometry;
 
 interface PointCloudPreviewProps {
   files: File[];
+  refreshToken?: number;
+  gridEnabled?: boolean;
+  showMesh?: boolean;
+  onSessionReady?: (sessionId: string) => void;
 }
 
-export function PointCloudPreview({ files }: PointCloudPreviewProps) {
+export function PointCloudPreview({
+  files,
+  refreshToken = 0,
+  gridEnabled = false,
+  showMesh = false,
+  onSessionReady,
+}: PointCloudPreviewProps) {
   const { tr } = useI18n();
   const mountRef = useRef<HTMLDivElement>(null);
   const materialRef = useRef<THREE.PointsMaterial | null>(null);
@@ -78,6 +90,7 @@ export function PointCloudPreview({ files }: PointCloudPreviewProps) {
         if (cancelled) return;
         if (result.preview_session_id) {
           sessionRef.current = result.preview_session_id;
+          onSessionReady?.(result.preview_session_id);
         }
         setData(result);
       } catch (e: unknown) {
@@ -92,7 +105,7 @@ export function PointCloudPreview({ files }: PointCloudPreviewProps) {
     return () => {
       cancelled = true;
     };
-  }, [files, debouncedPercent]);
+  }, [files, debouncedPercent, refreshToken, onSessionReady]);
 
   useEffect(() => {
     if (materialRef.current) {
@@ -154,8 +167,56 @@ export function PointCloudPreview({ files }: PointCloudPreviewProps) {
     controls.target.set(0, 0, 0);
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const grid = new THREE.GridHelper(maxDim * 2.5, 20, 0x2a3444, 0x1a2230);
-    scene.add(grid);
+    const floor = new THREE.GridHelper(maxDim * 2.5, 20, 0x2a3444, 0x1a2230);
+    scene.add(floor);
+
+    const sid = sessionRef.current;
+    if (gridEnabled && sid) {
+      fetch(editorGridUrl(sid))
+        .then((r) => (r.ok ? r.arrayBuffer() : null))
+        .then((buf) => {
+          if (!buf || cancelled) return;
+          const lines = decodeGridLines(buf);
+          const segCount = lines.length / 6;
+          const segPositions = new Float32Array(segCount * 6);
+          for (let i = 0; i < segCount; i++) {
+            segPositions[i * 6] = lines[i * 6];
+            segPositions[i * 6 + 1] = lines[i * 6 + 1];
+            segPositions[i * 6 + 2] = lines[i * 6 + 2];
+            segPositions[i * 6 + 3] = lines[i * 6 + 3];
+            segPositions[i * 6 + 4] = lines[i * 6 + 4];
+            segPositions[i * 6 + 5] = lines[i * 6 + 5];
+          }
+          const gridGeom = new THREE.BufferGeometry();
+          gridGeom.setAttribute("position", new THREE.BufferAttribute(segPositions, 3));
+          const gridMat = new THREE.LineBasicMaterial({ color: 0x44ddaa, transparent: true, opacity: 0.35 });
+          scene.add(new THREE.LineSegments(gridGeom, gridMat));
+        })
+        .catch(() => undefined);
+    }
+
+    if (showMesh && sid) {
+      const loader = new OBJLoader();
+      loader.load(
+        editorMeshUrl(sid),
+        (obj) => {
+          if (cancelled) return;
+          obj.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+              child.material = new THREE.MeshStandardMaterial({
+                color: 0x88aaff,
+                transparent: true,
+                opacity: 0.45,
+                wireframe: false,
+              });
+            }
+          });
+          scene.add(obj);
+        },
+        undefined,
+        () => undefined,
+      );
+    }
 
     const resize = () => {
       const { clientWidth, clientHeight } = mount;
@@ -188,7 +249,7 @@ export function PointCloudPreview({ files }: PointCloudPreviewProps) {
       renderer.dispose();
       mount.removeChild(renderer.domElement);
     };
-  }, [data]);
+  }, [data, pointSizeM, gridEnabled, showMesh]);
 
   const totalSize = files.reduce((s, f) => s + f.size, 0);
   const displayPercent = data?.preview_percent ?? samplePercent;

@@ -13,11 +13,14 @@ import { ExportBar } from "./components/ExportBar";
 import { JobList } from "./components/JobList";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { Logo } from "./components/Logo";
+import { PointCloudMenuBar } from "./components/PointCloudMenuBar";
 import { PointCloudPanel } from "./components/PointCloudPanel";
 import { PointCloudPreview } from "./components/PointCloudPreview";
+import { PointCloudPropertyTable } from "./components/PointCloudPropertyTable";
 import { SplatViewer } from "./components/SplatViewer";
 import { UploadPanel } from "./components/UploadPanel";
 import { I18nProvider, useI18n } from "./i18n/I18nProvider";
+import { fetchEditorProperties, type EditorProperties } from "./api/editor";
 import type { AppMode, HealthInfo, JobInfo } from "./types";
 import "./styles.css";
 
@@ -30,6 +33,10 @@ function AppContent() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pcPreviewFiles, setPcPreviewFiles] = useState<File[]>([]);
+  const [pcSessionId, setPcSessionId] = useState<string | null>(null);
+  const [editorProperties, setEditorProperties] = useState<EditorProperties | null>(null);
+  const [previewRefresh, setPreviewRefresh] = useState(0);
+  const [gridCellSize, setGridCellSize] = useState(1.0);
 
   const selectedJob = jobs.find((j) => j.job_id === selectedId) ?? null;
 
@@ -123,6 +130,31 @@ function AppContent() {
     await refresh();
   };
 
+  const handlePointCloudFilesChange = (files: File[]) => {
+    setPcPreviewFiles(files);
+    setPcSessionId(null);
+    setEditorProperties(null);
+    if (files.length > 0) setSelectedId(null);
+  };
+
+  const handleSessionReady = async (sessionId: string) => {
+    setPcSessionId(sessionId);
+    try {
+      const props = await fetchEditorProperties(sessionId);
+      setEditorProperties(props);
+      if (props.grid.cell_size) setGridCellSize(props.grid.cell_size);
+    } catch (e: unknown) {
+      setError(String(e));
+    }
+  };
+
+  const bumpPreview = () => setPreviewRefresh((n) => n + 1);
+
+  const handleEditorUpdated = (props: EditorProperties) => {
+    setEditorProperties(props);
+    if (props.grid.cell_size) setGridCellSize(props.grid.cell_size);
+  };
+
   const showPointCloudPreview =
     mode === "pointcloud" &&
     pcPreviewFiles.length > 0 &&
@@ -168,17 +200,40 @@ function AppContent() {
         </button>
       </div>
 
+      {mode === "pointcloud" && showPointCloudPreview && (
+        <PointCloudMenuBar
+          sessionId={pcSessionId}
+          properties={editorProperties}
+          onUpdated={handleEditorUpdated}
+          onRefreshPreview={bumpPreview}
+          onError={setError}
+        />
+      )}
+
       {error && <div className="banner banner-error">{error}</div>}
 
       <main className="layout">
         <aside className="sidebar">
           {mode === "pointcloud" ? (
-            <PointCloudPanel
-              onSubmit={handlePointCloudSubmit}
-              onFilesChange={setPcPreviewFiles}
-              busy={busy}
-              open3dAvailable={!!health?.open3d_available}
-            />
+            <>
+              <PointCloudPanel
+                onSubmit={handlePointCloudSubmit}
+                onFilesChange={handlePointCloudFilesChange}
+                busy={busy}
+                open3dAvailable={!!health?.open3d_available}
+              />
+              {pcPreviewFiles.length > 0 && (
+                <PointCloudPropertyTable
+                  sessionId={pcSessionId}
+                  properties={editorProperties}
+                  gridCellSize={gridCellSize}
+                  onGridCellSizeChange={setGridCellSize}
+                  onUpdated={handleEditorUpdated}
+                  onRefreshPreview={bumpPreview}
+                  onError={setError}
+                />
+              )}
+            </>
           ) : (
             <UploadPanel
               onSubmit={handleImageSubmit}
@@ -215,7 +270,13 @@ function AppContent() {
               <SplatViewer url={modelUrl(selectedJob)} />
             </>
           ) : showPointCloudPreview ? (
-            <PointCloudPreview files={pcPreviewFiles} />
+            <PointCloudPreview
+              files={pcPreviewFiles}
+              refreshToken={previewRefresh}
+              gridEnabled={!!editorProperties?.grid.enabled}
+              showMesh={!!editorProperties?.mesh}
+              onSessionReady={(id) => void handleSessionReady(id)}
+            />
           ) : (
             <div className="viewer-placeholder">
               {selectedJob ? (

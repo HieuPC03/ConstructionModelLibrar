@@ -91,6 +91,75 @@ def merge_point_cloud_files(paths: list[Path]):
     return normalize_point_cloud(merged)
 
 
+def merge_point_cloud_files_with_info(paths: list[Path]) -> tuple:
+    """Merge files and return (pcd, norm_meta, files_info)."""
+    import open3d as o3d
+
+    from pointcloud_io import load_point_cloud_file
+
+    if not paths:
+        raise ValueError("Không có file point cloud")
+
+    all_pts: list[np.ndarray] = []
+    all_cols: list[np.ndarray] = []
+    files_info: list[dict] = []
+    offset = 0
+
+    for path in paths:
+        loaded = load_point_cloud_file(path)
+        if isinstance(loaded, tuple) and loaded[0] == "3dgs_ply":
+            from plyfile import PlyData
+
+            ply = PlyData.read(str(loaded[1]))
+            vertex = ply["vertex"]
+            xs = np.asarray(vertex["x"], dtype=np.float64)
+            ys = np.asarray(vertex["y"], dtype=np.float64)
+            zs = np.asarray(vertex["z"], dtype=np.float64)
+            pts = np.stack([xs, ys, zs], axis=1)
+            cols = None
+            names = vertex.data.dtype.names or ()
+            if "red" in names:
+                cols = np.stack(
+                    [
+                        np.asarray(vertex["red"], dtype=np.float64) / 255.0,
+                        np.asarray(vertex["green"], dtype=np.float64) / 255.0,
+                        np.asarray(vertex["blue"], dtype=np.float64) / 255.0,
+                    ],
+                    axis=1,
+                )
+        else:
+            pts = np.asarray(loaded.points, dtype=np.float64)
+            cols = np.asarray(loaded.colors, dtype=np.float64) if loaded.has_colors() else None
+
+        count = len(pts)
+        files_info.append(
+            {
+                "name": path.name,
+                "format": path.suffix.lower().lstrip(".") or "unknown",
+                "point_count": int(count),
+                "size_bytes": int(path.stat().st_size) if path.exists() else 0,
+                "start_index": int(offset),
+                "visible": True,
+            }
+        )
+        offset += count
+        all_pts.append(pts)
+        if cols is not None:
+            all_cols.append(cols)
+
+    if not all_pts:
+        raise ValueError("Không đọc được điểm từ các file")
+
+    merged = o3d.geometry.PointCloud()
+    combined = np.vstack(all_pts)
+    merged.points = o3d.utility.Vector3dVector(combined)
+    if all_cols and sum(len(c) for c in all_cols) == len(combined):
+        merged.colors = o3d.utility.Vector3dVector(np.vstack(all_cols))
+
+    pcd, meta = normalize_point_cloud(merged)
+    return pcd, meta, files_info
+
+
 def sample_fraction(points: np.ndarray, fraction: float, seed: int = 42) -> np.ndarray:
     total = len(points)
     if total == 0:

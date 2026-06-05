@@ -27,6 +27,12 @@ class PreviewSession:
 _sessions: dict[str, PreviewSession] = {}
 
 
+def update_session_total(session_id: str, total: int) -> None:
+    session = _sessions.get(session_id)
+    if session:
+        session.total_points = int(total)
+
+
 def _cache_root() -> Path:
     root = settings.data_dir / "preview_cache"
     root.mkdir(parents=True, exist_ok=True)

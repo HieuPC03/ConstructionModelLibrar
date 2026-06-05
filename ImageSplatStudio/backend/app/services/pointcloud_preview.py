@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 
 from app.config import settings
+from app.services.pointcloud_editor import init_session_state
 from app.services.preview_cache import create_session, get_session
 
 DEFAULT_PREVIEW_PERCENT = 20
@@ -28,6 +29,28 @@ def _pipeline_path() -> str:
 
 def _clamp_percent(percent: float) -> float:
     return max(MIN_PREVIEW_PERCENT, min(MAX_PREVIEW_PERCENT, percent))
+
+
+def _prepare_session_points(session_id: str) -> tuple[np.ndarray, np.ndarray | None]:
+    _pipeline_path()
+    from pointcloud_editor_ops import apply_swap_xy, compute_visibility_mask
+
+    from app.services.pointcloud_editor import load_state
+
+    session = get_session(session_id)
+    if session is None:
+        raise ValueError("Phiên preview đã hết hạn — tải lại file.")
+
+    pts = np.asarray(np.load(session.points_path), dtype=np.float32)
+    cols = np.load(session.colors_path) if session.colors_path else None
+    state = load_state(session_id)
+    if state.get("swap_xy"):
+        pts = apply_swap_xy(pts)
+    mask = compute_visibility_mask(len(pts), state, pts)
+    pts = pts[mask]
+    if cols is not None and len(cols) == len(mask):
+        cols = cols[mask]
+    return pts, cols
 
 
 def _sample_points(
@@ -102,11 +125,11 @@ def sample_session_geometry(session_id: str, percent: float) -> tuple[np.ndarray
     if session is None:
         raise ValueError("Phiên preview đã hết hạn — tải lại file.")
 
-    pts = np.load(session.points_path, mmap_mode="r")
-    cols = np.load(session.colors_path, mmap_mode="r") if session.colors_path else None
+    pts, cols = _prepare_session_points(session_id)
+    visible_total = len(pts)
     sampled_pts, sampled_cols, actual_fraction = _sample_points(pts, cols, percent)
     metadata = _build_metadata(
-        total=session.total_points,
+        total=visible_total,
         preview_count=len(sampled_pts),
         percent=percent,
         actual_fraction=actual_fraction,
@@ -121,9 +144,9 @@ def sample_session_geometry(session_id: str, percent: float) -> tuple[np.ndarray
 
 def preview_pointcloud_files(paths: list[Path], percent: float = DEFAULT_PREVIEW_PERCENT) -> dict:
     _pipeline_path()
-    from pointcloud_coords import merge_point_cloud_files
+    from pointcloud_coords import merge_point_cloud_files_with_info
 
-    pcd, _meta = merge_point_cloud_files(paths)
+    pcd, norm_meta, files_info = merge_point_cloud_files_with_info(paths)
     pts = np.asarray(pcd.points, dtype=np.float32)
     total = len(pts)
     if total == 0:
@@ -136,6 +159,7 @@ def preview_pointcloud_files(paths: list[Path], percent: float = DEFAULT_PREVIEW
         file_count=len(paths),
         format_name=paths[0].suffix.lower().lstrip("."),
     )
+    init_session_state(session.session_id, files_info, norm_meta)
     sampled_pts, sampled_cols, actual_fraction = _sample_points(pts, cols, percent)
     return _build_metadata(
         total=total,
@@ -156,21 +180,26 @@ def preview_from_session(session_id: str, percent: float = DEFAULT_PREVIEW_PERCE
 
 
 def preview_upload_files(
-    files: list[tuple[bytes, str]],
+    files: list[tuple[bytes, str, str]],
     percent: float = DEFAULT_PREVIEW_PERCENT,
 ) -> dict:
     tmps: list[Path] = []
+    tmp_dir = Path(tempfile.mkdtemp(prefix="pc_upload_"))
     try:
-        for content, suffix in files:
+        for content, suffix, name in files:
             suffix = suffix if suffix.startswith(".") else f".{suffix}"
-            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-                tmp.write(content)
-                tmps.append(Path(tmp.name))
+            safe_name = Path(name).name if name else f"upload{suffix}"
+            if not safe_name.lower().endswith(suffix.lower()):
+                safe_name = f"{Path(safe_name).stem}{suffix}"
+            dest = tmp_dir / safe_name
+            dest.write_bytes(content)
+            tmps.append(dest)
         return preview_pointcloud_files(tmps, percent=percent)
     finally:
-        for p in tmps:
-            p.unlink(missing_ok=True)
+        import shutil
+
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def preview_upload(content: bytes, suffix: str, percent: float = DEFAULT_PREVIEW_PERCENT) -> dict:
-    return preview_upload_files([(content, suffix)], percent=percent)
+    return preview_upload_files([(content, suffix, f"upload{suffix}")], percent=percent)
