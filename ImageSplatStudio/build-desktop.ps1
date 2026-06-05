@@ -79,7 +79,13 @@ npm run dist:win
 Pop-Location
 
 $OutDir = Join-Path $Desktop "dist-installer"
+$DistDir = Join-Path $Root "dist\installers"
+New-Item -ItemType Directory -Path $DistDir -Force | Out-Null
+Get-ChildItem $OutDir -Filter "*.exe" | Copy-Item -Destination $DistDir -Force
+Get-ChildItem $OutDir -Filter "*.zip" | Copy-Item -Destination $DistDir -Force
+
 Write-Host ""
 Write-Host "==> DONE!" -ForegroundColor Green
 Write-Host "Installer: $OutDir\ImageSplatStudio-Setup-0.1.0.exe" -ForegroundColor Cyan
+Write-Host "Copy also: $DistDir\" -ForegroundColor Cyan
 Get-ChildItem $OutDir -Filter "*.exe" | ForEach-Object { Write-Host "  $($_.FullName)" }

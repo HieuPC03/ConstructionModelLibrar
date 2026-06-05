@@ -1,0 +1,31 @@
+# File cài đặt ImageSplat Studio
+
+Sau khi build, file cài đặt nằm tại:
+
+```
+ImageSplatStudio/dist/installers/
+```
+
+| File | Hệ đống | Cách dùng |
+|------|---------|-----------|
+| `ImageSplatStudio-Setup-0.1.0.zip` | **Windows** | Giải nén → chạy `ImageSplat Studio.exe` |
+| `ImageSplatStudio-0.1.0.AppImage` | **Linux** | `chmod +x` rồi chạy trực tiếp |
+| `ImageSplatStudio-Setup-0.1.0.exe` | **Windows** | Chạy installer (build trên Windows) |
+
+## Build tự động trên Windows
+
+Double-click **`CAI_DAT.bat`** hoặc:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ImageSplatStudio\scripts\auto-build-installer.ps1
+```
+
+## Build trên Linux
+
+```bash
+bash ImageSplatStudio/scripts/auto-build-installer.sh
+```
+
+## Tải từ GitHub Actions
+
+Repo → **Actions** → **Build Desktop Installer** → artifact **ImageSplatStudio-Setup-Windows**
