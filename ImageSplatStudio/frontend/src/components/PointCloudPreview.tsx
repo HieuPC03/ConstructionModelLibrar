@@ -11,9 +11,15 @@ import {
 import { formatFileSize } from "../utils/pointcloud";
 
 const DEFAULT_PERCENT = 20;
-const DEFAULT_POINT_SIZE_M = 0.3;
-const MIN_POINT_SIZE_M = 0.1;
-const MAX_POINT_SIZE_M = 1.0;
+const MIN_POINT_SIZE_M = 0.0001;
+const MAX_POINT_SIZE_M = 0.01;
+const DEFAULT_POINT_SIZE_M = 0.002;
+
+function formatPointSize(m: number, dotLabel: string): string {
+  if (m <= MIN_POINT_SIZE_M * 1.5) return dotLabel;
+  if (m < 0.001) return `${(m * 1000).toFixed(1)} mm`;
+  return `${m.toFixed(3)} m`;
+}
 
 type PreviewData = PointCloudPreviewMeta & PointCloudPreviewGeometry;
 
@@ -220,7 +226,8 @@ export function PointCloudPreview({ files }: PointCloudPreviewProps) {
           </div>
           <div className="pc-slider-group">
             <label className="pc-sample-label" htmlFor="pc-point-size">
-              {tr("pcPreviewPointSize")} <strong>{pointSizeM.toFixed(2)} m</strong>
+              {tr("pcPreviewPointSize")}{" "}
+              <strong>{formatPointSize(pointSizeM, tr("pcPreviewPointMin"))}</strong>
             </label>
             <input
               id="pc-point-size"
@@ -228,7 +235,7 @@ export function PointCloudPreview({ files }: PointCloudPreviewProps) {
               type="range"
               min={MIN_POINT_SIZE_M}
               max={MAX_POINT_SIZE_M}
-              step={0.05}
+              step={0.0001}
               value={pointSizeM}
               disabled={!data}
               onChange={(e) => setPointSizeM(Number(e.target.value))}
