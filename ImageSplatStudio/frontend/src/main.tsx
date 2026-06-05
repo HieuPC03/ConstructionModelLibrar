@@ -14,6 +14,7 @@ import { JobList } from "./components/JobList";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { Logo } from "./components/Logo";
 import { PointCloudPanel } from "./components/PointCloudPanel";
+import { PointCloudPreview } from "./components/PointCloudPreview";
 import { SplatViewer } from "./components/SplatViewer";
 import { UploadPanel } from "./components/UploadPanel";
 import { I18nProvider, useI18n } from "./i18n/I18nProvider";
@@ -28,6 +29,7 @@ function AppContent() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pcPreviewFile, setPcPreviewFile] = useState<File | null>(null);
 
   const selectedJob = jobs.find((j) => j.job_id === selectedId) ?? null;
 
@@ -160,6 +162,7 @@ function AppContent() {
           {mode === "pointcloud" ? (
             <PointCloudPanel
               onSubmit={handlePointCloudSubmit}
+              onFileChange={setPcPreviewFile}
               busy={busy}
               open3dAvailable={!!health?.open3d_available}
             />
@@ -193,6 +196,8 @@ function AppContent() {
               <ExportBar job={selectedJob} />
               <SplatViewer url={modelUrl(selectedJob)} />
             </>
+          ) : mode === "pointcloud" && pcPreviewFile && !selectedJob ? (
+            <PointCloudPreview file={pcPreviewFile} />
           ) : (
             <div className="viewer-placeholder">
               {selectedJob ? (

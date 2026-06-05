@@ -64,6 +64,30 @@ export async function deleteJob(jobId: string): Promise<void> {
   await parseJson(await fetch(`${API}/jobs/${jobId}`, { method: "DELETE" }));
 }
 
+export interface PointCloudPreviewData {
+  total_points: number;
+  preview_count: number;
+  format: string;
+  positions: [number, number, number][];
+  colors?: [number, number, number][];
+  bounds: {
+    min: [number, number, number];
+    max: [number, number, number];
+    size: [number, number, number];
+  };
+}
+
+export async function previewPointCloud(file: File): Promise<PointCloudPreviewData> {
+  const form = new FormData();
+  form.append("file", file);
+  return parseJson(
+    await fetch(`${API}/pointcloud-preview`, {
+      method: "POST",
+      body: form,
+    }),
+  );
+}
+
 export function modelUrl(job: JobInfo): string {
   if (job.output_url) {
     return job.output_url.startsWith("http")
