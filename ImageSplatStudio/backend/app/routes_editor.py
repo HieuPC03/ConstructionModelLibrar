@@ -7,14 +7,19 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 from app.services.pointcloud_editor import (
+    add_breakline,
+    add_point_at,
     add_hidden_region,
     clean_outliers,
     clear_hidden_regions,
     configure_grid,
     create_mesh,
+    delete_points_at,
     export_session,
     get_grid_binary,
     get_properties,
+    mesh_add_vertex,
+    mesh_delete_vertex,
     set_file_visibility,
     show_all,
     split_session,
@@ -47,6 +52,23 @@ class SplitBody(BaseModel):
 
 class MeshBody(BaseModel):
     method: str = "poisson"
+
+
+class PointBody(BaseModel):
+    position: list[float] = Field(..., min_length=3, max_length=3)
+    radius: float = Field(0.02, gt=0)
+
+
+class MeshVertexBody(BaseModel):
+    position: list[float] = Field(..., min_length=3, max_length=3)
+
+
+class MeshVertexIndexBody(BaseModel):
+    vertex_index: int = Field(..., ge=0)
+
+
+class BreaklineBody(BaseModel):
+    points: list[list[float]] = Field(..., min_length=2)
 
 
 def _ensure_session(session_id: str) -> None:
@@ -169,3 +191,45 @@ def editor_export_txt(session_id: str) -> FileResponse:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return FileResponse(path=path, media_type="text/plain", filename="pointcloud.txt")
+
+
+@router.post("/{session_id}/points/delete")
+def editor_delete_points(session_id: str, body: PointBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return delete_points_at(session_id, body.position, body.radius)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/points/add")
+def editor_add_point(session_id: str, body: MeshVertexBody) -> dict:
+    _ensure_session(session_id)
+    return add_point_at(session_id, body.position)
+
+
+@router.post("/{session_id}/breakline")
+def editor_breakline(session_id: str, body: BreaklineBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return add_breakline(session_id, body.points)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/mesh/vertex/add")
+def editor_mesh_vertex_add(session_id: str, body: MeshVertexBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return mesh_add_vertex(session_id, body.position)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/mesh/vertex/delete")
+def editor_mesh_vertex_delete(session_id: str, body: MeshVertexIndexBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return mesh_delete_vertex(session_id, body.vertex_index)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

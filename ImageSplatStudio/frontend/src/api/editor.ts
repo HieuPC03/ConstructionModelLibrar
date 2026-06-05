@@ -17,6 +17,7 @@ export interface EditorProperties {
   hidden_regions: { id: string; min: number[]; max: number[]; hidden: boolean }[];
   grid: { enabled: boolean; cell_size: number };
   mesh: { path: string; vertices: number; triangles: number } | null;
+  breaklines: { id: string; points: number[][] }[];
   bounds: { min: number[]; max: number[] };
 }
 
@@ -132,4 +133,70 @@ export function editorGridUrl(sessionId: string): string {
 export function decodeGridLines(buffer: ArrayBuffer): Float32Array {
   const count = new DataView(buffer).getUint32(0, true);
   return new Float32Array(buffer, 4, count * 6);
+}
+
+export async function editorDeletePoints(
+  sessionId: string,
+  position: [number, number, number],
+  radius = 0.02,
+): Promise<EditorProperties & { removed_count?: number }> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/points/delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ position, radius }),
+    }),
+  );
+}
+
+export async function editorAddPoint(
+  sessionId: string,
+  position: [number, number, number],
+): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/points/add`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ position }),
+    }),
+  );
+}
+
+export async function editorAddBreakline(
+  sessionId: string,
+  points: [number, number, number][],
+): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/breakline`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ points }),
+    }),
+  );
+}
+
+export async function editorMeshAddVertex(
+  sessionId: string,
+  position: [number, number, number],
+): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/mesh/vertex/add`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ position }),
+    }),
+  );
+}
+
+export async function editorMeshDeleteVertex(
+  sessionId: string,
+  vertexIndex: number,
+): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/mesh/vertex/delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vertex_index: vertexIndex }),
+    }),
+  );
 }

@@ -15,12 +15,23 @@ import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { Logo } from "./components/Logo";
 import { PointCloudMenuBar } from "./components/PointCloudMenuBar";
 import { PointCloudPanel } from "./components/PointCloudPanel";
-import { PointCloudPreview } from "./components/PointCloudPreview";
+import { PointCloudPreview, type PickMeta } from "./components/PointCloudPreview";
 import { PointCloudPropertyTable } from "./components/PointCloudPropertyTable";
+import { PointCloudToolBar } from "./components/PointCloudToolBar";
 import { SplatViewer } from "./components/SplatViewer";
 import { UploadPanel } from "./components/UploadPanel";
 import { I18nProvider, useI18n } from "./i18n/I18nProvider";
-import { fetchEditorProperties, type EditorProperties } from "./api/editor";
+import {
+  editorAddBreakline,
+  editorAddPoint,
+  editorDeletePoints,
+  editorHideRegion,
+  editorMeshAddVertex,
+  editorMeshDeleteVertex,
+  fetchEditorProperties,
+  type EditorProperties,
+} from "./api/editor";
+import type { EditorTool } from "./utils/editorTools";
 import type { AppMode, HealthInfo, JobInfo } from "./types";
 import "./styles.css";
 
@@ -37,6 +48,11 @@ function AppContent() {
   const [editorProperties, setEditorProperties] = useState<EditorProperties | null>(null);
   const [previewRefresh, setPreviewRefresh] = useState(0);
   const [gridCellSize, setGridCellSize] = useState(1.0);
+  const [activeTool, setActiveTool] = useState<EditorTool>("navigate");
+  const [osnapEnabled, setOsnapEnabled] = useState(true);
+  const [breaklineDraft, setBreaklineDraft] = useState<[number, number, number][]>([]);
+  const [regionStart, setRegionStart] = useState<[number, number, number] | null>(null);
+  const [meshReloadToken, setMeshReloadToken] = useState(0);
 
   const selectedJob = jobs.find((j) => j.job_id === selectedId) ?? null;
 
@@ -134,6 +150,9 @@ function AppContent() {
     setPcPreviewFiles(files);
     setPcSessionId(null);
     setEditorProperties(null);
+    setActiveTool("navigate");
+    setBreaklineDraft([]);
+    setRegionStart(null);
     if (files.length > 0) setSelectedId(null);
   };
 
@@ -149,10 +168,91 @@ function AppContent() {
   };
 
   const bumpPreview = () => setPreviewRefresh((n) => n + 1);
+  const bumpMesh = () => setMeshReloadToken((n) => n + 1);
 
   const handleEditorUpdated = (props: EditorProperties) => {
     setEditorProperties(props);
     if (props.grid.cell_size) setGridCellSize(props.grid.cell_size);
+  };
+
+  useEffect(() => {
+    if (activeTool !== "select_region") setRegionStart(null);
+    if (activeTool !== "breakline") setBreaklineDraft([]);
+  }, [activeTool]);
+
+  const handleFinishBreakline = async () => {
+    if (!pcSessionId || breaklineDraft.length < 2) return;
+    setError(null);
+    try {
+      const props = await editorAddBreakline(pcSessionId, breaklineDraft);
+      handleEditorUpdated(props);
+      setBreaklineDraft([]);
+    } catch (e: unknown) {
+      setError(String(e));
+    }
+  };
+
+  const handlePreviewPick = async (pos: [number, number, number], meta?: PickMeta) => {
+    if (!pcSessionId) return;
+    setError(null);
+    try {
+      switch (activeTool) {
+        case "delete_point": {
+          const props = await editorDeletePoints(pcSessionId, pos);
+          handleEditorUpdated(props);
+          bumpPreview();
+          break;
+        }
+        case "add_point": {
+          const props = await editorAddPoint(pcSessionId, pos);
+          handleEditorUpdated(props);
+          bumpPreview();
+          break;
+        }
+        case "select_region": {
+          if (!regionStart) {
+            setRegionStart(pos);
+          } else {
+            const min: [number, number, number] = [
+              Math.min(regionStart[0], pos[0]),
+              Math.min(regionStart[1], pos[1]),
+              Math.min(regionStart[2], pos[2]),
+            ];
+            const max: [number, number, number] = [
+              Math.max(regionStart[0], pos[0]),
+              Math.max(regionStart[1], pos[1]),
+              Math.max(regionStart[2], pos[2]),
+            ];
+            const props = await editorHideRegion(pcSessionId, min, max);
+            handleEditorUpdated(props);
+            bumpPreview();
+            setRegionStart(null);
+          }
+          break;
+        }
+        case "mesh_add": {
+          const props = await editorMeshAddVertex(pcSessionId, pos);
+          handleEditorUpdated(props);
+          bumpMesh();
+          break;
+        }
+        case "mesh_delete": {
+          if (meta?.vertexIndex != null && meta.vertexIndex >= 0) {
+            const props = await editorMeshDeleteVertex(pcSessionId, meta.vertexIndex);
+            handleEditorUpdated(props);
+            bumpMesh();
+          }
+          break;
+        }
+        case "breakline":
+          setBreaklineDraft((d) => [...d, pos]);
+          break;
+        default:
+          break;
+      }
+    } catch (e: unknown) {
+      setError(String(e));
+    }
   };
 
   const showPointCloudPreview =
@@ -201,13 +301,24 @@ function AppContent() {
       </div>
 
       {mode === "pointcloud" && showPointCloudPreview && (
-        <PointCloudMenuBar
-          sessionId={pcSessionId}
-          properties={editorProperties}
-          onUpdated={handleEditorUpdated}
-          onRefreshPreview={bumpPreview}
-          onError={setError}
-        />
+        <>
+          <PointCloudMenuBar
+            sessionId={pcSessionId}
+            properties={editorProperties}
+            onUpdated={handleEditorUpdated}
+            onRefreshPreview={bumpPreview}
+            onError={setError}
+          />
+          <PointCloudToolBar
+            activeTool={activeTool}
+            osnapEnabled={osnapEnabled}
+            breaklineCount={breaklineDraft.length}
+            meshReady={!!editorProperties?.mesh}
+            onToolChange={setActiveTool}
+            onOsnapToggle={setOsnapEnabled}
+            onFinishBreakline={() => void handleFinishBreakline()}
+          />
+        </>
       )}
 
       {error && <div className="banner banner-error">{error}</div>}
@@ -275,7 +386,14 @@ function AppContent() {
               refreshToken={previewRefresh}
               gridEnabled={!!editorProperties?.grid.enabled}
               showMesh={!!editorProperties?.mesh}
+              meshReloadToken={meshReloadToken}
+              activeTool={activeTool}
+              osnapEnabled={osnapEnabled}
+              breaklines={editorProperties?.breaklines ?? []}
+              breaklineDraft={breaklineDraft}
+              regionStart={regionStart}
               onSessionReady={(id) => void handleSessionReady(id)}
+              onPick={(pos, meta) => void handlePreviewPick(pos, meta)}
             />
           ) : (
             <div className="viewer-placeholder">

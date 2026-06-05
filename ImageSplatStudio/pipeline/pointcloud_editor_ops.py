@@ -166,6 +166,7 @@ def default_state(*, files: list[dict], norm_meta: dict) -> dict:
         "hidden_regions": [],
         "grid": {"enabled": False, "cell_size": 1.0},
         "mesh": None,
+        "breaklines": [],
     }
 
 

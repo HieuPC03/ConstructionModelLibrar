@@ -927,6 +927,94 @@ h3 {
   background: rgba(6, 8, 12, 0.85);
 }
 
+.pc-tool-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.pc-tool-bar-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.pc-tool-btn {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.pc-tool-btn:hover:not(:disabled) {
+  background: var(--surface-3, rgba(255, 255, 255, 0.06));
+  border-color: var(--accent, #5b8def);
+}
+
+.pc-tool-btn.active {
+  background: rgba(91, 141, 239, 0.2);
+  border-color: var(--accent, #5b8def);
+  color: var(--accent, #5b8def);
+}
+
+.pc-tool-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pc-tool-btn-accent {
+  background: rgba(255, 102, 68, 0.15);
+  border-color: #ff6644;
+  color: #ff8866;
+}
+
+.pc-osnap-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 8px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.pc-osnap-toggle input {
+  accent-color: var(--accent, #5b8def);
+}
+
+.pc-tool-hint {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #ccd6e8;
+  font-size: 0.72rem;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.pc-preview-viewport.pc-cursor-navigate .pc-preview-mount {
+  cursor: grab;
+}
+
+.pc-preview-viewport.pc-cursor-navigate .pc-preview-mount:active {
+  cursor: grabbing;
+}
+
 .viewer-section {
   display: flex;
   flex-direction: column;

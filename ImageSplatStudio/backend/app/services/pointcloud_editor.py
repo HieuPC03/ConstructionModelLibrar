@@ -95,6 +95,7 @@ def get_properties(session_id: str) -> dict:
         "hidden_regions": state.get("hidden_regions", []),
         "grid": state.get("grid", {"enabled": False, "cell_size": 1.0}),
         "mesh": state.get("mesh"),
+        "breaklines": state.get("breaklines", []),
         "bounds": bbox,
         "norm_meta": state.get("norm_meta", {}),
     }
@@ -287,3 +288,90 @@ def init_session_state(session_id: str, files_info: list[dict], norm_meta: dict)
     from pointcloud_editor_ops import default_state, save_json
 
     save_json(_state_path(session_id), default_state(files=files_info, norm_meta=norm_meta))
+
+
+def delete_points_at(session_id: str, position: list[float], radius: float = 0.02) -> dict:
+    _pipeline_path()
+    from pointcloud_mesh_edit import delete_points_near
+
+    pts, cols = load_points_colors(session_id)
+    new_pts, new_cols, removed = delete_points_near(pts, cols, position, radius)
+    if removed == 0:
+        raise ValueError("Không tìm thấy điểm trong vùng chọn.")
+    save_points_colors(session_id, new_pts, new_cols)
+    state = load_state(session_id)
+    state["files"] = [
+        {
+            "name": "edited_cloud",
+            "format": "edited",
+            "point_count": int(len(new_pts)),
+            "size_bytes": 0,
+            "start_index": 0,
+            "visible": True,
+        }
+    ]
+    save_state(session_id, state)
+    result = get_properties(session_id)
+    result["removed_count"] = removed
+    return result
+
+
+def add_point_at(session_id: str, position: list[float]) -> dict:
+    _pipeline_path()
+    from pointcloud_mesh_edit import add_point
+
+    pts, cols = load_points_colors(session_id)
+    new_pts, new_cols = add_point(pts, cols, position)
+    save_points_colors(session_id, new_pts, new_cols)
+    state = load_state(session_id)
+    state["files"] = [
+        {
+            "name": "edited_cloud",
+            "format": "edited",
+            "point_count": int(len(new_pts)),
+            "size_bytes": 0,
+            "start_index": 0,
+            "visible": True,
+        }
+    ]
+    save_state(session_id, state)
+    return get_properties(session_id)
+
+
+def add_breakline(session_id: str, points: list[list[float]]) -> dict:
+    if len(points) < 2:
+        raise ValueError("Breakline cần ít nhất 2 điểm.")
+    state = load_state(session_id)
+    lines = state.get("breaklines", [])
+    lines.append({"id": uuid.uuid4().hex[:8], "points": points})
+    state["breaklines"] = lines
+    save_state(session_id, state)
+    return get_properties(session_id)
+
+
+def mesh_add_vertex(session_id: str, position: list[float]) -> dict:
+    _pipeline_path()
+    from pointcloud_mesh_edit import add_mesh_vertex
+
+    path = get_mesh_path(session_id)
+    info = add_mesh_vertex(path, position)
+    state = load_state(session_id)
+    if state.get("mesh"):
+        state["mesh"]["vertices"] = info["vertices"]
+        state["mesh"]["triangles"] = info["triangles"]
+    save_state(session_id, state)
+    return get_properties(session_id)
+
+
+def mesh_delete_vertex(session_id: str, vertex_index: int) -> dict:
+    _pipeline_path()
+    from pointcloud_mesh_edit import delete_mesh_vertex
+
+    path = get_mesh_path(session_id)
+    info = delete_mesh_vertex(path, vertex_index)
+    state = load_state(session_id)
+    if state.get("mesh"):
+        state["mesh"]["vertices"] = info["vertices"]
+        state["mesh"]["triangles"] = info["triangles"]
+    save_state(session_id, state)
+    return get_properties(session_id)
