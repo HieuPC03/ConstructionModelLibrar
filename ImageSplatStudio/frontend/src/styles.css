@@ -543,6 +543,62 @@ h3 {
   line-height: 1.4;
 }
 
+.job-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.export-link {
+  color: var(--accent-2) !important;
+  font-weight: 600;
+}
+
+.export-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(52, 211, 153, 0.06);
+  border: 1px solid rgba(52, 211, 153, 0.22);
+}
+
+.export-bar-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.export-badge {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ok);
+}
+
+.export-hint {
+  font-size: 0.8rem;
+}
+
+.export-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.export-actions .button {
+  width: auto;
+  min-width: 130px;
+}
+
+.export-zip-btn {
+  min-width: 150px;
+}
+
 .viewer-section {
   display: flex;
   flex-direction: column;

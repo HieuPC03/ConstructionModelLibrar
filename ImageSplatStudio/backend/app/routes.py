@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from app.config import settings
-from app.models import HealthResponse, JobCreateResponse, JobInfo, JobType, OutputFormat
+from app.models import HealthResponse, JobCreateResponse, JobInfo, JobStatus, JobType, OutputFormat
 from app.services.capabilities import check_colmap_available, check_gpu_available, check_open3d_available
+from app.services.export_service import create_export_zip, safe_filename
 from app.services.job_store import job_store
 from app.services.pipeline_runner import pipeline_runner
 from app.services.pointcloud_runner import pointcloud_runner
@@ -165,17 +166,39 @@ def download_splat(job_id: str) -> FileResponse:
     job = job_store.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job không tồn tại.")
-    if job.status.value != "completed":
+    if job.status != JobStatus.COMPLETED:
         raise HTTPException(status_code=409, detail="Mô hình chưa sẵn sàng.")
 
     model_path = settings.data_dir / "outputs" / job_id / "model.splat"
     if not model_path.exists():
         raise HTTPException(status_code=404, detail="File mô hình không tồn tại.")
 
+    filename = f"{safe_filename(job.name, job_id)}.splat"
     return FileResponse(
         path=model_path,
         media_type="application/octet-stream",
-        filename=f"{job.name or job_id}.splat",
+        filename=filename,
+    )
+
+
+@router.get("/jobs/{job_id}/export.zip")
+def export_job_package(job_id: str) -> StreamingResponse:
+    job = job_store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job không tồn tại.")
+    if job.status != JobStatus.COMPLETED:
+        raise HTTPException(status_code=409, detail="Dự án chưa hoàn tất — chưa thể xuất.")
+
+    output_dir = settings.data_dir / "outputs" / job_id
+    try:
+        buf, archive_name = create_export_zip(job, output_dir)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Không tìm thấy dữ liệu xuất.")
+
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{archive_name}"'},
     )
 
 

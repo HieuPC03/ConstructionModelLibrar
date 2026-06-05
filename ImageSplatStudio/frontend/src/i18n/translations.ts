@@ -71,6 +71,12 @@ const translations = {
     stageCancelled: "Đã hủy",
     typeImages: "Ảnh → Splat",
     typePointcloud: "PC → 3D GS",
+
+    exportReady: "Build hoàn tất",
+    exportHint: "Xuất mô hình 3D Gaussian (.splat) hoặc gói ZIP đầy đủ",
+    exportSplat: "Tải .splat",
+    exportPackage: "Xuất gói ZIP",
+    exportQuick: "Xuất",
   },
   ja: {
     appTagline: "3D再構築スタジオ",
@@ -140,6 +146,12 @@ const translations = {
     stageCancelled: "キャンセル",
     typeImages: "画像 → Splat",
     typePointcloud: "点群 → 3D GS",
+
+    exportReady: "ビルド完了",
+    exportHint: "3D Gaussianモデル (.splat) またはZIPパッケージをエクスポート",
+    exportSplat: ".splatをダウンロード",
+    exportPackage: "ZIPをエクスポート",
+    exportQuick: "エクスポート",
   },
 } as const;
 

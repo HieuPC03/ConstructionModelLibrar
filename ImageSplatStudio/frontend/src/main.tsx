@@ -9,6 +9,7 @@ import {
   fetchJobs,
   modelUrl,
 } from "./api";
+import { ExportBar } from "./components/ExportBar";
 import { JobList } from "./components/JobList";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { Logo } from "./components/Logo";
@@ -188,7 +189,10 @@ function AppContent() {
           </div>
 
           {selectedJob?.status === "completed" ? (
-            <SplatViewer url={modelUrl(selectedJob)} />
+            <>
+              <ExportBar job={selectedJob} />
+              <SplatViewer url={modelUrl(selectedJob)} />
+            </>
           ) : (
             <div className="viewer-placeholder">
               {selectedJob ? (

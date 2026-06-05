@@ -1,6 +1,7 @@
 import { useI18n } from "../i18n/I18nProvider";
 import type { TranslationKey } from "../i18n/translations";
 import type { JobInfo, JobStatus } from "../types";
+import { exportPackageUrl, safeExportName, triggerDownload } from "../utils/export";
 
 const STAGE_KEYS: Record<JobStatus, TranslationKey> = {
   pending: "stagePending",
@@ -66,16 +67,33 @@ export function JobList({ jobs, selectedId, onSelect, onDelete }: JobListProps) 
               />
             </div>
             <p className="job-message">{job.progress.message}</p>
-            <button
-              type="button"
-              className="button-link danger"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(job.job_id);
-              }}
-            >
-              {tr("deleteJob")}
-            </button>
+            <div className="job-actions">
+              {job.status === "completed" && (
+                <button
+                  type="button"
+                  className="button-link export-link"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    triggerDownload(
+                      exportPackageUrl(job),
+                      `${safeExportName(job.name, job.job_id)}-export.zip`,
+                    );
+                  }}
+                >
+                  {tr("exportQuick")}
+                </button>
+              )}
+              <button
+                type="button"
+                className="button-link danger"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(job.job_id);
+                }}
+              >
+                {tr("deleteJob")}
+              </button>
+            </div>
           </li>
         ))}
       </ul>
