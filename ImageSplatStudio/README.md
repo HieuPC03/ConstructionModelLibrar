@@ -1,14 +1,52 @@
 # ImageSplat Studio
 
-Web app tạo **mô hình 3D Gaussian Splatting** từ bộ ảnh — workflow tương tự Luma AI, Polycam, hoặc pipeline 3DGS mã nguồn mở.
+Web app tạo **mô hình 3D** từ:
+- **Point cloud** → mesh 3D (Open3D Poisson / Ball Pivoting)
+- **Bộ ảnh** → 3D Gaussian Splatting
 
 ## Tính năng
 
+### Point Cloud → Mesh 3D
+- Upload `.ply`, `.pcd`, `.xyz`, `.las`, `.pts`, `.obj`
+- Reconstruction: **Poisson** (mượt) hoặc **Ball Pivoting** (chi tiết)
+- Viewer mesh 3D tương tác (xoay, zoom) — export `.obj`
+- **Chạy trên CPU** — không cần GPU
+
+### Ảnh → Gaussian Splat
 - Upload nhiều ảnh (drag & drop)
-- Pipeline: **COLMAP** (Structure from Motion) → **3D Gaussian Splatting** → export `.splat`
-- Viewer 3D tương tác trong trình duyệt (xoay, zoom)
-- Chế độ **Demo** khi server không có GPU
-- API REST (FastAPI) + giao diện React
+- Pipeline: **COLMAP** → **3D Gaussian Splatting** → `.splat`
+- Viewer Gaussian Splat trong trình duyệt
+- Cần GPU cho huấn luyện thật
+
+## Chạy nhanh
+
+```bash
+# Backend
+cd ImageSplatStudio/backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+
+# Frontend
+cd ImageSplatStudio/frontend
+npm install && npm run dev
+```
+
+Mở http://localhost:5173 → tab **Point Cloud → Mesh**
+
+## API
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| POST | `/api/pointcloud-jobs` | Upload point cloud → mesh |
+| POST | `/api/jobs` | Upload ảnh → splat |
+| GET | `/api/jobs/{id}/model.obj` | Tải mesh |
+| GET | `/api/jobs/{id}/model.splat` | Tải splat |
+
+## Point cloud — tips
+
+- File `.ply` có màu cho kết quả tốt hơn
+- Nên có ≥ 10.000 điểm
+- Poisson phù hợp scan đầy đủ; BPA cho surface có lỗ
 
 ## Kiến trúc
 

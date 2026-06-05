@@ -5,11 +5,17 @@ const STAGE_LABELS: Record<JobStatus, string> = {
   uploading: "Upload",
   preprocessing: "Tiền xử lý",
   colmap: "COLMAP",
+  meshing: "Tạo mesh",
   training: "Huấn luyện 3DGS",
   exporting: "Xuất file",
   completed: "Hoàn tất",
   failed: "Lỗi",
   cancelled: "Đã hủy",
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  images: "Ảnh → Splat",
+  pointcloud: "PC → Mesh",
 };
 
 interface JobListProps {
@@ -46,7 +52,8 @@ export function JobList({ jobs, selectedId, onSelect, onDelete }: JobListProps) 
               </span>
             </div>
             <div className="job-meta">
-              {job.image_count} ảnh · {Math.round(job.progress.percent)}%
+              <span className="job-type-tag">{TYPE_LABELS[job.job_type] ?? job.job_type}</span>
+              · {Math.round(job.progress.percent)}%
             </div>
             <div className="progress-bar">
               <div

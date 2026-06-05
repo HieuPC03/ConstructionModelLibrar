@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   createJob,
+  createPointCloudJob,
   deleteJob,
   fetchHealth,
   fetchJob,
@@ -9,12 +10,15 @@ import {
   modelUrl,
 } from "./api";
 import { JobList } from "./components/JobList";
+import { MeshViewer } from "./components/MeshViewer";
+import { PointCloudPanel } from "./components/PointCloudPanel";
 import { SplatViewer } from "./components/SplatViewer";
 import { UploadPanel } from "./components/UploadPanel";
-import type { HealthInfo, JobInfo } from "./types";
+import type { AppMode, HealthInfo, JobInfo } from "./types";
 import "./styles.css";
 
 function App() {
+  const [mode, setMode] = useState<AppMode>("pointcloud");
   const [health, setHealth] = useState<HealthInfo | null>(null);
   const [jobs, setJobs] = useState<JobInfo[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -65,11 +69,30 @@ function App() {
     return () => clearInterval(timer);
   }, [selectedId, jobs]);
 
-  const handleSubmit = async (name: string, files: File[], demo: boolean) => {
+  const handleImageSubmit = async (name: string, files: File[], demo: boolean) => {
     setBusy(true);
     setError(null);
     try {
       const result = await createJob(name, files, demo);
+      await refresh();
+      setSelectedId(result.job_id);
+    } catch (e: unknown) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handlePointCloudSubmit = async (
+    name: string,
+    file: File | null,
+    demo: boolean,
+    method: "poisson" | "bpa",
+  ) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await createPointCloudJob(name, file, demo, method);
       await refresh();
       setSelectedId(result.job_id);
     } catch (e: unknown) {
@@ -90,24 +113,53 @@ function App() {
     <div className="app-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">3D Gaussian Splatting</p>
+          <p className="eyebrow">3D Reconstruction Studio</p>
           <h1>ImageSplat Studio</h1>
         </div>
         <div className="status-pills">
+          <span className={`pill ${health?.open3d_available ? "pill-ok" : "pill-warn"}`}>
+            Open3D {health?.open3d_available ? "OK" : "N/A"}
+          </span>
           <span className={`pill ${health?.gpu_available ? "pill-ok" : "pill-warn"}`}>
             GPU {health?.gpu_available ? "OK" : "N/A"}
           </span>
-          <span className={`pill ${health?.colmap_available ? "pill-ok" : "pill-warn"}`}>
-            COLMAP {health?.colmap_available ? "OK" : "N/A"}
-          </span>
         </div>
       </header>
+
+      <div className="mode-tabs">
+        <button
+          type="button"
+          className={`mode-tab ${mode === "pointcloud" ? "active" : ""}`}
+          onClick={() => setMode("pointcloud")}
+        >
+          Point Cloud → Mesh
+        </button>
+        <button
+          type="button"
+          className={`mode-tab ${mode === "images" ? "active" : ""}`}
+          onClick={() => setMode("images")}
+        >
+          Ảnh → Gaussian Splat
+        </button>
+      </div>
 
       {error && <div className="banner banner-error">{error}</div>}
 
       <main className="layout">
         <aside className="sidebar">
-          <UploadPanel onSubmit={handleSubmit} busy={busy} demoMode={!!health?.demo_mode} />
+          {mode === "pointcloud" ? (
+            <PointCloudPanel
+              onSubmit={handlePointCloudSubmit}
+              busy={busy}
+              open3dAvailable={!!health?.open3d_available}
+            />
+          ) : (
+            <UploadPanel
+              onSubmit={handleImageSubmit}
+              busy={busy}
+              demoMode={!!health?.demo_mode}
+            />
+          )}
           <JobList
             jobs={jobs}
             selectedId={selectedId}
@@ -127,7 +179,11 @@ function App() {
           </div>
 
           {selectedJob?.status === "completed" ? (
-            <SplatViewer url={modelUrl(selectedJob.job_id)} />
+            selectedJob.output_format === "mesh" ? (
+              <MeshViewer url={modelUrl(selectedJob)} />
+            ) : (
+              <SplatViewer url={modelUrl(selectedJob)} />
+            )
           ) : (
             <div className="viewer-placeholder">
               {selectedJob ? (
@@ -137,7 +193,11 @@ function App() {
                   <p className="muted">{Math.round(selectedJob.progress.percent)}%</p>
                 </>
               ) : (
-                <p className="muted">Chọn hoặc tạo một dự án để xem kết quả 3D.</p>
+                <p className="muted">
+                  {mode === "pointcloud"
+                    ? "Upload point cloud và bấm Tạo mesh 3D."
+                    : "Chọn hoặc tạo một dự án để xem kết quả 3D."}
+                </p>
               )}
             </div>
           )}

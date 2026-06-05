@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     max_upload_images: int = 200
     max_upload_size_mb: int = 500
     allowed_extensions: set[str] = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"}
+    pointcloud_extensions: set[str] = {
+        ".ply", ".pcd", ".xyz", ".pts", ".las", ".laz", ".txt", ".obj", ".e57",
+    }
 
     class Config:
         env_prefix = "SPLAT_"

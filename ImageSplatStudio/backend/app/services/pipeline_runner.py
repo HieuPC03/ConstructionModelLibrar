@@ -6,7 +6,8 @@ from pathlib import Path
 
 from app.config import settings
 from app.models import JobProgress, JobStatus
-from app.services.job_store import check_colmap_available, check_gpu_available, job_store
+from app.services.capabilities import check_gpu_available
+from app.services.job_store import job_store
 
 PIPELINE_ROOT = Path(__file__).resolve().parents[3] / "pipeline"
 DEMO_SPLAT = PIPELINE_ROOT / "demo" / "demo.splat"

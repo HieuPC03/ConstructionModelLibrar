@@ -1,13 +1,11 @@
-import json
 import shutil
-import subprocess
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
 
 from app.config import settings
-from app.models import JobInfo, JobProgress, JobStatus
+from app.models import JobInfo, JobProgress, JobStatus, JobType, OutputFormat
 
 
 class JobStore:
@@ -15,22 +13,34 @@ class JobStore:
         self._jobs: dict[str, JobInfo] = {}
         self._lock = Lock()
 
-    def create(self, name: str, image_count: int = 0, demo: bool = False) -> JobInfo:
+    def create(
+        self,
+        name: str,
+        *,
+        job_type: JobType = JobType.IMAGES,
+        output_format: OutputFormat = OutputFormat.SPLAT,
+        file_count: int = 0,
+        demo: bool = False,
+        mesh_method: str | None = None,
+    ) -> JobInfo:
         job_id = uuid.uuid4().hex[:12]
         now = datetime.now(timezone.utc)
         job = JobInfo(
             job_id=job_id,
             name=name,
+            job_type=job_type,
+            output_format=output_format,
             status=JobStatus.PENDING,
             progress=JobProgress(
                 stage=JobStatus.PENDING,
                 percent=0,
                 message="Đang chờ xử lý...",
             ),
-            image_count=image_count,
+            image_count=file_count,
             created_at=now,
             updated_at=now,
             demo=demo,
+            mesh_method=mesh_method,
         )
         with self._lock:
             self._jobs[job_id] = job
@@ -128,31 +138,3 @@ class JobStore:
 
 
 job_store = JobStore()
-
-
-def check_gpu_available() -> bool:
-    try:
-        result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-        return result.returncode == 0 and bool(result.stdout.strip())
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
-
-
-def check_colmap_available() -> bool:
-    try:
-        result = subprocess.run(
-            ["colmap", "-h"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-        return result.returncode == 0
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False

@@ -144,6 +144,68 @@ h3 {
   color: var(--text);
 }
 
+.field select {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.mode-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.mode-tab {
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.mode-tab.active {
+  border-color: rgba(91, 156, 255, 0.55);
+  background: rgba(91, 156, 255, 0.12);
+  color: var(--text);
+}
+
+.pointcloud-file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 0.88rem;
+}
+
+.job-type-tag {
+  color: var(--accent-2);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+}
+
+.mesh-viewer,
+.splat-viewer {
+  flex: 1;
+  min-height: 520px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #06080c;
+  position: relative;
+}
+
+.mesh-viewer-mount,
+.splat-viewer-mount {
+  position: absolute;
+  inset: 0;
+}
+
 .dropzone {
   border: 1px dashed var(--border);
   border-radius: 12px;
@@ -338,6 +400,7 @@ h3 {
   color: var(--danger);
 }
 
+.badge-meshing,
 .badge-training,
 .badge-colmap,
 .badge-preprocessing,
@@ -380,21 +443,6 @@ h3 {
 
 .viewer-header {
   margin-bottom: 12px;
-}
-
-.splat-viewer {
-  flex: 1;
-  min-height: 520px;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: #06080c;
-  position: relative;
-}
-
-.splat-viewer-mount {
-  position: absolute;
-  inset: 0;
 }
 
 .viewer-placeholder {

@@ -4,9 +4,11 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from app.config import settings
-from app.models import HealthResponse, JobCreateResponse, JobInfo
-from app.services.job_store import check_colmap_available, check_gpu_available, job_store
+from app.models import HealthResponse, JobCreateResponse, JobInfo, JobType, OutputFormat
+from app.services.capabilities import check_colmap_available, check_gpu_available, check_open3d_available
+from app.services.job_store import job_store
 from app.services.pipeline_runner import pipeline_runner
+from app.services.pointcloud_runner import pointcloud_runner
 
 router = APIRouter(prefix="/api")
 
@@ -17,6 +19,7 @@ def health() -> HealthResponse:
         status="ok",
         gpu_available=check_gpu_available(),
         colmap_available=check_colmap_available(),
+        open3d_available=check_open3d_available(),
         demo_mode=settings.demo_mode or not check_gpu_available(),
     )
 
@@ -35,7 +38,7 @@ def get_job(job_id: str) -> JobInfo:
 
 
 @router.post("/jobs", response_model=JobCreateResponse)
-async def create_job(
+async def create_image_job(
     name: str = Form(...),
     demo: bool = Form(False),
     images: list[UploadFile] = File(default=[]),
@@ -51,7 +54,13 @@ async def create_job(
             detail=f"Tối đa {settings.max_upload_images} ảnh mỗi job.",
         )
 
-    job = job_store.create(name=name.strip() or "Untitled", image_count=len(images), demo=demo)
+    job = job_store.create(
+        name=name.strip() or "Untitled",
+        job_type=JobType.IMAGES,
+        output_format=OutputFormat.SPLAT,
+        file_count=len(images),
+        demo=demo,
+    )
     upload_dir = job_store.job_dir(job.job_id, "uploads")
 
     saved = 0
@@ -75,6 +84,56 @@ async def create_job(
     )
 
 
+@router.post("/pointcloud-jobs", response_model=JobCreateResponse)
+async def create_pointcloud_job(
+    name: str = Form(...),
+    demo: bool = Form(False),
+    method: str = Form("poisson"),
+    pointcloud: UploadFile | None = File(default=None),
+) -> JobCreateResponse:
+    if method not in {"poisson", "bpa"}:
+        raise HTTPException(status_code=400, detail="method phải là poisson hoặc bpa.")
+
+    if not demo and pointcloud is None:
+        raise HTTPException(status_code=400, detail="Upload file point cloud (.ply, .pcd, .xyz, ...).")
+
+    if not check_open3d_available():
+        raise HTTPException(
+            status_code=503,
+            detail="Open3D chưa được cài trên server. Chạy: pip install open3d",
+        )
+
+    job = job_store.create(
+        name=name.strip() or "Point Cloud",
+        job_type=JobType.POINTCLOUD,
+        output_format=OutputFormat.MESH,
+        file_count=1 if pointcloud else 0,
+        demo=demo,
+        mesh_method=method,
+    )
+    upload_dir = job_store.job_dir(job.job_id, "uploads")
+
+    if pointcloud is not None:
+        suffix = Path(pointcloud.filename or "").suffix.lower()
+        if suffix not in settings.pointcloud_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Định dạng không hỗ trợ. Dùng: {', '.join(sorted(settings.pointcloud_extensions))}",
+            )
+        content = await pointcloud.read()
+        if len(content) == 0:
+            raise HTTPException(status_code=400, detail="File rỗng.")
+        dest = upload_dir / f"input{suffix}"
+        dest.write_bytes(content)
+
+    pointcloud_runner.start(job.job_id)
+
+    return JobCreateResponse(
+        job_id=job.job_id,
+        message="Đang chuyển point cloud thành mesh 3D...",
+    )
+
+
 @router.delete("/jobs/{job_id}")
 def delete_job(job_id: str) -> dict[str, str]:
     if job_store.get(job_id) is None:
@@ -84,7 +143,7 @@ def delete_job(job_id: str) -> dict[str, str]:
 
 
 @router.get("/jobs/{job_id}/model.splat")
-def download_model(job_id: str) -> FileResponse:
+def download_splat(job_id: str) -> FileResponse:
     job = job_store.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job không tồn tại.")
@@ -99,4 +158,23 @@ def download_model(job_id: str) -> FileResponse:
         path=model_path,
         media_type="application/octet-stream",
         filename=f"{job.name or job_id}.splat",
+    )
+
+
+@router.get("/jobs/{job_id}/model.obj")
+def download_mesh(job_id: str) -> FileResponse:
+    job = job_store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job không tồn tại.")
+    if job.status.value != "completed":
+        raise HTTPException(status_code=409, detail="Mesh chưa sẵn sàng.")
+
+    model_path = settings.data_dir / "outputs" / job_id / "model.obj"
+    if not model_path.exists():
+        raise HTTPException(status_code=404, detail="File mesh không tồn tại.")
+
+    return FileResponse(
+        path=model_path,
+        media_type="model/obj",
+        filename=f"{job.name or job_id}.obj",
     )

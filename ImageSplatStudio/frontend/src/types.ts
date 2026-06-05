@@ -3,11 +3,15 @@ export type JobStatus =
   | "uploading"
   | "preprocessing"
   | "colmap"
+  | "meshing"
   | "training"
   | "exporting"
   | "completed"
   | "failed"
   | "cancelled";
+
+export type JobType = "images" | "pointcloud";
+export type OutputFormat = "splat" | "mesh";
 
 export interface JobProgress {
   stage: JobStatus;
@@ -18,6 +22,8 @@ export interface JobProgress {
 export interface JobInfo {
   job_id: string;
   name: string;
+  job_type: JobType;
+  output_format: OutputFormat;
   status: JobStatus;
   progress: JobProgress;
   image_count: number;
@@ -26,11 +32,15 @@ export interface JobInfo {
   output_url?: string | null;
   error?: string | null;
   demo?: boolean;
+  mesh_method?: string | null;
 }
 
 export interface HealthInfo {
   status: string;
   gpu_available: boolean;
   colmap_available: boolean;
+  open3d_available: boolean;
   demo_mode: boolean;
 }
+
+export type AppMode = "images" | "pointcloud";

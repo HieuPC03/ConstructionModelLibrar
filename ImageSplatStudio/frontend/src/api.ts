@@ -41,10 +41,37 @@ export async function createJob(
   );
 }
 
+export async function createPointCloudJob(
+  name: string,
+  file: File | null,
+  demo: boolean,
+  method: "poisson" | "bpa",
+): Promise<{ job_id: string; message: string }> {
+  const form = new FormData();
+  form.append("name", name);
+  form.append("demo", String(demo));
+  form.append("method", method);
+  if (file) form.append("pointcloud", file);
+  return parseJson(
+    await fetch(`${API}/pointcloud-jobs`, {
+      method: "POST",
+      body: form,
+    }),
+  );
+}
+
 export async function deleteJob(jobId: string): Promise<void> {
   await parseJson(await fetch(`${API}/jobs/${jobId}`, { method: "DELETE" }));
 }
 
-export function modelUrl(jobId: string): string {
-  return `${API}/jobs/${jobId}/model.splat`;
+export function modelUrl(job: JobInfo): string {
+  if (job.output_url) {
+    return job.output_url.startsWith("http")
+      ? job.output_url
+      : `${window.location.origin}${job.output_url}`;
+  }
+  if (job.output_format === "mesh") {
+    return `${API}/jobs/${job.job_id}/model.obj`;
+  }
+  return `${API}/jobs/${job.job_id}/model.splat`;
 }
