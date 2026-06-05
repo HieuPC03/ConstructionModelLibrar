@@ -217,7 +217,8 @@ def default_state(*, files: list[dict], norm_meta: dict) -> dict:
         "redo_stack": [],
         "crs": {"epsg": 6668, "name": "JGD2011 (Latitude-Longitude)"},
         "basemap": {"enabled": False, "mode": "aerial"},
-        "view": {"show_axes": True, "fov": 50},
+        "view": {"show_axes": True, "fov": 50, "color_mode": "rgb", "show_grid_surface": False},
+        "hidden_class_ids": [],
     }
 
 

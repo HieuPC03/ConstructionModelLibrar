@@ -6,6 +6,8 @@ export type EditorTool =
   | "clip_box"
   | "hide_region"
   | "polygon_delete"
+  | "polygon_classify"
+  | "lasso_select"
   | "measure_distance"
   | "measure_area"
   | "mesh_add"
@@ -25,6 +27,8 @@ export const TOOL_CURSORS: Record<EditorTool, string> = {
   clip_box: "crosshair",
   hide_region: "crosshair",
   polygon_delete: "crosshair",
+  polygon_classify: "crosshair",
+  lasso_select: "crosshair",
   measure_distance: "crosshair",
   measure_area: "crosshair",
   mesh_add: "copy",
@@ -51,7 +55,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
   {
     id: "region",
     labelKey: "toolGroupRegion",
-    tools: ["clip_box", "hide_region", "polygon_delete"],
+    tools: ["clip_box", "hide_region", "polygon_delete", "polygon_classify", "lasso_select"],
   },
   {
     id: "measure",
@@ -76,6 +80,8 @@ export function toolLabelKey(tool: EditorTool): string {
     clip_box: "toolClipBox",
     hide_region: "toolHideRegion",
     polygon_delete: "toolPolygonDelete",
+    polygon_classify: "toolPolygonClassify",
+    lasso_select: "toolLassoSelect",
     measure_distance: "toolMeasureDistance",
     measure_area: "toolMeasureArea",
     mesh_add: "toolMeshAdd",
@@ -95,6 +101,8 @@ export function toolHintKey(tool: EditorTool): string {
     clip_box: "toolHint_clip_box",
     hide_region: "toolHint_hide_region",
     polygon_delete: "toolHint_polygon_delete",
+    polygon_classify: "toolHint_polygon_classify",
+    lasso_select: "toolHint_lasso_select",
     measure_distance: "toolHint_measure_distance",
     measure_area: "toolHint_measure_area",
     mesh_add: "toolHint_mesh_add",

@@ -2064,6 +2064,85 @@ body.iss-resizing {
   color: #64748b;
 }
 
+.pc-lasso-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.pc-class-panel {
+  padding: 8px;
+  border-bottom: 1px solid #d8dce4;
+  font-size: 0.72rem;
+}
+
+.pc-class-hint {
+  margin: 0 0 8px;
+  font-size: 0.68rem;
+}
+
+.pc-class-lasso-action {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  font-size: 0.68rem;
+}
+
+.pc-class-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.pc-class-swatch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 1px solid #c5ccd8;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.62rem;
+}
+
+.pc-class-swatch.active {
+  border-color: #2563eb;
+  background: #dbeafe;
+}
+
+.pc-class-color,
+.pc-class-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.pc-class-layers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 120px;
+  overflow: auto;
+}
+
+.pc-class-layer {
+  padding: 2px 0;
+  font-size: 0.68rem;
+}
+
+.pc-class-layer label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
 @media (max-width: 960px) {
   .pc-pro-left,
   .pc-pro-right {

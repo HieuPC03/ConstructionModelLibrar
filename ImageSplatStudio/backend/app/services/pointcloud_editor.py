@@ -56,7 +56,25 @@ def load_points_colors(session_id: str) -> tuple[np.ndarray, np.ndarray | None]:
     return pts, cols
 
 
-def save_points_colors(session_id: str, points: np.ndarray, colors: np.ndarray | None) -> None:
+def load_classifications(session_id: str) -> np.ndarray:
+    session = get_session(session_id)
+    if session is None:
+        raise ValueError("Phiên preview đã hết hạn — tải lại file.")
+    path = session.points_path.parent / "classifications.npy"
+    pts = np.load(session.points_path)
+    if path.exists():
+        cls = np.load(path)
+        if len(cls) == len(pts):
+            return cls
+    return np.zeros(len(pts), dtype=np.uint8)
+
+
+def save_points_colors(
+    session_id: str,
+    points: np.ndarray,
+    colors: np.ndarray | None,
+    classifications: np.ndarray | None = None,
+) -> None:
     session = get_session(session_id)
     if session is None:
         raise ValueError("Phiên preview đã hết hạn — tải lại file.")
@@ -65,6 +83,10 @@ def save_points_colors(session_id: str, points: np.ndarray, colors: np.ndarray |
         if session.colors_path is None:
             session.colors_path = session.points_path.parent / "colors.npy"
         np.save(session.colors_path, np.asarray(colors, dtype=np.float32))
+    if classifications is not None:
+        cls_path = session.points_path.parent / "classifications.npy"
+        np.save(cls_path, np.asarray(classifications, dtype=np.uint8))
+        session.classifications_path = cls_path
     update_session_total(session_id, len(points))
 
 
@@ -81,6 +103,31 @@ def get_visible_points(session_id: str) -> tuple[np.ndarray, np.ndarray | None, 
     visible_pts = pts[mask]
     visible_cols = cols[mask] if cols is not None and len(cols) == len(pts) else None
     return visible_pts, visible_cols, state
+
+
+def _classification_summary(session_id: str) -> dict:
+    _pipeline_path()
+    from pointcloud_lasso import classification_counts
+
+    cls = load_classifications(session_id)
+    counts = classification_counts(cls)
+    hidden = load_state(session_id).get("hidden_class_ids", [])
+    layers = []
+    for cid_str, count in sorted(counts.items(), key=lambda x: int(x[0])):
+        cid = int(cid_str)
+        layers.append(
+            {
+                "id": cid,
+                "count": count,
+                "visible": cid not in hidden,
+            }
+        )
+    return {
+        "enabled": True,
+        "counts": counts,
+        "layers": layers,
+        "hidden_class_ids": hidden,
+    }
 
 
 def get_properties(session_id: str) -> dict:
@@ -101,6 +148,7 @@ def get_properties(session_id: str) -> dict:
         "breaklines": state.get("breaklines", []),
         "coord_points": state.get("coord_points", []),
         "measurements": state.get("measurements", []),
+        "classifications": _classification_summary(session_id),
         "can_undo": len(state.get("undo_stack", [])) > 0,
         "can_redo": len(state.get("redo_stack", [])) > 0,
         "bounds": bbox,
@@ -356,6 +404,9 @@ def push_undo(session_id: str) -> None:
     shutil.copy2(session.points_path, snap / "points.npy")
     if session.colors_path and session.colors_path.exists():
         shutil.copy2(session.colors_path, snap / "colors.npy")
+    cls_path = session.points_path.parent / "classifications.npy"
+    if cls_path.exists():
+        shutil.copy2(cls_path, snap / "classifications.npy")
     shutil.copy2(_state_path(session_id), snap / "state.json")
     state = load_state(session_id)
     stack = state.get("undo_stack", [])
@@ -383,6 +434,9 @@ def _restore_snapshot(session_id: str, snap_id: str) -> None:
         if session.colors_path is None:
             session.colors_path = session.points_path.parent / "colors.npy"
         shutil.copy2(colors, session.colors_path)
+    snap_cls = snap / "classifications.npy"
+    if snap_cls.exists():
+        shutil.copy2(snap_cls, session.points_path.parent / "classifications.npy")
     shutil.copy2(snap / "state.json", _state_path(session_id))
     pts = np.load(session.points_path)
     update_session_total(session_id, len(pts))
@@ -401,6 +455,9 @@ def _save_current_snapshot(session_id: str) -> str:
     shutil.copy2(session.points_path, snap / "points.npy")
     if session.colors_path and session.colors_path.exists():
         shutil.copy2(session.colors_path, snap / "colors.npy")
+    cls_path = session.points_path.parent / "classifications.npy"
+    if cls_path.exists():
+        shutil.copy2(cls_path, snap / "classifications.npy")
     shutil.copy2(_state_path(session_id), snap / "state.json")
     return ts
 
@@ -453,12 +510,22 @@ def _sync_edited_files(state: dict, point_count: int) -> dict:
     return state
 
 
+def _filter_classifications(session_id: str, keep: np.ndarray) -> np.ndarray:
+    cls = load_classifications(session_id)
+    if len(cls) != len(keep):
+        return np.zeros(int(np.sum(keep)), dtype=np.uint8)
+    return cls[keep]
+
+
 def delete_points_at(session_id: str, position: list[float], radius: float = 0.02) -> dict:
     _pipeline_path()
     from pointcloud_mesh_edit import delete_points_near
 
     push_undo(session_id)
     pts, cols = load_points_colors(session_id)
+    c = np.asarray(position, dtype=np.float32)
+    dist = np.linalg.norm(pts - c, axis=1)
+    keep = dist > float(radius)
     new_pts, new_cols, removed = delete_points_near(pts, cols, position, radius)
     if removed == 0:
         state = load_state(session_id)
@@ -468,7 +535,8 @@ def delete_points_at(session_id: str, position: list[float], radius: float = 0.0
             state["undo_stack"] = stack
             save_state(session_id, state)
         raise ValueError("Không tìm thấy điểm trong vùng chọn.")
-    save_points_colors(session_id, new_pts, new_cols)
+    new_cls = _filter_classifications(session_id, keep)
+    save_points_colors(session_id, new_pts, new_cols, new_cls)
     state = load_state(session_id)
     _sync_edited_files(state, len(new_pts))
     save_state(session_id, state)
@@ -484,7 +552,9 @@ def add_point_at(session_id: str, position: list[float]) -> dict:
     push_undo(session_id)
     pts, cols = load_points_colors(session_id)
     new_pts, new_cols = add_point(pts, cols, position)
-    save_points_colors(session_id, new_pts, new_cols)
+    cls = load_classifications(session_id)
+    new_cls = np.concatenate([cls, np.array([0], dtype=np.uint8)]) if len(cls) == len(pts) else np.zeros(len(new_pts), dtype=np.uint8)
+    save_points_colors(session_id, new_pts, new_cols, new_cls)
     state = load_state(session_id)
     _sync_edited_files(state, len(new_pts))
     save_state(session_id, state)
@@ -545,7 +615,16 @@ def clip_box(session_id: str, min_pt: list[float], max_pt: list[float], mode: st
             state["undo_stack"] = stack
             save_state(session_id, state)
         raise ValueError("Không có điểm trong vùng cắt.")
-    save_points_colors(session_id, new_pts, new_cols)
+    keep = np.ones(len(pts), dtype=bool)
+    mn = np.minimum(min_pt, max_pt)
+    mx = np.maximum(min_pt, max_pt)
+    inside = np.all((pts >= mn) & (pts <= mx), axis=1)
+    if mode == "outside":
+        keep = inside
+    else:
+        keep = ~inside
+    new_cls = _filter_classifications(session_id, keep)
+    save_points_colors(session_id, new_pts, new_cols, new_cls)
     state = load_state(session_id)
     _sync_edited_files(state, len(new_pts))
     save_state(session_id, state)
@@ -560,6 +639,12 @@ def polygon_delete(session_id: str, polygon: list[list[float]]) -> dict:
 
     push_undo(session_id)
     pts, cols = load_points_colors(session_id)
+    poly = np.asarray(polygon, dtype=np.float64)
+    xy = pts[:, :2]
+    from pointcloud_filters import _points_in_polygon
+
+    inside = _points_in_polygon(xy, poly[:, :2])
+    keep = ~inside
     new_pts, new_cols, removed = delete_points_in_polygon_xy(pts, cols, polygon)
     if removed == 0:
         state = load_state(session_id)
@@ -569,7 +654,8 @@ def polygon_delete(session_id: str, polygon: list[list[float]]) -> dict:
             state["undo_stack"] = stack
             save_state(session_id, state)
         raise ValueError("Không có điểm trong vùng đa giác.")
-    save_points_colors(session_id, new_pts, new_cols)
+    new_cls = _filter_classifications(session_id, keep)
+    save_points_colors(session_id, new_pts, new_cols, new_cls)
     state = load_state(session_id)
     _sync_edited_files(state, len(new_pts))
     save_state(session_id, state)
@@ -688,7 +774,7 @@ def configure_view(
     view = state.get("view", {"show_axes": True, "fov": 50, "color_mode": "rgb", "show_grid_surface": False})
     if show_axes is not None:
         view["show_axes"] = bool(show_axes)
-    if color_mode is not None and color_mode in ("rgb", "elevation", "intensity", "uniform"):
+    if color_mode is not None and color_mode in ("rgb", "elevation", "intensity", "uniform", "classification"):
         view["color_mode"] = color_mode
     if show_grid_surface is not None:
         view["show_grid_surface"] = bool(show_grid_surface)
@@ -717,10 +803,119 @@ def subsample_session(session_id: str, ratio: float = 0.5) -> dict:
     idx = np.sort(rng.choice(n, target, replace=False))
     new_pts = pts[idx]
     new_cols = cols[idx] if cols is not None and len(cols) == n else None
-    save_points_colors(session_id, new_pts, new_cols)
+    cls = load_classifications(session_id)
+    new_cls = cls[idx] if len(cls) == n else np.zeros(target, dtype=np.uint8)
+    save_points_colors(session_id, new_pts, new_cols, new_cls)
     state = load_state(session_id)
     state = _sync_edited_files(state, len(new_pts))
     save_state(session_id, state)
     result = get_properties(session_id)
     result["removed_count"] = n - target
     return result
+
+
+def lasso_action(
+    session_id: str,
+    polygon_ndc: list[list[float]],
+    view_matrix: list[float],
+    proj_matrix: list[float],
+    action: str,
+    class_id: int = 0,
+) -> dict:
+    _pipeline_path()
+    from pointcloud_lasso import (
+        apply_mask_classify,
+        apply_mask_delete,
+        bbox_from_mask,
+        mask_points_in_screen_polygon,
+    )
+
+    pts, cols = load_points_colors(session_id)
+    cls = load_classifications(session_id)
+    mask = mask_points_in_screen_polygon(pts, polygon_ndc, view_matrix, proj_matrix)
+    selected = int(np.sum(mask))
+    if selected == 0:
+        raise ValueError("Không có điểm trong vùng lasso.")
+
+    if action == "select":
+        result = get_properties(session_id)
+        result["selected_count"] = selected
+        return result
+
+    push_undo(session_id)
+
+    if action == "delete":
+        new_pts, new_cols, new_cls, removed = apply_mask_delete(pts, cols, cls, mask)
+        save_points_colors(session_id, new_pts, new_cols, new_cls)
+        state = load_state(session_id)
+        _sync_edited_files(state, len(new_pts))
+        save_state(session_id, state)
+        result = get_properties(session_id)
+        result["removed_count"] = removed
+        result["selected_count"] = selected
+        return result
+
+    if action == "classify":
+        new_cls = apply_mask_classify(cls, mask, class_id)
+        save_points_colors(session_id, pts, cols, new_cls)
+        result = get_properties(session_id)
+        result["classified_count"] = selected
+        return result
+
+    if action == "hide":
+        bbox = bbox_from_mask(pts, mask)
+        if bbox is None:
+            raise ValueError("Không thể ẩn vùng lasso.")
+        mn, mx = bbox
+        state = load_state(session_id)
+        regions = state.get("hidden_regions", [])
+        regions.append({"id": uuid.uuid4().hex[:8], "min": mn, "max": mx, "hidden": True})
+        state["hidden_regions"] = regions
+        stack = state.get("undo_stack", [])
+        if stack:
+            stack.pop()
+            state["undo_stack"] = stack
+        save_state(session_id, state)
+        result = get_properties(session_id)
+        result["selected_count"] = selected
+        return result
+
+    raise ValueError(f"Hành động không hỗ trợ: {action}")
+
+
+def classify_polygon(session_id: str, polygon: list[list[float]], class_id: int) -> dict:
+    _pipeline_path()
+    from pointcloud_filters import _points_in_polygon
+    from pointcloud_lasso import apply_mask_classify
+
+    push_undo(session_id)
+    pts, cols = load_points_colors(session_id)
+    cls = load_classifications(session_id)
+    poly = np.asarray(polygon, dtype=np.float64)
+    inside = _points_in_polygon(pts[:, :2], poly[:, :2])
+    selected = int(np.sum(inside))
+    if selected == 0:
+        state = load_state(session_id)
+        stack = state.get("undo_stack", [])
+        if stack:
+            stack.pop()
+            state["undo_stack"] = stack
+            save_state(session_id, state)
+        raise ValueError("Không có điểm trong vùng đa giác.")
+    new_cls = apply_mask_classify(cls, inside, class_id)
+    save_points_colors(session_id, pts, cols, new_cls)
+    result = get_properties(session_id)
+    result["classified_count"] = selected
+    return result
+
+
+def set_class_visibility(session_id: str, class_id: int, visible: bool) -> dict:
+    state = load_state(session_id)
+    hidden = set(state.get("hidden_class_ids", []))
+    if visible:
+        hidden.discard(int(class_id))
+    else:
+        hidden.add(int(class_id))
+    state["hidden_class_ids"] = sorted(hidden)
+    save_state(session_id, state)
+    return get_properties(session_id)

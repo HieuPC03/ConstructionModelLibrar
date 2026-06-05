@@ -19,6 +19,7 @@ class PreviewSession:
     total_points: int
     points_path: Path
     colors_path: Path | None
+    classifications_path: Path | None
     file_count: int
     format: str
     created_at: float
@@ -54,6 +55,7 @@ def create_session(
     points,
     colors,
     *,
+    classifications=None,
     file_count: int,
     format_name: str,
 ) -> PreviewSession:
@@ -72,11 +74,21 @@ def create_session(
         colors_path = session_dir / "colors.npy"
         np.save(colors_path, np.asarray(colors, dtype=np.float32))
 
+    classifications_path: Path | None = None
+    n = len(points)
+    if classifications is not None:
+        classifications_path = session_dir / "classifications.npy"
+        np.save(classifications_path, np.asarray(classifications, dtype=np.uint8))
+    else:
+        classifications_path = session_dir / "classifications.npy"
+        np.save(classifications_path, np.zeros(n, dtype=np.uint8))
+
     session = PreviewSession(
         session_id=session_id,
-        total_points=int(len(points)),
+        total_points=int(n),
         points_path=points_path,
         colors_path=colors_path,
+        classifications_path=classifications_path,
         file_count=file_count,
         format=format_name,
         created_at=time.time(),

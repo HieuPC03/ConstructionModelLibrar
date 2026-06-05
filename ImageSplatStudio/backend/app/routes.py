@@ -152,8 +152,8 @@ def pointcloud_preview_geometry(session_id: str, percent: float = 20) -> Respons
     from app.services.pointcloud_preview import pack_preview_geometry, sample_session_geometry
 
     try:
-        pts, cols, _meta = sample_session_geometry(session_id, percent=percent)
-        payload = pack_preview_geometry(pts, cols)
+        pts, cols, cls, _meta = sample_session_geometry(session_id, percent=percent)
+        payload = pack_preview_geometry(pts, cols, cls)
         return Response(
             content=payload,
             media_type="application/octet-stream",

@@ -1,8 +1,8 @@
-export type ColorMode = "rgb" | "elevation" | "intensity" | "uniform";
+export type ColorMode = "rgb" | "elevation" | "intensity" | "uniform" | "classification";
 
-export const COLOR_MODES: ColorMode[] = ["rgb", "elevation", "intensity", "uniform"];
+export const COLOR_MODES: ColorMode[] = ["rgb", "elevation", "intensity", "uniform", "classification"];
 
-/** Jet-like elevation ramp (CloudCompare / TREND-POINT style). */
+import { applyClassificationColors } from "./classificationColors";
 function elevationRamp(t: number): [number, number, number] {
   const x = Math.min(1, Math.max(0, t));
   if (x < 0.25) return [0, x * 4, 1];
@@ -22,7 +22,11 @@ export function applyColorMode(
   mode: ColorMode,
   zMin?: number,
   zMax?: number,
+  classifications?: Uint8Array | null,
 ): Float32Array {
+  if (mode === "classification") {
+    return applyClassificationColors(count, classifications);
+  }
   const colors = new Float32Array(count * 3);
 
   let minZ = zMin;
@@ -80,6 +84,7 @@ export function colorModeLabelKey(mode: ColorMode): string {
     elevation: "colorModeElevation",
     intensity: "colorModeIntensity",
     uniform: "colorModeUniform",
+    classification: "colorModeClassification",
   };
   return map[mode];
 }

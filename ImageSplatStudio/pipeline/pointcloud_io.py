@@ -46,7 +46,11 @@ def load_las_point_cloud(path: Path):
         gray = np.clip(intensity / peak, 0, 1)
         pcd.colors = o3d.utility.Vector3dVector(np.stack([gray, gray, gray], axis=1))
 
-    return pcd
+    classifications = None
+    if "classification" in dim_names:
+        classifications = np.asarray(las.classification, dtype=np.uint8)
+
+    return pcd, classifications
 
 
 def load_xyz_point_cloud(path: Path):
@@ -95,7 +99,8 @@ def load_point_cloud_file(path: Path):
         return load_xyz_point_cloud(path)
 
     if suffix in {".las", ".laz"}:
-        return load_las_point_cloud(path)
+        pcd, _ = load_las_point_cloud(path)
+        return pcd
 
     if suffix == ".ply":
         header = path.read_bytes()[:8192].decode("ascii", errors="ignore")

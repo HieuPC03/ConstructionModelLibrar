@@ -19,6 +19,7 @@ from app.services.pointcloud_editor import (
     clean_outliers,
     clear_hidden_regions,
     clip_box,
+    classify_polygon,
     configure_grid,
     configure_view,
     create_mesh,
@@ -30,10 +31,12 @@ from app.services.pointcloud_editor import (
     get_grid_binary,
     get_grid_surface_json,
     get_properties,
+    lasso_action,
     mesh_add_vertex,
     mesh_delete_vertex,
     polygon_delete,
     redo_session,
+    set_class_visibility,
     set_file_visibility,
     show_all,
     split_session,
@@ -140,6 +143,24 @@ class SubsampleBody(BaseModel):
     ratio: float = Field(0.5, gt=0, le=1)
 
 
+class LassoBody(BaseModel):
+    polygon_ndc: list[list[float]] = Field(..., min_length=3)
+    view_matrix: list[float] = Field(..., min_length=16, max_length=16)
+    proj_matrix: list[float] = Field(..., min_length=16, max_length=16)
+    action: Literal["select", "delete", "hide", "classify"] = "select"
+    class_id: int = Field(0, ge=0, le=255)
+
+
+class ClassifyPolygonBody(BaseModel):
+    polygon: list[list[float]] = Field(..., min_length=3)
+    class_id: int = Field(0, ge=0, le=255)
+
+
+class ClassVisibilityBody(BaseModel):
+    class_id: int = Field(..., ge=0, le=255)
+    visible: bool
+
+
 def _ensure_session(session_id: str) -> None:
     if get_session(session_id) is None:
         raise HTTPException(status_code=404, detail="Phiên preview đã hết hạn.")
@@ -235,6 +256,37 @@ def editor_grid_surface(session_id: str) -> dict:
     if data is None:
         raise HTTPException(status_code=404, detail="Chưa có dữ liệu lưới IDW.")
     return data
+
+
+@router.post("/{session_id}/lasso")
+def editor_lasso(session_id: str, body: LassoBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return lasso_action(
+            session_id,
+            body.polygon_ndc,
+            body.view_matrix,
+            body.proj_matrix,
+            body.action,
+            body.class_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/classify-polygon")
+def editor_classify_polygon(session_id: str, body: ClassifyPolygonBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return classify_polygon(session_id, body.polygon, body.class_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/class-visibility")
+def editor_class_visibility(session_id: str, body: ClassVisibilityBody) -> dict:
+    _ensure_session(session_id)
+    return set_class_visibility(session_id, body.class_id, body.visible)
 
 
 @router.post("/{session_id}/subsample")

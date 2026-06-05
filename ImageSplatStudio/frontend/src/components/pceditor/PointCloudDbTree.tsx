@@ -173,6 +173,22 @@ export function PointCloudDbTree({
       </details>
 
       <details className="pc-db-group">
+        <summary>{tr("dbTreeClassifications")}</summary>
+        <ul className="pc-db-list">
+          {(properties.classifications?.layers ?? []).map((layer) => (
+            <li key={layer.id} className={`pc-db-item ${layer.visible ? "" : "muted"}`}>
+              <span className="pc-db-name">
+                #{layer.id} ({layer.count.toLocaleString()})
+              </span>
+            </li>
+          ))}
+          {(properties.classifications?.layers ?? []).length === 0 && (
+            <li className="pc-db-empty-item">{tr("classPanelHint")}</li>
+          )}
+        </ul>
+      </details>
+
+      <details className="pc-db-group">
         <summary>{tr("dbTreeDerived")}</summary>
         <ul className="pc-db-list">
           <li className={`pc-db-item ${grid.enabled ? "active" : ""}`}>

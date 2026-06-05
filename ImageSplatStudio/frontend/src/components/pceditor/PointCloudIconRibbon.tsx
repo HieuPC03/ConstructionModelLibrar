@@ -122,6 +122,27 @@ function IconRedo() {
   );
 }
 
+function IconLasso() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        d="M4 18c4-8 8-12 12-14s6 2 4 6-8 8-12 10"
+      />
+    </svg>
+  );
+}
+
+function IconClassify() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+      <path fill="currentColor" d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z" />
+    </svg>
+  );
+}
+
 const TOOL_ICONS: Partial<Record<EditorTool, () => JSX.Element>> = {
   navigate: IconNav,
   delete_point: IconEraser,
@@ -130,6 +151,8 @@ const TOOL_ICONS: Partial<Record<EditorTool, () => JSX.Element>> = {
   clip_box: IconBox,
   hide_region: IconEyeOff,
   polygon_delete: IconPoly,
+  polygon_classify: IconClassify,
+  lasso_select: IconLasso,
   measure_distance: IconRuler,
   measure_area: IconArea,
   mesh_add: IconPlus,
@@ -172,6 +195,7 @@ export function PointCloudIconRibbon(props: PointCloudIconRibbonProps) {
   const showOptions =
     props.activeTool === "delete_point" ||
     props.activeTool === "polygon_delete" ||
+    props.activeTool === "polygon_classify" ||
     props.activeTool === "clip_box" ||
     props.activeTool === "breakline" ||
     props.activeTool === "measure_area";
@@ -306,6 +330,11 @@ export function PointCloudIconRibbon(props: PointCloudIconRibbonProps) {
           {props.activeTool === "polygon_delete" && props.polygonCount >= 3 && (
             <button type="button" className="pc-ribbon-accent" onClick={props.onFinishPolygon}>
               {tr("toolFinishPolygon")} ({props.polygonCount})
+            </button>
+          )}
+          {props.activeTool === "polygon_classify" && props.polygonCount >= 3 && (
+            <button type="button" className="pc-ribbon-accent" onClick={props.onFinishPolygon}>
+              {tr("toolFinishClassify")} ({props.polygonCount})
             </button>
           )}
           {props.activeTool === "measure_area" && props.polygonCount >= 3 && (

@@ -20,6 +20,12 @@ export interface EditorProperties {
   breaklines: { id: string; points: number[][] }[];
   coord_points: { id: string; position: number[]; label: string }[];
   measurements: { id: string; type: string; points: number[][]; value: number; unit: string }[];
+  classifications?: {
+    enabled: boolean;
+    counts: Record<string, number>;
+    layers: { id: number; count: number; visible: boolean }[];
+    hidden_class_ids: number[];
+  };
   can_undo: boolean;
   can_redo: boolean;
   norm_meta: { center?: number[]; scale?: number; world_min?: number[]; world_max?: number[] };
@@ -385,6 +391,53 @@ export async function editorConfigureView(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(opts),
+    }),
+  );
+}
+
+export async function editorLassoAction(
+  sessionId: string,
+  opts: {
+    polygon_ndc: [number, number][];
+    view_matrix: number[];
+    proj_matrix: number[];
+    action: "select" | "delete" | "hide" | "classify";
+    class_id?: number;
+  },
+): Promise<EditorProperties & { selected_count?: number; removed_count?: number; classified_count?: number }> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/lasso`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(opts),
+    }),
+  );
+}
+
+export async function editorClassifyPolygon(
+  sessionId: string,
+  polygon: [number, number, number][],
+  classId: number,
+): Promise<EditorProperties & { classified_count?: number }> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/classify-polygon`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ polygon, class_id: classId }),
+    }),
+  );
+}
+
+export async function editorSetClassVisibility(
+  sessionId: string,
+  classId: number,
+  visible: boolean,
+): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/class-visibility`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ class_id: classId, visible }),
     }),
   );
 }

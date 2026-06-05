@@ -1,6 +1,6 @@
 {
   "name": "imagesplat-studio-desktop",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "ImageSplat Studio — 3D Gaussian Splatting desktop app",
   "main": "electron/main.cjs",
   "author": "ImageSplat Studio",

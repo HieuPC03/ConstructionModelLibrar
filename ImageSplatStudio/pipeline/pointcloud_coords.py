@@ -102,11 +102,18 @@ def merge_point_cloud_files_with_info(paths: list[Path]) -> tuple:
 
     all_pts: list[np.ndarray] = []
     all_cols: list[np.ndarray] = []
+    all_cls: list[np.ndarray] = []
     files_info: list[dict] = []
     offset = 0
 
     for path in paths:
-        loaded = load_point_cloud_file(path)
+        cls = None
+        if path.suffix.lower() in {".las", ".laz"}:
+            from pointcloud_io import load_las_point_cloud
+
+            loaded, cls = load_las_point_cloud(path)
+        else:
+            loaded = load_point_cloud_file(path)
         if isinstance(loaded, tuple) and loaded[0] == "3dgs_ply":
             from plyfile import PlyData
 
@@ -146,6 +153,10 @@ def merge_point_cloud_files_with_info(paths: list[Path]) -> tuple:
         all_pts.append(pts)
         if cols is not None:
             all_cols.append(cols)
+        if cls is not None and len(cls) == count:
+            all_cls.append(cls)
+        else:
+            all_cls.append(np.zeros(count, dtype=np.uint8))
 
     if not all_pts:
         raise ValueError("Không đọc được điểm từ các file")
@@ -156,8 +167,9 @@ def merge_point_cloud_files_with_info(paths: list[Path]) -> tuple:
     if all_cols and sum(len(c) for c in all_cols) == len(combined):
         merged.colors = o3d.utility.Vector3dVector(np.vstack(all_cols))
 
+    combined_cls = np.vstack(all_cls) if all_cls else np.zeros(len(combined), dtype=np.uint8)
     pcd, meta = normalize_point_cloud(merged)
-    return pcd, meta, files_info
+    return pcd, meta, files_info, combined_cls
 
 
 def sample_fraction(points: np.ndarray, fraction: float, seed: int = 42) -> np.ndarray:

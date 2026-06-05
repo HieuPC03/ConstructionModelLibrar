@@ -86,6 +86,7 @@ export interface PointCloudPreviewGeometry {
   count: number;
   positions: Float32Array;
   colors: Uint8Array | null;
+  classifications: Uint8Array | null;
 }
 
 const GEOMETRY_MAGIC = 0x43505349; // "ISPC" little-endian
@@ -98,14 +99,20 @@ export function decodePreviewGeometry(buffer: ArrayBuffer): PointCloudPreviewGeo
   }
   const count = view.getUint32(4, true);
   const hasColors = view.getUint8(8) === 1;
+  const hasClassifications = view.getUint8(9) === 1;
   const posOffset = 12;
   const positions = new Float32Array(buffer, posOffset, count * 3);
+  let offset = posOffset + count * 3 * 4;
   let colors: Uint8Array | null = null;
   if (hasColors) {
-    const colorOffset = posOffset + count * 3 * 4;
-    colors = new Uint8Array(buffer, colorOffset, count * 3);
+    colors = new Uint8Array(buffer, offset, count * 3);
+    offset += count * 3;
   }
-  return { count, positions, colors };
+  let classifications: Uint8Array | null = null;
+  if (hasClassifications) {
+    classifications = new Uint8Array(buffer, offset, count);
+  }
+  return { count, positions, colors, classifications };
 }
 
 export async function previewPointCloudMeta(

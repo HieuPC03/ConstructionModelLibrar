@@ -13,8 +13,9 @@ import { ExportBar } from "./components/ExportBar";
 import { JobList } from "./components/JobList";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { Logo } from "./components/Logo";
-import { PointCloudProLayout } from "./components/pceditor/PointCloudProLayout";
+import { ClassificationPanel } from "./components/pceditor/ClassificationPanel";
 import type { InspectedPoint } from "./components/pceditor/PointCloudInspector";
+import { PointCloudProLayout } from "./components/pceditor/PointCloudProLayout";
 import { PointCloudPanel } from "./components/PointCloudPanel";
 import { PointCloudPreview, type PickMeta } from "./components/PointCloudPreview";
 import { PointCloudPropertyTable } from "./components/PointCloudPropertyTable";
@@ -34,6 +35,8 @@ import {
   editorMeshDeleteVertex,
   editorPolygonDelete,
   editorConfigureGrid,
+  editorClassifyPolygon,
+  editorLassoAction,
   editorRedo,
   editorUndo,
   fetchEditorProperties,
@@ -76,6 +79,8 @@ function AppContent() {
   const [snapCoords, setSnapCoords] = useState<[number, number, number] | null>(null);
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [inspectedPoint, setInspectedPoint] = useState<InspectedPoint | null>(null);
+  const [activeClassId, setActiveClassId] = useState(2);
+  const [lassoAction, setLassoAction] = useState<"classify" | "delete" | "hide">("classify");
 
   const selectedJob = jobs.find((j) => j.job_id === selectedId) ?? null;
 
@@ -206,7 +211,8 @@ function AppContent() {
     if (activeTool !== "clip_box" && activeTool !== "hide_region" && activeTool !== "grid_region")
       setRegionStart(null);
     if (activeTool !== "breakline") setBreaklineDraft([]);
-    if (activeTool !== "polygon_delete" && activeTool !== "measure_area") setPolygonDraft([]);
+    if (activeTool !== "polygon_delete" && activeTool !== "polygon_classify" && activeTool !== "measure_area")
+      setPolygonDraft([]);
     if (activeTool !== "measure_distance") setMeasureStart(null);
   }, [activeTool]);
 
@@ -256,6 +262,14 @@ function AppContent() {
         bumpPreview();
         setLastResult(`${tr("toolPolygonDeleted")}: ${props.removed_count ?? 0} ${tr("pcPreviewPoints")}`);
         setPolygonDraft([]);
+        logConsole(`${tr("toolPolygonDeleted")}: ${props.removed_count ?? 0}`, "success");
+      } else if (activeTool === "polygon_classify") {
+        const props = await editorClassifyPolygon(pcSessionId, polygonDraft, activeClassId);
+        handleEditorUpdated(props);
+        bumpPreview();
+        setLastResult(`${tr("toolPolygonClassified")}: ${props.classified_count ?? 0}`);
+        setPolygonDraft([]);
+        logConsole(`${tr("toolPolygonClassified")}: ${props.classified_count ?? 0}`, "success");
       } else if (activeTool === "measure_area") {
         const area = polygonAreaXY(polygonDraft);
         const props = await editorAddMeasurement(pcSessionId, "area", polygonDraft, area, "m²");
@@ -322,6 +336,7 @@ function AppContent() {
           break;
         }
         case "polygon_delete":
+        case "polygon_classify":
         case "measure_area":
           setPolygonDraft((d) => [...d, pos]);
           break;
@@ -412,6 +427,41 @@ function AppContent() {
       index: meta?.pointIndex,
       rgb: meta?.rgb,
     });
+  };
+
+  const handleLassoComplete = async (
+    polygonNdc: [number, number][],
+    matrices: { view_matrix: number[]; proj_matrix: number[] },
+  ) => {
+    if (!pcSessionId) return;
+    setError(null);
+    try {
+      const props = await editorLassoAction(pcSessionId, {
+        polygon_ndc: polygonNdc,
+        view_matrix: matrices.view_matrix,
+        proj_matrix: matrices.proj_matrix,
+        action: lassoAction,
+        class_id: activeClassId,
+      });
+      handleEditorUpdated(props);
+      let msg = tr("toolLassoSelect");
+      if (lassoAction === "delete") {
+        bumpPreview();
+        msg = `${tr("toolLassoDelete")}: ${props.removed_count ?? 0}`;
+      } else if (lassoAction === "classify") {
+        bumpPreview();
+        msg = `${tr("toolLassoClassify")}: ${props.classified_count ?? 0}`;
+      } else {
+        bumpPreview();
+        msg = `${tr("toolLassoHide")}: ${props.selected_count ?? 0}`;
+      }
+      setLastResult(msg);
+      logConsole(msg, "success");
+      setActiveTool("navigate");
+    } catch (e: unknown) {
+      setError(String(e));
+      logConsole(String(e), "error");
+    }
   };
 
   const colorMode = (editorProperties?.view?.color_mode as ColorMode) ?? "rgb";
@@ -534,11 +584,24 @@ function AppContent() {
                 onSessionReady={handleSessionReady}
                 onPick={(pos, meta) => void handlePreviewPick(pos, meta)}
                 onInspect={handleInspect}
+                onLassoComplete={(polygon, matrices) => void handleLassoComplete(polygon, matrices)}
                 onSnapHover={setSnapCoords}
               />
             }
             propertyPanel={
               <>
+                <ClassificationPanel
+                  sessionId={pcSessionId}
+                  properties={editorProperties}
+                  activeClassId={activeClassId}
+                  onActiveClassChange={setActiveClassId}
+                  activeTool={activeTool}
+                  lassoAction={lassoAction}
+                  onLassoActionChange={setLassoAction}
+                  onUpdated={handleEditorUpdated}
+                  onRefreshPreview={bumpPreview}
+                  onError={setError}
+                />
                 <PointCloudPanel
                   onSubmit={handlePointCloudSubmit}
                   onFilesChange={handlePointCloudFilesChange}

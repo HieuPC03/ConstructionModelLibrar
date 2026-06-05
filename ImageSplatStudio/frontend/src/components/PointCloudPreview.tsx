@@ -13,6 +13,7 @@ import {
 import { formatFileSize } from "../utils/pointcloud";
 import { viewerToWorld, formatWorldCoords, type NormMeta } from "../utils/coordTransform";
 import { buildGeoreferencedBasemap, effectiveBasemapMode, type BasemapMode } from "../utils/basemapTiles";
+import { LassoOverlay } from "./pceditor/LassoOverlay";
 import { applyViewDirection, createAxesHelper, ViewCube, type ViewDirection } from "./ViewCube";
 import { OSNAP_CURSOR, TOOL_CURSORS, toolHintKey, type EditorTool, type OsnapMode } from "../utils/editorTools";
 import { applyColorMode, type ColorMode } from "../utils/colorModes";
@@ -69,6 +70,10 @@ interface PointCloudPreviewProps {
   onSessionReady?: (sessionId: string) => void;
   onPick?: (position: [number, number, number], meta?: PickMeta) => void;
   onInspect?: (position: [number, number, number], meta?: PickMeta) => void;
+  onLassoComplete?: (
+    polygonNdc: [number, number][],
+    matrices: { view_matrix: number[]; proj_matrix: number[] },
+  ) => void;
   onSnapHover?: (position: [number, number, number] | null) => void;
 }
 
@@ -140,6 +145,7 @@ export function PointCloudPreview({
   onSessionReady,
   onPick,
   onInspect,
+  onLassoComplete,
   onSnapHover,
 }: PointCloudPreviewProps) {
   const { tr } = useI18n();
@@ -170,6 +176,7 @@ export function PointCloudPreview({
   const osnapRef = useRef(osnapMode);
   const onPickRef = useRef(onPick);
   const onInspectRef = useRef(onInspect);
+  const onLassoCompleteRef = useRef(onLassoComplete);
   const onSnapHoverRef = useRef(onSnapHover);
   const onSessionReadyRef = useRef(onSessionReady);
   const cameraSavedRef = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
@@ -184,6 +191,7 @@ export function PointCloudPreview({
   const [snapLabel, setSnapLabel] = useState<string | null>(null);
   const colorModeRef = useRef(colorMode);
   const rawColorsRef = useRef<Uint8Array | null>(null);
+  const rawClassificationsRef = useRef<Uint8Array | null>(null);
   const positionsRef = useRef<Float32Array | null>(null);
   const viewCubeCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
 
@@ -206,6 +214,9 @@ export function PointCloudPreview({
   useEffect(() => {
     onInspectRef.current = onInspect;
   }, [onInspect]);
+  useEffect(() => {
+    onLassoCompleteRef.current = onLassoComplete;
+  }, [onLassoComplete]);
   useEffect(() => {
     onSnapHoverRef.current = onSnapHover;
   }, [onSnapHover]);
@@ -296,7 +307,15 @@ export function PointCloudPreview({
     const colorAttr = geom.getAttribute("color") as THREE.BufferAttribute;
     if (!colorAttr) return;
     const count = colorAttr.count;
-    const next = applyColorMode(count, positionsRef.current, rawColorsRef.current, colorMode);
+    const next = applyColorMode(
+      count,
+      positionsRef.current,
+      rawColorsRef.current,
+      colorMode,
+      undefined,
+      undefined,
+      rawClassificationsRef.current,
+    );
     colorAttr.array.set(next);
     colorAttr.needsUpdate = true;
   }, [colorMode, data?.count]);
@@ -352,7 +371,16 @@ export function PointCloudPreview({
     const positions = data.positions.slice(0, count * 3);
     positionsRef.current = positions;
     rawColorsRef.current = data.colors ?? null;
-    const colors = applyColorMode(count, positions, data.colors, colorModeRef.current);
+    rawClassificationsRef.current = data.classifications ?? null;
+    const colors = applyColorMode(
+      count,
+      positions,
+      data.colors,
+      colorModeRef.current,
+      undefined,
+      undefined,
+      data.classifications,
+    );
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -1031,6 +1059,18 @@ export function PointCloudPreview({
           </div>
         )}
         <div ref={mountRef} className="pc-preview-mount" />
+        <LassoOverlay
+          active={activeTool === "lasso_select"}
+          onComplete={(polygonNdc) => {
+            const ctx = sceneCtxRef.current;
+            if (!ctx || !onLassoCompleteRef.current) return;
+            ctx.camera.updateMatrixWorld();
+            onLassoCompleteRef.current(polygonNdc, {
+              view_matrix: Array.from(ctx.camera.matrixWorldInverse.elements),
+              proj_matrix: Array.from(ctx.camera.projectionMatrix.elements),
+            });
+          }}
+        />
         <ViewCube
           onSelect={handleViewCube}
           onHome={handleViewHome}
