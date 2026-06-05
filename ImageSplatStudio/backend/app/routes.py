@@ -88,11 +88,11 @@ async def create_image_job(
 async def create_pointcloud_job(
     name: str = Form(...),
     demo: bool = Form(False),
-    method: str = Form("poisson"),
+    method: str = Form("luma"),
     pointcloud: UploadFile | None = File(default=None),
 ) -> JobCreateResponse:
-    if method not in {"poisson", "bpa"}:
-        raise HTTPException(status_code=400, detail="method phải là poisson hoặc bpa.")
+    if method not in {"luma", "standard"}:
+        raise HTTPException(status_code=400, detail="mode phải là luma hoặc standard.")
 
     if not demo and pointcloud is None:
         raise HTTPException(status_code=400, detail="Upload file point cloud (.ply, .pcd, .xyz, ...).")
@@ -106,7 +106,7 @@ async def create_pointcloud_job(
     job = job_store.create(
         name=name.strip() or "Point Cloud",
         job_type=JobType.POINTCLOUD,
-        output_format=OutputFormat.MESH,
+        output_format=OutputFormat.SPLAT,
         file_count=1 if pointcloud else 0,
         demo=demo,
         mesh_method=method,
@@ -130,7 +130,7 @@ async def create_pointcloud_job(
 
     return JobCreateResponse(
         job_id=job.job_id,
-        message="Đang chuyển point cloud thành mesh 3D...",
+        message="Đang chuyển point cloud thành hình khối 3D Gaussian...",
     )
 
 

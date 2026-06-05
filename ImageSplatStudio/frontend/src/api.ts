@@ -45,7 +45,7 @@ export async function createPointCloudJob(
   name: string,
   file: File | null,
   demo: boolean,
-  method: "poisson" | "bpa",
+  method: "luma" | "standard",
 ): Promise<{ job_id: string; message: string }> {
   const form = new FormData();
   form.append("name", name);

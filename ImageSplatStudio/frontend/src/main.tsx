@@ -10,7 +10,6 @@ import {
   modelUrl,
 } from "./api";
 import { JobList } from "./components/JobList";
-import { MeshViewer } from "./components/MeshViewer";
 import { PointCloudPanel } from "./components/PointCloudPanel";
 import { SplatViewer } from "./components/SplatViewer";
 import { UploadPanel } from "./components/UploadPanel";
@@ -87,7 +86,7 @@ function App() {
     name: string,
     file: File | null,
     demo: boolean,
-    method: "poisson" | "bpa",
+    method: "luma" | "standard",
   ) => {
     setBusy(true);
     setError(null);
@@ -132,7 +131,7 @@ function App() {
           className={`mode-tab ${mode === "pointcloud" ? "active" : ""}`}
           onClick={() => setMode("pointcloud")}
         >
-          Point Cloud → Mesh
+          Point Cloud → 3D Gaussian
         </button>
         <button
           type="button"
@@ -179,11 +178,7 @@ function App() {
           </div>
 
           {selectedJob?.status === "completed" ? (
-            selectedJob.output_format === "mesh" ? (
-              <MeshViewer url={modelUrl(selectedJob)} />
-            ) : (
-              <SplatViewer url={modelUrl(selectedJob)} />
-            )
+            <SplatViewer url={modelUrl(selectedJob)} />
           ) : (
             <div className="viewer-placeholder">
               {selectedJob ? (
@@ -195,7 +190,7 @@ function App() {
               ) : (
                 <p className="muted">
                   {mode === "pointcloud"
-                    ? "Upload point cloud và bấm Tạo mesh 3D."
+                    ? "Upload point cloud và bấm Tạo hình khối 3D."
                     : "Chọn hoặc tạo một dự án để xem kết quả 3D."}
                 </p>
               )}

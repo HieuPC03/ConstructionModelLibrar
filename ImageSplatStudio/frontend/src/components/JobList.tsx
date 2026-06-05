@@ -15,7 +15,7 @@ const STAGE_LABELS: Record<JobStatus, string> = {
 
 const TYPE_LABELS: Record<string, string> = {
   images: "Ảnh → Splat",
-  pointcloud: "PC → Mesh",
+  pointcloud: "PC → 3D GS",
 };
 
 interface JobListProps {

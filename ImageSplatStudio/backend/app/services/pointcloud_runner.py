@@ -9,7 +9,8 @@ from app.services.job_store import job_store
 
 PIPELINE_ROOT = Path(__file__).resolve().parents[3] / "pipeline"
 DEMO_POINTCLOUD = PIPELINE_ROOT / "demo" / "demo_pointcloud.ply"
-MESH_SCRIPT = PIPELINE_ROOT / "pointcloud_to_mesh.py"
+DEMO_SPLAT = PIPELINE_ROOT / "demo" / "demo.splat"
+GAUSSIAN_SCRIPT = PIPELINE_ROOT / "pointcloud_to_gaussian.py"
 
 
 class PointCloudRunner:
@@ -51,11 +52,25 @@ class PointCloudRunner:
 
             input_path = input_files[0] if input_files else DEMO_POINTCLOUD
             if job.demo and not input_files:
-                shutil.copy2(DEMO_POINTCLOUD, upload_dir / "demo_pointcloud.ply")
-                input_path = upload_dir / "demo_pointcloud.ply"
+                if DEMO_POINTCLOUD.exists():
+                    shutil.copy2(DEMO_POINTCLOUD, upload_dir / "demo_pointcloud.ply")
+                    input_path = upload_dir / "demo_pointcloud.ply"
+                elif DEMO_SPLAT.exists():
+                    shutil.copy2(DEMO_SPLAT, output_dir / "model.splat")
+                    job_store.update(
+                        job_id,
+                        status=JobStatus.COMPLETED,
+                        output_url=f"/api/jobs/{job_id}/model.splat",
+                        progress=JobProgress(
+                            stage=JobStatus.COMPLETED,
+                            percent=100,
+                            message="Hoàn tất! Hình khối 3D Gaussian sẵn sàng.",
+                        ),
+                    )
+                    return
 
-            method = job.mesh_method or "poisson"
-            output_path = output_dir / "model.obj"
+            mode = job.mesh_method if job.mesh_method in {"luma", "standard"} else "luma"
+            output_path = output_dir / "model.splat"
 
             job_store.update(
                 job_id,
@@ -69,13 +84,13 @@ class PointCloudRunner:
 
             cmd = [
                 "python3",
-                str(MESH_SCRIPT),
+                str(GAUSSIAN_SCRIPT),
                 "--input",
                 str(input_path),
                 "--output",
                 str(output_path),
-                "--method",
-                method,
+                "--mode",
+                mode,
             ]
 
             process = subprocess.Popen(
@@ -88,8 +103,8 @@ class PointCloudRunner:
 
             stage_map = {
                 "STAGE:PREPROCESS": (JobStatus.PREPROCESSING, 25, "Đang tiền xử lý point cloud..."),
-                "STAGE:MESHING": (JobStatus.MESHING, 60, "Đang tạo mesh 3D (Poisson)..."),
-                "STAGE:EXPORT": (JobStatus.EXPORTING, 90, "Đang xuất file mesh..."),
+                "STAGE:TRAINING": (JobStatus.TRAINING, 65, "Đang tạo Gaussian 3D (kiểu Luma AI)..."),
+                "STAGE:EXPORT": (JobStatus.EXPORTING, 90, "Đang xuất hình khối 3D (.splat)..."),
             }
 
             assert process.stdout is not None
@@ -106,16 +121,16 @@ class PointCloudRunner:
 
             return_code = process.wait()
             if return_code != 0 or not output_path.exists():
-                raise RuntimeError("Tạo mesh thất bại. Kiểm tra định dạng point cloud.")
+                raise RuntimeError("Tạo hình khối 3D thất bại. Kiểm tra định dạng point cloud.")
 
             job_store.update(
                 job_id,
                 status=JobStatus.COMPLETED,
-                output_url=f"/api/jobs/{job_id}/model.obj",
+                output_url=f"/api/jobs/{job_id}/model.splat",
                 progress=JobProgress(
                     stage=JobStatus.COMPLETED,
                     percent=100,
-                    message="Hoàn tất! Mesh 3D đã sẵn sàng.",
+                    message="Hoàn tất! Hình khối 3D Gaussian sẵn sàng.",
                 ),
             )
         except Exception as exc:

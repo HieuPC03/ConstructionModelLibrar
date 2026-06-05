@@ -6,7 +6,7 @@ interface PointCloudPanelProps {
     name: string,
     file: File | null,
     demo: boolean,
-    method: "poisson" | "bpa",
+    method: "luma" | "standard",
   ) => Promise<void>;
   busy: boolean;
   open3dAvailable: boolean;
@@ -20,7 +20,7 @@ export function PointCloudPanel({
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [demo, setDemo] = useState(false);
-  const [method, setMethod] = useState<"poisson" | "bpa">("poisson");
+  const [method, setMethod] = useState<"luma" | "standard">("luma");
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -42,15 +42,15 @@ export function PointCloudPanel({
 
   return (
     <form className="panel upload-panel" onSubmit={handleSubmit}>
-      <h2>Point Cloud → Mesh 3D</h2>
+      <h2>Point Cloud → Hình khối 3D</h2>
       <p className="muted">
-        Upload file point cloud (.ply, .pcd, .xyz, .las...) — hệ thống dùng Open3D Poisson /
-        Ball Pivoting để tạo mesh 3D.
+        Chuyển point cloud thành mô hình <strong>3D Gaussian Splatting</strong> — hiển thị mượt,
+        có thể tích hợp như <strong>Luma AI</strong>. Hỗ trợ file 3DGS PLY từ Luma/Polycam.
       </p>
 
       {!open3dAvailable && (
         <div className="banner banner-warn">
-          Open3D chưa sẵn sàng trên server. Cài: <code>pip install open3d</code>
+          Open3D chưa sẵn sàng trên server. Cài: <code>pip install open3d plyfile</code>
         </div>
       )}
 
@@ -59,20 +59,20 @@ export function PointCloudPanel({
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Ví dụ: Scan nhà xưởng"
+          placeholder="Ví dụ: Scan công trình"
           disabled={busy}
         />
       </label>
 
       <label className="field">
-        <span>Phương pháp reconstruction</span>
+        <span>Chất lượng hình khối 3D</span>
         <select
           value={method}
-          onChange={(e) => setMethod(e.target.value as "poisson" | "bpa")}
+          onChange={(e) => setMethod(e.target.value as "luma" | "standard")}
           disabled={busy}
         >
-          <option value="poisson">Poisson (mượt, khuyến nghị)</option>
-          <option value="bpa">Ball Pivoting (chi tiết cao)</option>
+          <option value="luma">Luma style — đặc, mượt, khuyến nghị</option>
+          <option value="standard">Standard — gọn, ít gaussian hơn</option>
         </select>
       </label>
 
@@ -120,7 +120,7 @@ export function PointCloudPanel({
             </button>
           </div>
         ) : (
-          <p className="file-count">Chưa chọn file</p>
+          <p className="file-count">Chưa chọn file (.ply, .pcd, .xyz...)</p>
         )}
       </div>
 
@@ -139,7 +139,7 @@ export function PointCloudPanel({
         type="submit"
         disabled={busy || !canSubmit || !open3dAvailable}
       >
-        {busy ? "Đang xử lý..." : "Tạo mesh 3D"}
+        {busy ? "Đang xử lý..." : "Tạo hình khối 3D"}
       </button>
     </form>
   );

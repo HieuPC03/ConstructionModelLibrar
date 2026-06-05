@@ -64,4 +64,4 @@ class HealthResponse(BaseModel):
 
 
 class PointCloudJobRequest(BaseModel):
-    method: str = "poisson"
+    method: str = "luma"

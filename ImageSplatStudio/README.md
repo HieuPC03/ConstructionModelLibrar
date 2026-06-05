@@ -31,7 +31,7 @@ cd ImageSplatStudio/frontend
 npm install && npm run dev
 ```
 
-Mở http://localhost:5173 → tab **Point Cloud → Mesh**
+Mở http://localhost:5173 → tab **Point Cloud → 3D Gaussian**
 
 ## API
 
