@@ -8,47 +8,86 @@ from pathlib import Path
 import numpy as np
 
 
+def _frange(start: float, stop: float, step: float) -> list[float]:
+    n = int(np.ceil((stop - start) / step)) + 1
+    return [start + i * step for i in range(n)]
+
+
+def build_plan_grid_lines(
+    bbox_min: np.ndarray,
+    bbox_max: np.ndarray,
+    cell_size: float,
+    *,
+    z_level: float | None = None,
+) -> np.ndarray:
+    """TREND-POINT style XY plan grid at a single Z level (Z-up)."""
+    cell = max(float(cell_size), 1e-6)
+    mn = np.asarray(bbox_min, dtype=np.float64)
+    mx = np.asarray(bbox_max, dtype=np.float64)
+    z = float(mn[2] if z_level is None else z_level)
+    lines: list[list[list[float]]] = []
+
+    for x in _frange(mn[0], mx[0], cell):
+        lines.append([[x, mn[1], z], [x, mx[1], z]])
+    for y in _frange(mn[1], mx[1], cell):
+        lines.append([[mn[0], y, z], [mx[0], y, z]])
+
+    return np.asarray(lines, dtype=np.float32)
+
+
 def build_square_grid_lines(
     bbox_min: np.ndarray,
     bbox_max: np.ndarray,
     cell_size: float,
 ) -> np.ndarray:
-    """Return Nx2x3 line segments for a 3D square grid."""
+    """Return Nx2x3 line segments for a plan grid (TREND-POINT style)."""
+    return build_plan_grid_lines(bbox_min, bbox_max, cell_size)
+
+
+def create_idw_grid(
+    points: np.ndarray,
+    bbox_min: np.ndarray,
+    bbox_max: np.ndarray,
+    cell_size: float,
+    *,
+    power: float = 2.0,
+    max_neighbors: int = 12,
+) -> dict:
+    """Create elevation grid from point cloud using inverse distance weighting."""
     cell = max(float(cell_size), 1e-6)
     mn = np.asarray(bbox_min, dtype=np.float64)
     mx = np.asarray(bbox_max, dtype=np.float64)
-    lines: list[list[list[float]]] = []
+    pts = np.asarray(points, dtype=np.float64)
+    if len(pts) == 0:
+        raise ValueError("Không có điểm để tạo lưới")
 
-    def frange(start: float, stop: float, step: float):
-        n = int(np.ceil((stop - start) / step)) + 1
-        return [start + i * step for i in range(n)]
+    xs = np.arange(mn[0], mx[0] + cell * 0.5, cell)
+    ys = np.arange(mn[1], mx[1] + cell * 0.5, cell)
+    nx, ny = len(xs), len(ys)
+    values = np.full((ny, nx), np.nan, dtype=np.float64)
 
-    for axis in range(3):
-        others = [i for i in range(3) if i != axis]
-        u, v = others
-        for fixed in frange(mn[axis], mx[axis], cell):
-            for a in frange(mn[u], mx[u], cell):
-                p0 = [0.0, 0.0, 0.0]
-                p1 = [0.0, 0.0, 0.0]
-                p0[axis] = fixed
-                p1[axis] = fixed
-                p0[u] = a
-                p1[u] = a
-                p0[v] = mn[v]
-                p1[v] = mx[v]
-                lines.append([p0, p1])
-            for b in frange(mn[v], mx[v], cell):
-                p0 = [0.0, 0.0, 0.0]
-                p1 = [0.0, 0.0, 0.0]
-                p0[axis] = fixed
-                p1[axis] = fixed
-                p0[u] = mn[u]
-                p1[u] = mx[u]
-                p0[v] = b
-                p1[v] = b
-                lines.append([p0, p1])
+    for iy, y in enumerate(ys):
+        for ix, x in enumerate(xs):
+            dx = pts[:, 0] - x
+            dy = pts[:, 1] - y
+            dist2 = dx * dx + dy * dy
+            mask = dist2 < (cell * 0.5) ** 2
+            if np.any(mask):
+                values[iy, ix] = float(np.mean(pts[mask, 2]))
+                continue
+            order = np.argsort(dist2)[:max_neighbors]
+            d = np.sqrt(dist2[order] + 1e-12)
+            w = 1.0 / np.power(d, power)
+            values[iy, ix] = float(np.sum(w * pts[order, 2]) / np.sum(w))
 
-    return np.asarray(lines, dtype=np.float32)
+    return {
+        "cell_size": cell,
+        "origin": [float(mn[0]), float(mn[1])],
+        "size": [int(nx), int(ny)],
+        "xs": xs.tolist(),
+        "ys": ys.tolist(),
+        "values": values.tolist(),
+    }
 
 
 def apply_swap_xy(points: np.ndarray, meta: dict | None = None) -> np.ndarray:
@@ -169,7 +208,7 @@ def default_state(*, files: list[dict], norm_meta: dict) -> dict:
         "norm_meta": norm_meta,
         "swap_xy": False,
         "hidden_regions": [],
-        "grid": {"enabled": False, "cell_size": 1.0},
+        "grid": {"enabled": False, "cell_size": 0.2, "region": None, "method": "idw", "has_data": False},
         "mesh": None,
         "breaklines": [],
         "coord_points": [],

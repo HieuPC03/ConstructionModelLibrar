@@ -9,15 +9,6 @@ import {
 
 export type BasemapMode = "off" | "aerial" | "road" | "hybrid";
 
-const TILE_PROXY = "/api/basemap/tile";
-
-function sourceCrsDef(epsg: number): string | null {
-  if (epsg === 6668) return "+proj=longlat +ellps=GRS80 +no_defs +type=crs";
-  if (epsg === 4326) return "+proj=longlat +datum=WGS84 +no_defs +type=crs";
-  if (isProjectedCrs(epsg)) return JGD2011_PLANE_DEFS[epsg] ?? null;
-  return null;
-}
-
 const WGS84 = "+proj=longlat +datum=WGS84 +no_defs +type=crs";
 
 const JGD2011_PLANE_DEFS: Record<number, string> = {
@@ -42,6 +33,13 @@ const JGD2011_PLANE_DEFS: Record<number, string> = {
   6687: "+proj=tmerc +lat_0=44 +lon_0=145.5 +k=0.9999 +x_0=0 +y_0=0 +ellps=GRS80 +units=m +no_defs",
 };
 
+function sourceCrsDef(epsg: number): string | null {
+  if (epsg === 6668) return "+proj=longlat +ellps=GRS80 +no_defs +type=crs";
+  if (epsg === 4326) return WGS84;
+  if (isProjectedCrs(epsg)) return JGD2011_PLANE_DEFS[epsg] ?? null;
+  return null;
+}
+
 function toLonLat(x: number, y: number, epsg: number): [number, number] | null {
   const src = sourceCrsDef(epsg);
   if (!src) {
@@ -57,40 +55,6 @@ function toLonLat(x: number, y: number, epsg: number): [number, number] | null {
   }
 }
 
-function lonLatToTile(lon: number, lat: number, zoom: number): { x: number; y: number } {
-  const n = 2 ** zoom;
-  const x = Math.floor(((lon + 180) / 360) * n);
-  const latRad = (lat * Math.PI) / 180;
-  const y = Math.floor(((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n);
-  return { x, y };
-}
-
-function pickZoom(lonSpan: number, latSpan: number): number {
-  const span = Math.max(lonSpan, latSpan, 1e-6);
-  if (span > 2) return 10;
-  if (span > 0.5) return 12;
-  if (span > 0.1) return 14;
-  if (span > 0.02) return 15;
-  if (span > 0.005) return 16;
-  return 17;
-}
-
-function tileUrl(mode: BasemapMode, z: number, x: number, y: number): string {
-  if (mode === "hybrid") {
-    return `${TILE_PROXY}/hybrid_photo/${z}/${x}/${y}`;
-  }
-  return `${TILE_PROXY}/${mode}/${z}/${x}/${y}`;
-}
-
-async function loadTile(url: string): Promise<HTMLImageElement | null> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = url;
-  });
-}
-
 export interface BasemapPlacement {
   texture: THREE.Texture;
   width: number;
@@ -102,6 +66,50 @@ export function effectiveBasemapMode(enabled: boolean, mode: BasemapMode): Basem
   if (!enabled) return "off";
   if (mode === "off") return "aerial";
   return mode;
+}
+
+function stitchUrl(
+  minLon: number,
+  minLat: number,
+  maxLon: number,
+  maxLat: number,
+  mode: BasemapMode,
+): string {
+  const q = new URLSearchParams({
+    min_lon: String(minLon),
+    min_lat: String(minLat),
+    max_lon: String(maxLon),
+    max_lat: String(maxLat),
+    mode: mode === "hybrid" ? "hybrid" : mode,
+  });
+  return `/api/basemap/stitch?${q.toString()}`;
+}
+
+async function loadStitchedTexture(url: string): Promise<THREE.Texture | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    return await new Promise((resolve) => {
+      const loader = new THREE.TextureLoader();
+      loader.load(
+        objectUrl,
+        (tex) => {
+          URL.revokeObjectURL(objectUrl);
+          tex.colorSpace = THREE.SRGBColorSpace;
+          resolve(tex);
+        },
+        undefined,
+        () => {
+          URL.revokeObjectURL(objectUrl);
+          resolve(null);
+        },
+      );
+    });
+  } catch {
+    return null;
+  }
 }
 
 export async function buildGeoreferencedBasemap(
@@ -136,40 +144,9 @@ export async function buildGeoreferencedBasemap(
   const minLat = Math.min(...lats);
   const maxLat = Math.max(...lats);
 
-  const zoom = pickZoom(maxLon - minLon, maxLat - minLat);
-  const tMin = lonLatToTile(minLon, maxLat, zoom);
-  const tMax = lonLatToTile(maxLon, minLat, zoom);
-
-  const tileW = tMax.x - tMin.x + 1;
-  const tileH = tMax.y - tMin.y + 1;
-  if (tileW <= 0 || tileH <= 0 || tileW > 20 || tileH > 20) return null;
-
-  const canvas = document.createElement("canvas");
-  const tileSize = 256;
-  canvas.width = tileW * tileSize;
-  canvas.height = tileH * tileSize;
-  const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#2a3444";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  let loaded = 0;
-  for (let ty = tMin.y; ty <= tMax.y; ty++) {
-    for (let tx = tMin.x; tx <= tMax.x; tx++) {
-      const url = tileUrl(mode, zoom, tx, ty);
-      const img = await loadTile(url);
-      const dx = (tx - tMin.x) * tileSize;
-      const dy = (ty - tMin.y) * tileSize;
-      if (img) {
-        ctx.drawImage(img, dx, dy, tileSize, tileSize);
-        loaded++;
-        if (mode === "hybrid") {
-          const road = await loadTile(`${TILE_PROXY}/hybrid_road/${zoom}/${tx}/${ty}`);
-          if (road) ctx.drawImage(road, dx, dy, tileSize, tileSize);
-        }
-      }
-    }
-  }
-  if (loaded === 0) return null;
+  const url = stitchUrl(minLon, minLat, maxLon, maxLat, mode);
+  const texture = await loadStitchedTexture(url);
+  if (!texture) return null;
 
   const v00 = worldToViewer([wmin[0], wmin[1], wmin[2]], meta, swapXy);
   const v11 = worldToViewer([wmax[0], wmax[1], wmax[2]], meta, swapXy);
@@ -180,14 +157,10 @@ export async function buildGeoreferencedBasemap(
   const centerY = (v00[1] + v11[1]) / 2;
   const centerZ = Math.min(v00[2], v11[2]);
 
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.needsUpdate = true;
-
   return {
-    texture: tex,
-    width: width * 1.08,
-    height: height * 1.08,
-    center: new THREE.Vector3(centerX, centerY, centerZ - width * 0.008),
+    texture,
+    width: width * 1.1,
+    height: height * 1.1,
+    center: new THREE.Vector3(centerX, centerY, centerZ - width * 0.012),
   };
 }

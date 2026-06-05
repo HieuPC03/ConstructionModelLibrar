@@ -384,9 +384,12 @@ export function PointCloudPreview({
       const planeMat = new THREE.MeshBasicMaterial({
         color: 0x3a4a5a,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.95,
         side: THREE.DoubleSide,
         depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
       });
       basemapPlane = new THREE.Mesh(planeGeom, planeMat);
       basemapPlane.renderOrder = -1000;
@@ -467,7 +470,7 @@ export function PointCloudPreview({
           }
           const gridGeom = new THREE.BufferGeometry();
           gridGeom.setAttribute("position", new THREE.BufferAttribute(segPositions, 3));
-          const gridMat = new THREE.LineBasicMaterial({ color: 0x44ddaa, transparent: true, opacity: 0.35 });
+          const gridMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 });
           scene.add(new THREE.LineSegments(gridGeom, gridMat));
         })
         .catch(() => undefined);

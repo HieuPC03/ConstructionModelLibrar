@@ -15,7 +15,7 @@ export interface EditorProperties {
   files: EditorFileInfo[];
   swap_xy: boolean;
   hidden_regions: { id: string; min: number[]; max: number[]; hidden: boolean }[];
-  grid: { enabled: boolean; cell_size: number };
+  grid: { enabled: boolean; cell_size: number; region?: { min: number[]; max: number[] } | null; method?: string; has_data?: boolean; data_size?: number[] };
   mesh: { path: string; vertices: number; triangles: number } | null;
   breaklines: { id: string; points: number[][] }[];
   coord_points: { id: string; position: number[]; label: string }[];
@@ -97,14 +97,20 @@ export async function editorSplit(
 
 export async function editorConfigureGrid(
   sessionId: string,
-  enabled: boolean,
-  cellSize: number,
+  opts: {
+    enabled: boolean;
+    cell_size: number;
+    region_min?: number[];
+    region_max?: number[];
+    create_data?: boolean;
+    clear_region?: boolean;
+  },
 ): Promise<EditorProperties> {
   return parseJson(
     await fetch(`${API}/${sessionId}/grid`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled, cell_size: cellSize }),
+      body: JSON.stringify(opts),
     }),
   );
 }

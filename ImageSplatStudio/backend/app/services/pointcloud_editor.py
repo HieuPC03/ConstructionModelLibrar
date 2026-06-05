@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import uuid
 from pathlib import Path
@@ -95,7 +96,7 @@ def get_properties(session_id: str) -> dict:
         "files": state.get("files", []),
         "swap_xy": bool(state.get("swap_xy", False)),
         "hidden_regions": state.get("hidden_regions", []),
-        "grid": state.get("grid", {"enabled": False, "cell_size": 1.0}),
+        "grid": state.get("grid", {"enabled": False, "cell_size": 0.2, "region": None, "method": "idw", "has_data": False}),
         "mesh": state.get("mesh"),
         "breaklines": state.get("breaklines", []),
         "coord_points": state.get("coord_points", []),
@@ -218,19 +219,52 @@ def split_session(session_id: str, axis: int, value: float) -> dict:
     return get_properties(session_id)
 
 
-def configure_grid(session_id: str, *, enabled: bool, cell_size: float) -> dict:
+def configure_grid(
+    session_id: str,
+    *,
+    enabled: bool,
+    cell_size: float,
+    region_min: list[float] | None = None,
+    region_max: list[float] | None = None,
+    create_data: bool = False,
+    clear_region: bool = False,
+) -> dict:
     _pipeline_path()
-    from pointcloud_editor_ops import build_square_grid_lines, pack_grid_lines
+    from pointcloud_editor_ops import build_plan_grid_lines, create_idw_grid, pack_grid_lines
 
     state = load_state(session_id)
     cell = max(float(cell_size), 0.01)
-    state["grid"] = {"enabled": bool(enabled), "cell_size": cell}
+    grid = state.get("grid", {"enabled": False, "cell_size": 0.2, "region": None, "method": "idw", "has_data": False})
+    grid["enabled"] = bool(enabled)
+    grid["cell_size"] = cell
+    grid["method"] = grid.get("method", "idw")
+
+    if clear_region:
+        grid["region"] = None
+    elif region_min is not None and region_max is not None:
+        grid["region"] = {"min": region_min, "max": region_max}
+
     pts, _ = load_points_colors(session_id)
-    mn = np.min(pts, axis=0)
-    mx = np.max(pts, axis=0)
-    lines = build_square_grid_lines(mn, mx, cell)
+    if grid.get("region"):
+        mn = np.asarray(grid["region"]["min"], dtype=np.float64)
+        mx = np.asarray(grid["region"]["max"], dtype=np.float64)
+    else:
+        mn = np.min(pts, axis=0)
+        mx = np.max(pts, axis=0)
+
+    lines = build_plan_grid_lines(mn, mx, cell)
     grid_path = _session_dir(session_id) / "grid.bin"
     grid_path.write_bytes(pack_grid_lines(lines))
+
+    if create_data and enabled:
+        visible_pts, _, _ = get_visible_points(session_id)
+        idw = create_idw_grid(visible_pts, mn, mx, cell)
+        grid_data_path = _session_dir(session_id) / "grid_data.json"
+        grid_data_path.write_text(json.dumps(idw, ensure_ascii=False), encoding="utf-8")
+        grid["has_data"] = True
+        grid["data_size"] = idw["size"]
+
+    state["grid"] = grid
     save_state(session_id, state)
     return get_properties(session_id)
 

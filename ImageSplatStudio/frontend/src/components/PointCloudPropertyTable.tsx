@@ -22,6 +22,8 @@ interface PointCloudPropertyTableProps {
   onUpdated: (props: EditorProperties) => void;
   onRefreshPreview: () => void;
   onError: (msg: string) => void;
+  onStartGridRegion?: () => void;
+  onCreateGrid?: () => void;
 }
 
 export function PointCloudPropertyTable({
@@ -32,6 +34,8 @@ export function PointCloudPropertyTable({
   onUpdated,
   onRefreshPreview,
   onError,
+  onStartGridRegion,
+  onCreateGrid,
 }: PointCloudPropertyTableProps) {
   const { tr } = useI18n();
   const [tab, setTab] = useState<PropTab>("crs");
@@ -63,10 +67,10 @@ export function PointCloudPropertyTable({
     }
   };
 
-  const toggleVisible = async (index: number, visible: boolean) => {
+  const applyGrid = async (opts: Parameters<typeof editorConfigureGrid>[1]) => {
     if (!sessionId) return;
     try {
-      const props = await editorSetVisibility(sessionId, index, visible);
+      const props = await editorConfigureGrid(sessionId, opts);
       onUpdated(props);
       onRefreshPreview();
     } catch (e: unknown) {
@@ -74,10 +78,10 @@ export function PointCloudPropertyTable({
     }
   };
 
-  const applyGrid = async (enabled: boolean) => {
+  const toggleVisible = async (index: number, visible: boolean) => {
     if (!sessionId) return;
     try {
-      const props = await editorConfigureGrid(sessionId, enabled, gridCellSize);
+      const props = await editorSetVisibility(sessionId, index, visible);
       onUpdated(props);
       onRefreshPreview();
     } catch (e: unknown) {
@@ -118,6 +122,7 @@ export function PointCloudPropertyTable({
 
   const wm = properties.norm_meta?.world_min;
   const wx = properties.norm_meta?.world_max;
+  const gridRegion = properties.grid.region;
 
   const tabs: { id: PropTab; label: string }[] = [
     { id: "crs", label: tr("propTabCrs") },
@@ -214,29 +219,69 @@ export function PointCloudPropertyTable({
       )}
 
       {tab === "grid" && (
-        <div className="pc-property-grid-controls">
-          <label className="pc-grid-label">
-            <input
-              type="checkbox"
-              checked={properties.grid.enabled}
-              onChange={(e) => void applyGrid(e.target.checked)}
-            />
-            {tr("pcGridEnable")}
-          </label>
+        <div className="tp-prop-section tp-grid-panel">
+          <h4>{tr("gridPanelTitle")}</h4>
+          <p className="tp-muted tp-grid-hint">{tr("gridPanelHint")}</p>
           <label className="pc-grid-size">
             {tr("pcGridCellSize")}
             <input
               type="number"
               min={0.01}
-              step={0.1}
+              step={0.05}
               value={gridCellSize}
               onChange={(e) => onGridCellSizeChange(Number(e.target.value))}
-              onBlur={() => {
-                if (properties.grid.enabled) void applyGrid(true);
-              }}
             />
             <span>m</span>
           </label>
+          <div className="tp-grid-actions">
+            <button type="button" className="pc-menu-btn" onClick={() => onStartGridRegion?.()}>
+              {tr("gridSelectRegion")}
+            </button>
+            {gridRegion && (
+              <button
+                type="button"
+                className="pc-menu-btn"
+                onClick={() =>
+                  void applyGrid({
+                    enabled: properties.grid.enabled,
+                    cell_size: gridCellSize,
+                    clear_region: true,
+                  })
+                }
+              >
+                {tr("gridClearRegion")}
+              </button>
+            )}
+          </div>
+          {gridRegion && (
+            <p className="tp-bounds">
+              {tr("gridRegionActive")}: X {gridRegion.min[0].toFixed(2)}…{gridRegion.max[0].toFixed(2)} · Y{" "}
+              {gridRegion.min[1].toFixed(2)}…{gridRegion.max[1].toFixed(2)}
+            </p>
+          )}
+          <label className="pc-grid-label">
+            <input
+              type="checkbox"
+              checked={properties.grid.enabled}
+              onChange={(e) =>
+                void applyGrid({ enabled: e.target.checked, cell_size: gridCellSize })
+              }
+            />
+            {tr("gridShowLines")}
+          </label>
+          <p className="tp-muted">{tr("gridMethodIdw")}</p>
+          <button
+            type="button"
+            className="pc-menu-btn pc-menu-btn-accent tp-grid-create"
+            onClick={() => onCreateGrid?.()}
+          >
+            {tr("gridCreate")}
+          </button>
+          {properties.grid.has_data && properties.grid.data_size && (
+            <p className="tp-muted">
+              {tr("gridDataReady")}: {properties.grid.data_size[0]}×{properties.grid.data_size[1]}
+            </p>
+          )}
         </div>
       )}
 

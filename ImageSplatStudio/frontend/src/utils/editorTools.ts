@@ -10,7 +10,8 @@ export type EditorTool =
   | "measure_area"
   | "mesh_add"
   | "mesh_delete"
-  | "breakline";
+  | "breakline"
+  | "grid_region";
 
 export type OsnapMode = "off" | "point" | "mesh";
 
@@ -29,6 +30,7 @@ export const TOOL_CURSORS: Record<EditorTool, string> = {
   mesh_add: "copy",
   mesh_delete: "not-allowed",
   breakline: "pointer",
+  grid_region: "crosshair",
 };
 
 export const OSNAP_CURSOR = "crosshair";
@@ -79,6 +81,7 @@ export function toolLabelKey(tool: EditorTool): string {
     mesh_add: "toolMeshAdd",
     mesh_delete: "toolMeshDelete",
     breakline: "toolBreakline",
+    grid_region: "toolGridRegion",
   };
   return map[tool];
 }
@@ -97,6 +100,7 @@ export function toolHintKey(tool: EditorTool): string {
     mesh_add: "toolHint_mesh_add",
     mesh_delete: "toolHint_mesh_delete",
     breakline: "toolHint_breakline",
+    grid_region: "toolHint_grid_region",
   };
   return map[tool];
 }

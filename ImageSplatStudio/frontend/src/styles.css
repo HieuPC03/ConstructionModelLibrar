@@ -1511,7 +1511,42 @@ body.iss-resizing {
 }
 
 .tp-editor .app-header {
-  padding: 8px 16px;
+  padding: 4px 12px;
+  margin-bottom: 4px;
+  border-bottom-color: #b0b8c4;
+}
+
+.app-header-compact {
+  padding: 4px 12px !important;
+  margin-bottom: 2px !important;
+}
+
+.app-header-compact .brand {
+  gap: 8px;
+}
+
+.app-title-compact {
+  font-size: 1rem !important;
+  background: none !important;
+  -webkit-text-fill-color: #1a1f2e !important;
+  color: #1a1f2e;
+}
+
+.tp-grid-panel .tp-grid-hint {
+  font-size: 0.68rem;
+  margin: 0 0 8px;
+}
+
+.tp-grid-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.tp-grid-create {
+  width: 100%;
+  margin-top: 8px;
 }
 
 .tp-editor .mode-tabs {

@@ -33,6 +33,7 @@ import {
   editorMeshAddVertex,
   editorMeshDeleteVertex,
   editorPolygonDelete,
+  editorConfigureGrid,
   editorRedo,
   editorUndo,
   fetchEditorProperties,
@@ -60,7 +61,7 @@ function AppContent() {
   const [pcSessionId, setPcSessionId] = useState<string | null>(null);
   const [editorProperties, setEditorProperties] = useState<EditorProperties | null>(null);
   const [previewRefresh, setPreviewRefresh] = useState(0);
-  const [gridCellSize, setGridCellSize] = useState(1.0);
+  const [gridCellSize, setGridCellSize] = useState(0.2);
   const [activeTool, setActiveTool] = useState<EditorTool>("navigate");
   const [osnapMode, setOsnapMode] = useState<OsnapMode>("point");
   const [clipMode, setClipMode] = useState<ClipMode>("inside");
@@ -198,7 +199,8 @@ function AppContent() {
   };
 
   useEffect(() => {
-    if (activeTool !== "clip_box" && activeTool !== "hide_region") setRegionStart(null);
+    if (activeTool !== "clip_box" && activeTool !== "hide_region" && activeTool !== "grid_region")
+      setRegionStart(null);
     if (activeTool !== "breakline") setBreaklineDraft([]);
     if (activeTool !== "polygon_delete" && activeTool !== "measure_area") setPolygonDraft([]);
     if (activeTool !== "measure_distance") setMeasureStart(null);
@@ -348,6 +350,34 @@ function AppContent() {
         case "breakline":
           setBreaklineDraft((d) => [...d, pos]);
           break;
+        case "grid_region": {
+          if (!regionStart) {
+            setRegionStart(pos);
+          } else {
+            const min: [number, number, number] = [
+              Math.min(regionStart[0], pos[0]),
+              Math.min(regionStart[1], pos[1]),
+              Math.min(regionStart[2], pos[2]),
+            ];
+            const max: [number, number, number] = [
+              Math.max(regionStart[0], pos[0]),
+              Math.max(regionStart[1], pos[1]),
+              Math.max(regionStart[2], pos[2]),
+            ];
+            const props = await editorConfigureGrid(pcSessionId, {
+              enabled: !!editorProperties?.grid.enabled,
+              cell_size: gridCellSize,
+              region_min: min,
+              region_max: max,
+            });
+            handleEditorUpdated(props);
+            bumpPreview();
+            setRegionStart(null);
+            setActiveTool("navigate");
+            setLastResult(tr("gridRegionSet"));
+          }
+          break;
+        }
         default:
           break;
       }
@@ -379,24 +409,26 @@ function AppContent() {
 
   return (
     <div className={`app-shell ${showPointCloudPreview ? "tp-editor" : ""}`}>
-      <header className="app-header">
+      <header className={`app-header ${showPointCloudPreview ? "app-header-compact" : ""}`}>
         <div className="brand">
-          <Logo size={44} />
+          <Logo size={showPointCloudPreview ? 28 : 40} />
           <div>
-            <p className="eyebrow">{tr("appTagline")}</p>
-            <h1>{tr("appTitle")}</h1>
+            {!showPointCloudPreview && <p className="eyebrow">{tr("appTagline")}</p>}
+            <h1 className={showPointCloudPreview ? "app-title-compact" : ""}>{tr("appTitle")}</h1>
           </div>
         </div>
         <div className="header-actions">
           <LanguageSwitcher />
-          <div className="status-pills">
-            <span className={`pill ${health?.open3d_available ? "pill-ok" : "pill-warn"}`}>
-              {tr("statusOpen3d")} {health?.open3d_available ? tr("statusOk") : tr("statusNa")}
-            </span>
-            <span className={`pill ${health?.gpu_available ? "pill-ok" : "pill-warn"}`}>
-              {tr("statusGpu")} {health?.gpu_available ? tr("statusOk") : tr("statusNa")}
-            </span>
-          </div>
+          {!showPointCloudPreview && (
+            <div className="status-pills">
+              <span className={`pill ${health?.open3d_available ? "pill-ok" : "pill-warn"}`}>
+                {tr("statusOpen3d")} {health?.open3d_available ? tr("statusOk") : tr("statusNa")}
+              </span>
+              <span className={`pill ${health?.gpu_available ? "pill-ok" : "pill-warn"}`}>
+                {tr("statusGpu")} {health?.gpu_available ? tr("statusOk") : tr("statusNa")}
+              </span>
+            </div>
+          )}
         </div>
       </header>
 
@@ -465,6 +497,20 @@ function AppContent() {
                     onUpdated={handleEditorUpdated}
                     onRefreshPreview={bumpPreview}
                     onError={setError}
+                    onStartGridRegion={() => {
+                      setActiveTool("grid_region");
+                      setRegionStart(null);
+                    }}
+                    onCreateGrid={async () => {
+                      if (!pcSessionId) return;
+                      const props = await editorConfigureGrid(pcSessionId, {
+                        enabled: true,
+                        cell_size: gridCellSize,
+                        create_data: true,
+                      });
+                      handleEditorUpdated(props);
+                      bumpPreview();
+                    }}
                   />
                 )}
                 <JobList

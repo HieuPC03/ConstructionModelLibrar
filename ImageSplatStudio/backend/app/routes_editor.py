@@ -57,6 +57,10 @@ class RegionBody(BaseModel):
 class GridBody(BaseModel):
     enabled: bool = True
     cell_size: float = Field(1.0, gt=0)
+    region_min: list[float] | None = None
+    region_max: list[float] | None = None
+    create_data: bool = False
+    clear_region: bool = False
 
 
 class SplitBody(BaseModel):
@@ -194,7 +198,15 @@ def editor_split(session_id: str, body: SplitBody) -> dict:
 def editor_grid(session_id: str, body: GridBody) -> dict:
     _ensure_session(session_id)
     try:
-        return configure_grid(session_id, enabled=body.enabled, cell_size=body.cell_size)
+        return configure_grid(
+            session_id,
+            enabled=body.enabled,
+            cell_size=body.cell_size,
+            region_min=body.region_min,
+            region_max=body.region_max,
+            create_data=body.create_data,
+            clear_region=body.clear_region,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
