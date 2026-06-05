@@ -198,14 +198,16 @@ function AppContent() {
         </aside>
 
         <section className="viewer-section panel">
-          <div className="viewer-header">
-            <h2>{tr("viewerTitle")}</h2>
-            {selectedJob && (
-              <p className="muted">
-                {selectedJob.name} — {selectedJob.progress.message}
-              </p>
-            )}
-          </div>
+          {!showPointCloudPreview && (
+            <div className="viewer-header">
+              <h2>{tr("viewerTitle")}</h2>
+              {selectedJob && (
+                <p className="muted">
+                  {selectedJob.name} — {selectedJob.progress.message}
+                </p>
+              )}
+            </div>
+          )}
 
           {selectedJob?.status === "completed" ? (
             <>

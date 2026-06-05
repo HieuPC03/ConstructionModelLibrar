@@ -189,60 +189,50 @@ export function PointCloudPreview({ files }: PointCloudPreviewProps) {
 
   return (
     <div className="pc-preview">
-      <div className="pc-preview-header">
-        <div>
-          <h3>{tr("pcPreviewTitle")}</h3>
-          <p className="muted">
-            {files.length} {tr("pcFilesSelected")} · {formatFileSize(totalSize)}
-            {data && (
-              <>
-                {" "}
-                · {data.total_points.toLocaleString()} {tr("pcPreviewPoints")}
-                {" "}
-                ({tr("pcPreviewShowing")} {data.preview_count.toLocaleString()} = {displayPercent}%)
-              </>
-            )}
-          </p>
-        </div>
-        <div className="pc-preview-controls">
-          <label className="pc-sample-label" htmlFor="pc-sample-percent">
-            {tr("pcPreviewDensity")}: <strong>{samplePercent}%</strong>
-          </label>
-          <input
-            id="pc-sample-percent"
-            className="pc-sample-slider"
-            type="range"
-            min={1}
-            max={100}
-            step={1}
-            value={samplePercent}
-            disabled={loading && !data}
-            onChange={(e) => setSamplePercent(Number(e.target.value))}
-          />
-          <div className="pc-sample-ticks" aria-hidden="true">
-            <span>1%</span>
-            <span>50%</span>
-            <span>100%</span>
+      <div className="pc-preview-toolbar">
+        <p className="pc-preview-meta muted">
+          {files.length} {tr("pcFilesSelected")} · {formatFileSize(totalSize)}
+          {data && (
+            <>
+              {" "}
+              · {data.total_points.toLocaleString()} {tr("pcPreviewPoints")}
+              {" "}
+              · {tr("pcPreviewShowing")} {data.preview_count.toLocaleString()} ({displayPercent}%)
+            </>
+          )}
+        </p>
+        <div className="pc-preview-sliders">
+          <div className="pc-slider-group">
+            <label className="pc-sample-label" htmlFor="pc-sample-percent">
+              {tr("pcPreviewDensity")} <strong>{samplePercent}%</strong>
+            </label>
+            <input
+              id="pc-sample-percent"
+              className="pc-sample-slider"
+              type="range"
+              min={1}
+              max={100}
+              step={1}
+              value={samplePercent}
+              disabled={loading && !data}
+              onChange={(e) => setSamplePercent(Number(e.target.value))}
+            />
           </div>
-
-          <label className="pc-sample-label" htmlFor="pc-point-size">
-            {tr("pcPreviewPointSize")}: <strong>{pointSizeM.toFixed(2)} m</strong>
-          </label>
-          <input
-            id="pc-point-size"
-            className="pc-sample-slider"
-            type="range"
-            min={MIN_POINT_SIZE_M}
-            max={MAX_POINT_SIZE_M}
-            step={0.05}
-            value={pointSizeM}
-            disabled={!data}
-            onChange={(e) => setPointSizeM(Number(e.target.value))}
-          />
-          <div className="pc-sample-ticks" aria-hidden="true">
-            <span>0.1 m</span>
-            <span>0.5 m</span>
-            <span>1.0 m</span>
+          <div className="pc-slider-group">
+            <label className="pc-sample-label" htmlFor="pc-point-size">
+              {tr("pcPreviewPointSize")} <strong>{pointSizeM.toFixed(2)} m</strong>
+            </label>
+            <input
+              id="pc-point-size"
+              className="pc-sample-slider"
+              type="range"
+              min={MIN_POINT_SIZE_M}
+              max={MAX_POINT_SIZE_M}
+              step={0.05}
+              value={pointSizeM}
+              disabled={!data}
+              onChange={(e) => setPointSizeM(Number(e.target.value))}
+            />
           </div>
         </div>
       </div>
