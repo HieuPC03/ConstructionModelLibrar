@@ -5,6 +5,8 @@ import {
   editorCreateMesh,
   editorExportLasUrl,
   editorExportTxtUrl,
+  editorFilterDensity,
+  editorFilterGround,
   editorHideRegion,
   editorShowAll,
   editorSplit,
@@ -93,6 +95,26 @@ export function PointCloudMenuBar({
           onClick={() => void run(() => editorCleanOutliers(sessionId!))}
         >
           {tr("pcMenuCleanPoints")}
+        </button>
+      </div>
+
+      <div className="pc-menu-group">
+        <span className="pc-menu-label">{tr("pcMenuFilter")}</span>
+        <button
+          type="button"
+          className="pc-menu-btn"
+          disabled={disabled}
+          onClick={() => void run(() => editorFilterDensity(sessionId!, 0.05, 5))}
+        >
+          {tr("pcMenuFilterDensity")}
+        </button>
+        <button
+          type="button"
+          className="pc-menu-btn"
+          disabled={disabled}
+          onClick={() => void run(() => editorFilterGround(sessionId!, 1.0, 0.5))}
+        >
+          {tr("pcMenuFilterGround")}
         </button>
       </div>
 

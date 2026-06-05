@@ -167,6 +167,10 @@ def default_state(*, files: list[dict], norm_meta: dict) -> dict:
         "grid": {"enabled": False, "cell_size": 1.0},
         "mesh": None,
         "breaklines": [],
+        "coord_points": [],
+        "measurements": [],
+        "undo_stack": [],
+        "redo_stack": [],
     }
 
 

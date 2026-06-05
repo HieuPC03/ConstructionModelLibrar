@@ -17,21 +17,34 @@ import { PointCloudMenuBar } from "./components/PointCloudMenuBar";
 import { PointCloudPanel } from "./components/PointCloudPanel";
 import { PointCloudPreview, type PickMeta } from "./components/PointCloudPreview";
 import { PointCloudPropertyTable } from "./components/PointCloudPropertyTable";
+import { PointCloudStatusBar } from "./components/PointCloudStatusBar";
 import { PointCloudToolBar } from "./components/PointCloudToolBar";
 import { SplatViewer } from "./components/SplatViewer";
 import { UploadPanel } from "./components/UploadPanel";
 import { I18nProvider, useI18n } from "./i18n/I18nProvider";
 import {
   editorAddBreakline,
+  editorAddCoordPoint,
+  editorAddMeasurement,
   editorAddPoint,
+  editorClipBox,
   editorDeletePoints,
   editorHideRegion,
   editorMeshAddVertex,
   editorMeshDeleteVertex,
+  editorPolygonDelete,
+  editorRedo,
+  editorUndo,
   fetchEditorProperties,
   type EditorProperties,
 } from "./api/editor";
-import type { EditorTool } from "./utils/editorTools";
+import {
+  distance3d,
+  polygonAreaXY,
+  type ClipMode,
+  type EditorTool,
+  type OsnapMode,
+} from "./utils/editorTools";
 import type { AppMode, HealthInfo, JobInfo } from "./types";
 import "./styles.css";
 
@@ -49,10 +62,16 @@ function AppContent() {
   const [previewRefresh, setPreviewRefresh] = useState(0);
   const [gridCellSize, setGridCellSize] = useState(1.0);
   const [activeTool, setActiveTool] = useState<EditorTool>("navigate");
-  const [osnapEnabled, setOsnapEnabled] = useState(true);
+  const [osnapMode, setOsnapMode] = useState<OsnapMode>("point");
+  const [clipMode, setClipMode] = useState<ClipMode>("inside");
+  const [deleteRadius, setDeleteRadius] = useState(0.02);
   const [breaklineDraft, setBreaklineDraft] = useState<[number, number, number][]>([]);
+  const [polygonDraft, setPolygonDraft] = useState<[number, number, number][]>([]);
   const [regionStart, setRegionStart] = useState<[number, number, number] | null>(null);
+  const [measureStart, setMeasureStart] = useState<[number, number, number] | null>(null);
   const [meshReloadToken, setMeshReloadToken] = useState(0);
+  const [snapCoords, setSnapCoords] = useState<[number, number, number] | null>(null);
+  const [lastResult, setLastResult] = useState<string | null>(null);
 
   const selectedJob = jobs.find((j) => j.job_id === selectedId) ?? null;
 
@@ -152,7 +171,10 @@ function AppContent() {
     setEditorProperties(null);
     setActiveTool("navigate");
     setBreaklineDraft([]);
+    setPolygonDraft([]);
     setRegionStart(null);
+    setMeasureStart(null);
+    setLastResult(null);
     if (files.length > 0) setSelectedId(null);
   };
 
@@ -176,9 +198,35 @@ function AppContent() {
   };
 
   useEffect(() => {
-    if (activeTool !== "select_region") setRegionStart(null);
+    if (activeTool !== "clip_box" && activeTool !== "hide_region") setRegionStart(null);
     if (activeTool !== "breakline") setBreaklineDraft([]);
+    if (activeTool !== "polygon_delete" && activeTool !== "measure_area") setPolygonDraft([]);
+    if (activeTool !== "measure_distance") setMeasureStart(null);
   }, [activeTool]);
+
+  const handleUndo = async () => {
+    if (!pcSessionId) return;
+    setError(null);
+    try {
+      const props = await editorUndo(pcSessionId);
+      handleEditorUpdated(props);
+      bumpPreview();
+    } catch (e: unknown) {
+      setError(String(e));
+    }
+  };
+
+  const handleRedo = async () => {
+    if (!pcSessionId) return;
+    setError(null);
+    try {
+      const props = await editorRedo(pcSessionId);
+      handleEditorUpdated(props);
+      bumpPreview();
+    } catch (e: unknown) {
+      setError(String(e));
+    }
+  };
 
   const handleFinishBreakline = async () => {
     if (!pcSessionId || breaklineDraft.length < 2) return;
@@ -192,15 +240,38 @@ function AppContent() {
     }
   };
 
+  const handleFinishPolygon = async () => {
+    if (!pcSessionId || polygonDraft.length < 3) return;
+    setError(null);
+    try {
+      if (activeTool === "polygon_delete") {
+        const props = await editorPolygonDelete(pcSessionId, polygonDraft);
+        handleEditorUpdated(props);
+        bumpPreview();
+        setLastResult(`${tr("toolPolygonDeleted")}: ${props.removed_count ?? 0} ${tr("pcPreviewPoints")}`);
+        setPolygonDraft([]);
+      } else if (activeTool === "measure_area") {
+        const area = polygonAreaXY(polygonDraft);
+        const props = await editorAddMeasurement(pcSessionId, "area", polygonDraft, area, "m²");
+        handleEditorUpdated(props);
+        setLastResult(`${tr("toolMeasureArea")}: ${area.toFixed(4)} m²`);
+        setPolygonDraft([]);
+      }
+    } catch (e: unknown) {
+      setError(String(e));
+    }
+  };
+
   const handlePreviewPick = async (pos: [number, number, number], meta?: PickMeta) => {
     if (!pcSessionId) return;
     setError(null);
     try {
       switch (activeTool) {
         case "delete_point": {
-          const props = await editorDeletePoints(pcSessionId, pos);
+          const props = await editorDeletePoints(pcSessionId, pos, deleteRadius);
           handleEditorUpdated(props);
           bumpPreview();
+          setLastResult(`${tr("toolDeleted")}: ${props.removed_count ?? 0}`);
           break;
         }
         case "add_point": {
@@ -209,7 +280,14 @@ function AppContent() {
           bumpPreview();
           break;
         }
-        case "select_region": {
+        case "coord_point": {
+          const props = await editorAddCoordPoint(pcSessionId, pos);
+          handleEditorUpdated(props);
+          setLastResult(`${tr("toolCoordPoint")}: ${pos.map((v) => v.toFixed(3)).join(", ")}`);
+          break;
+        }
+        case "clip_box":
+        case "hide_region": {
           if (!regionStart) {
             setRegionStart(pos);
           } else {
@@ -223,10 +301,33 @@ function AppContent() {
               Math.max(regionStart[1], pos[1]),
               Math.max(regionStart[2], pos[2]),
             ];
-            const props = await editorHideRegion(pcSessionId, min, max);
-            handleEditorUpdated(props);
-            bumpPreview();
+            if (activeTool === "clip_box") {
+              const props = await editorClipBox(pcSessionId, min, max, clipMode);
+              handleEditorUpdated(props);
+              bumpPreview();
+              setLastResult(`${tr("toolClipBox")}: ${props.removed_count ?? 0} ${tr("pcPreviewPoints")}`);
+            } else {
+              const props = await editorHideRegion(pcSessionId, min, max);
+              handleEditorUpdated(props);
+              bumpPreview();
+            }
             setRegionStart(null);
+          }
+          break;
+        }
+        case "polygon_delete":
+        case "measure_area":
+          setPolygonDraft((d) => [...d, pos]);
+          break;
+        case "measure_distance": {
+          if (!measureStart) {
+            setMeasureStart(pos);
+          } else {
+            const dist = distance3d(measureStart, pos);
+            const props = await editorAddMeasurement(pcSessionId, "distance", [measureStart, pos], dist);
+            handleEditorUpdated(props);
+            setLastResult(`${tr("toolMeasureDistance")}: ${dist.toFixed(4)} m`);
+            setMeasureStart(null);
           }
           break;
         }
@@ -254,6 +355,22 @@ function AppContent() {
       setError(String(e));
     }
   };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActiveTool("navigate");
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey && pcSessionId) {
+        e.preventDefault();
+        void handleUndo();
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey)) && pcSessionId) {
+        e.preventDefault();
+        void handleRedo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   const showPointCloudPreview =
     mode === "pointcloud" &&
@@ -311,12 +428,22 @@ function AppContent() {
           />
           <PointCloudToolBar
             activeTool={activeTool}
-            osnapEnabled={osnapEnabled}
+            osnapMode={osnapMode}
+            clipMode={clipMode}
+            deleteRadius={deleteRadius}
             breaklineCount={breaklineDraft.length}
+            polygonCount={polygonDraft.length}
             meshReady={!!editorProperties?.mesh}
+            canUndo={!!editorProperties?.can_undo}
+            canRedo={!!editorProperties?.can_redo}
             onToolChange={setActiveTool}
-            onOsnapToggle={setOsnapEnabled}
+            onOsnapModeChange={setOsnapMode}
+            onClipModeChange={setClipMode}
+            onDeleteRadiusChange={setDeleteRadius}
             onFinishBreakline={() => void handleFinishBreakline()}
+            onFinishPolygon={() => void handleFinishPolygon()}
+            onUndo={() => void handleUndo()}
+            onRedo={() => void handleRedo()}
           />
         </>
       )}
@@ -381,20 +508,33 @@ function AppContent() {
               <SplatViewer url={modelUrl(selectedJob)} />
             </>
           ) : showPointCloudPreview ? (
-            <PointCloudPreview
-              files={pcPreviewFiles}
-              refreshToken={previewRefresh}
-              gridEnabled={!!editorProperties?.grid.enabled}
-              showMesh={!!editorProperties?.mesh}
-              meshReloadToken={meshReloadToken}
-              activeTool={activeTool}
-              osnapEnabled={osnapEnabled}
-              breaklines={editorProperties?.breaklines ?? []}
-              breaklineDraft={breaklineDraft}
-              regionStart={regionStart}
-              onSessionReady={(id) => void handleSessionReady(id)}
-              onPick={(pos, meta) => void handlePreviewPick(pos, meta)}
-            />
+            <>
+              <PointCloudPreview
+                files={pcPreviewFiles}
+                refreshToken={previewRefresh}
+                gridEnabled={!!editorProperties?.grid.enabled}
+                showMesh={!!editorProperties?.mesh}
+                meshReloadToken={meshReloadToken}
+                activeTool={activeTool}
+                osnapMode={osnapMode}
+                breaklines={editorProperties?.breaklines ?? []}
+                breaklineDraft={breaklineDraft}
+                polygonDraft={polygonDraft}
+                coordPoints={editorProperties?.coord_points ?? []}
+                measurements={editorProperties?.measurements ?? []}
+                measureStart={measureStart}
+                regionStart={regionStart}
+                onSessionReady={(id) => void handleSessionReady(id)}
+                onPick={(pos, meta) => void handlePreviewPick(pos, meta)}
+                onSnapHover={setSnapCoords}
+              />
+              <PointCloudStatusBar
+                activeTool={activeTool}
+                snapCoords={snapCoords}
+                totalPoints={editorProperties?.total_points ?? null}
+                lastResult={lastResult}
+              />
+            </>
           ) : (
             <div className="viewer-placeholder">
               {selectedJob ? (

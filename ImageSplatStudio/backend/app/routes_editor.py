@@ -2,28 +2,41 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 from app.services.pointcloud_editor import (
     add_breakline,
+    add_coord_point,
+    add_measurement,
     add_point_at,
     add_hidden_region,
+    apply_density_filter,
+    apply_ground_filter,
     clean_outliers,
     clear_hidden_regions,
+    clip_box,
     configure_grid,
     create_mesh,
+    delete_breakline,
+    delete_hidden_region,
+    delete_measurement,
     delete_points_at,
     export_session,
     get_grid_binary,
     get_properties,
     mesh_add_vertex,
     mesh_delete_vertex,
+    polygon_delete,
+    redo_session,
     set_file_visibility,
     show_all,
     split_session,
     toggle_swap_xy,
+    undo_session,
 )
 from app.services.preview_cache import get_session
 
@@ -69,6 +82,42 @@ class MeshVertexIndexBody(BaseModel):
 
 class BreaklineBody(BaseModel):
     points: list[list[float]] = Field(..., min_length=2)
+
+
+class ClipBoxBody(BaseModel):
+    min: list[float] = Field(..., min_length=3, max_length=3)
+    max: list[float] = Field(..., min_length=3, max_length=3)
+    mode: Literal["inside", "outside"] = "inside"
+
+
+class PolygonBody(BaseModel):
+    polygon: list[list[float]] = Field(..., min_length=3)
+
+
+class FilterDensityBody(BaseModel):
+    radius: float = Field(0.05, gt=0)
+    min_neighbors: int = Field(5, ge=1)
+
+
+class FilterGroundBody(BaseModel):
+    cell_size: float = Field(1.0, gt=0)
+    max_offset: float = Field(0.5, gt=0)
+
+
+class CoordPointBody(BaseModel):
+    position: list[float] = Field(..., min_length=3, max_length=3)
+    label: str = ""
+
+
+class MeasurementBody(BaseModel):
+    type: Literal["distance", "area"]
+    points: list[list[float]] = Field(..., min_length=2)
+    value: float
+    unit: str = "m"
+
+
+class IdBody(BaseModel):
+    id: str
 
 
 def _ensure_session(session_id: str) -> None:
@@ -231,5 +280,89 @@ def editor_mesh_vertex_delete(session_id: str, body: MeshVertexIndexBody) -> dic
     _ensure_session(session_id)
     try:
         return mesh_delete_vertex(session_id, body.vertex_index)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/clip-box")
+def editor_clip_box(session_id: str, body: ClipBoxBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return clip_box(session_id, body.min, body.max, mode=body.mode)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/polygon-delete")
+def editor_polygon_delete(session_id: str, body: PolygonBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return polygon_delete(session_id, body.polygon)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/filter/density")
+def editor_filter_density(session_id: str, body: FilterDensityBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return apply_density_filter(session_id, body.radius, body.min_neighbors)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/filter/ground")
+def editor_filter_ground(session_id: str, body: FilterGroundBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return apply_ground_filter(session_id, body.cell_size, body.max_offset)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/coord-point")
+def editor_coord_point(session_id: str, body: CoordPointBody) -> dict:
+    _ensure_session(session_id)
+    return add_coord_point(session_id, body.position, body.label)
+
+
+@router.post("/{session_id}/measurement")
+def editor_measurement(session_id: str, body: MeasurementBody) -> dict:
+    _ensure_session(session_id)
+    return add_measurement(session_id, body.type, body.points, body.value, body.unit)
+
+
+@router.post("/{session_id}/breakline/delete")
+def editor_breakline_delete(session_id: str, body: IdBody) -> dict:
+    _ensure_session(session_id)
+    return delete_breakline(session_id, body.id)
+
+
+@router.post("/{session_id}/region/delete")
+def editor_region_delete(session_id: str, body: IdBody) -> dict:
+    _ensure_session(session_id)
+    return delete_hidden_region(session_id, body.id)
+
+
+@router.post("/{session_id}/measurement/delete")
+def editor_measurement_delete(session_id: str, body: IdBody) -> dict:
+    _ensure_session(session_id)
+    return delete_measurement(session_id, body.id)
+
+
+@router.post("/{session_id}/undo")
+def editor_undo(session_id: str) -> dict:
+    _ensure_session(session_id)
+    try:
+        return undo_session(session_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/redo")
+def editor_redo(session_id: str) -> dict:
+    _ensure_session(session_id)
+    try:
+        return redo_session(session_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

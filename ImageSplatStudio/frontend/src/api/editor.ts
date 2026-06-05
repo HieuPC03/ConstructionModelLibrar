@@ -18,6 +18,10 @@ export interface EditorProperties {
   grid: { enabled: boolean; cell_size: number };
   mesh: { path: string; vertices: number; triangles: number } | null;
   breaklines: { id: string; points: number[][] }[];
+  coord_points: { id: string; position: number[]; label: string }[];
+  measurements: { id: string; type: string; points: number[][]; value: number; unit: string }[];
+  can_undo: boolean;
+  can_redo: boolean;
   bounds: { min: number[]; max: number[] };
 }
 
@@ -199,4 +203,128 @@ export async function editorMeshDeleteVertex(
       body: JSON.stringify({ vertex_index: vertexIndex }),
     }),
   );
+}
+
+export async function editorClipBox(
+  sessionId: string,
+  min: [number, number, number],
+  max: [number, number, number],
+  mode: "inside" | "outside",
+): Promise<EditorProperties & { removed_count?: number }> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/clip-box`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ min, max, mode }),
+    }),
+  );
+}
+
+export async function editorPolygonDelete(
+  sessionId: string,
+  polygon: [number, number, number][],
+): Promise<EditorProperties & { removed_count?: number }> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/polygon-delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ polygon }),
+    }),
+  );
+}
+
+export async function editorFilterDensity(
+  sessionId: string,
+  radius: number,
+  minNeighbors = 5,
+): Promise<EditorProperties & { removed_count?: number }> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/filter/density`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ radius, min_neighbors: minNeighbors }),
+    }),
+  );
+}
+
+export async function editorFilterGround(
+  sessionId: string,
+  cellSize: number,
+  maxOffset: number,
+): Promise<EditorProperties & { removed_count?: number }> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/filter/ground`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cell_size: cellSize, max_offset: maxOffset }),
+    }),
+  );
+}
+
+export async function editorAddCoordPoint(
+  sessionId: string,
+  position: [number, number, number],
+  label = "",
+): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/coord-point`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ position, label }),
+    }),
+  );
+}
+
+export async function editorAddMeasurement(
+  sessionId: string,
+  type: "distance" | "area",
+  points: [number, number, number][],
+  value: number,
+  unit = "m",
+): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/measurement`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, points, value, unit }),
+    }),
+  );
+}
+
+export async function editorDeleteBreakline(sessionId: string, id: string): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/breakline/delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    }),
+  );
+}
+
+export async function editorDeleteRegion(sessionId: string, id: string): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/region/delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    }),
+  );
+}
+
+export async function editorDeleteMeasurement(sessionId: string, id: string): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/measurement/delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    }),
+  );
+}
+
+export async function editorUndo(sessionId: string): Promise<EditorProperties> {
+  return parseJson(await fetch(`${API}/${sessionId}/undo`, { method: "POST" }));
+}
+
+export async function editorRedo(sessionId: string): Promise<EditorProperties> {
+  return parseJson(await fetch(`${API}/${sessionId}/redo`, { method: "POST" }));
 }

@@ -929,12 +929,137 @@ h3 {
 
 .pc-tool-bar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 4px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
+}
+
+.pc-tool-bar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.pc-tool-bar-row.pc-tool-options {
+  padding-top: 2px;
+  border-top: 1px dashed var(--border);
+}
+
+.pc-tool-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  border-left: 2px solid var(--border);
+}
+
+.pc-tool-group-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 2px;
+}
+
+.pc-tool-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.pc-osnap-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.pc-osnap-select select {
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.72rem;
+}
+
+.pc-tool-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.pc-tool-option input[type="range"] {
+  width: 100px;
+}
+
+.pc-tool-option select {
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.pc-status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 6px 12px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
+}
+
+.pc-status-result {
+  color: #88ccff;
+}
+
+.pc-property-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.pc-property-section h4 {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.pc-prop-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.72rem;
+}
+
+.pc-prop-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pc-prop-del {
+  border: none;
+  background: transparent;
+  color: #ff8866;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 4px;
 }
 
 .pc-tool-bar-label {

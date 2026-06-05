@@ -96,6 +96,10 @@ def get_properties(session_id: str) -> dict:
         "grid": state.get("grid", {"enabled": False, "cell_size": 1.0}),
         "mesh": state.get("mesh"),
         "breaklines": state.get("breaklines", []),
+        "coord_points": state.get("coord_points", []),
+        "measurements": state.get("measurements", []),
+        "can_undo": len(state.get("undo_stack", [])) > 0,
+        "can_redo": len(state.get("redo_stack", [])) > 0,
         "bounds": bbox,
         "norm_meta": state.get("norm_meta", {}),
     }
@@ -290,26 +294,141 @@ def init_session_state(session_id: str, files_info: list[dict], norm_meta: dict)
     save_json(_state_path(session_id), default_state(files=files_info, norm_meta=norm_meta))
 
 
-def delete_points_at(session_id: str, position: list[float], radius: float = 0.02) -> dict:
-    _pipeline_path()
-    from pointcloud_mesh_edit import delete_points_near
+def _undo_dir(session_id: str) -> Path:
+    d = _session_dir(session_id) / "undo"
+    d.mkdir(exist_ok=True)
+    return d
 
-    pts, cols = load_points_colors(session_id)
-    new_pts, new_cols, removed = delete_points_near(pts, cols, position, radius)
-    if removed == 0:
-        raise ValueError("Không tìm thấy điểm trong vùng chọn.")
-    save_points_colors(session_id, new_pts, new_cols)
+
+def push_undo(session_id: str) -> None:
+    """Save snapshot before a mutating edit."""
+    import shutil
+    import time
+
+    session = get_session(session_id)
+    if session is None:
+        return
+    ts = str(int(time.time() * 1000))
+    snap = _undo_dir(session_id) / ts
+    snap.mkdir()
+    shutil.copy2(session.points_path, snap / "points.npy")
+    if session.colors_path and session.colors_path.exists():
+        shutil.copy2(session.colors_path, snap / "colors.npy")
+    shutil.copy2(_state_path(session_id), snap / "state.json")
     state = load_state(session_id)
+    stack = state.get("undo_stack", [])
+    stack.append(ts)
+    if len(stack) > 20:
+        old = stack.pop(0)
+        shutil.rmtree(_undo_dir(session_id) / old, ignore_errors=True)
+    state["undo_stack"] = stack
+    state["redo_stack"] = []
+    save_state(session_id, state)
+
+
+def _restore_snapshot(session_id: str, snap_id: str) -> None:
+    import shutil
+
+    session = get_session(session_id)
+    if session is None:
+        raise ValueError("Phiên preview đã hết hạn.")
+    snap = _undo_dir(session_id) / snap_id
+    if not snap.exists():
+        raise ValueError("Snapshot không tồn tại.")
+    shutil.copy2(snap / "points.npy", session.points_path)
+    colors = snap / "colors.npy"
+    if colors.exists():
+        if session.colors_path is None:
+            session.colors_path = session.points_path.parent / "colors.npy"
+        shutil.copy2(colors, session.colors_path)
+    shutil.copy2(snap / "state.json", _state_path(session_id))
+    pts = np.load(session.points_path)
+    update_session_total(session_id, len(pts))
+
+
+def _save_current_snapshot(session_id: str) -> str:
+    import shutil
+    import time
+
+    session = get_session(session_id)
+    if session is None:
+        raise ValueError("Phiên preview đã hết hạn.")
+    ts = str(int(time.time() * 1000))
+    snap = _undo_dir(session_id) / ts
+    snap.mkdir()
+    shutil.copy2(session.points_path, snap / "points.npy")
+    if session.colors_path and session.colors_path.exists():
+        shutil.copy2(session.colors_path, snap / "colors.npy")
+    shutil.copy2(_state_path(session_id), snap / "state.json")
+    return ts
+
+
+def undo_session(session_id: str) -> dict:
+    state = load_state(session_id)
+    stack = list(state.get("undo_stack", []))
+    if not stack:
+        raise ValueError("Không có thao tác để hoàn tác.")
+    redo_id = _save_current_snapshot(session_id)
+    snap_id = stack.pop()
+    _restore_snapshot(session_id, snap_id)
+    state = load_state(session_id)
+    redo = state.get("redo_stack", [])
+    redo.append(redo_id)
+    state["undo_stack"] = stack
+    state["redo_stack"] = redo
+    save_state(session_id, state)
+    return get_properties(session_id)
+
+
+def redo_session(session_id: str) -> dict:
+    state = load_state(session_id)
+    redo = list(state.get("redo_stack", []))
+    if not redo:
+        raise ValueError("Không có thao tác để làm lại.")
+    undo_id = _save_current_snapshot(session_id)
+    snap_id = redo.pop()
+    _restore_snapshot(session_id, snap_id)
+    state = load_state(session_id)
+    stack = state.get("undo_stack", [])
+    stack.append(undo_id)
+    state["undo_stack"] = stack
+    state["redo_stack"] = redo
+    save_state(session_id, state)
+    return get_properties(session_id)
+
+
+def _sync_edited_files(state: dict, point_count: int) -> dict:
     state["files"] = [
         {
             "name": "edited_cloud",
             "format": "edited",
-            "point_count": int(len(new_pts)),
+            "point_count": int(point_count),
             "size_bytes": 0,
             "start_index": 0,
             "visible": True,
         }
     ]
+    return state
+
+
+def delete_points_at(session_id: str, position: list[float], radius: float = 0.02) -> dict:
+    _pipeline_path()
+    from pointcloud_mesh_edit import delete_points_near
+
+    push_undo(session_id)
+    pts, cols = load_points_colors(session_id)
+    new_pts, new_cols, removed = delete_points_near(pts, cols, position, radius)
+    if removed == 0:
+        state = load_state(session_id)
+        stack = state.get("undo_stack", [])
+        if stack:
+            stack.pop()
+            state["undo_stack"] = stack
+            save_state(session_id, state)
+        raise ValueError("Không tìm thấy điểm trong vùng chọn.")
+    save_points_colors(session_id, new_pts, new_cols)
+    state = load_state(session_id)
+    _sync_edited_files(state, len(new_pts))
     save_state(session_id, state)
     result = get_properties(session_id)
     result["removed_count"] = removed
@@ -320,20 +439,12 @@ def add_point_at(session_id: str, position: list[float]) -> dict:
     _pipeline_path()
     from pointcloud_mesh_edit import add_point
 
+    push_undo(session_id)
     pts, cols = load_points_colors(session_id)
     new_pts, new_cols = add_point(pts, cols, position)
     save_points_colors(session_id, new_pts, new_cols)
     state = load_state(session_id)
-    state["files"] = [
-        {
-            "name": "edited_cloud",
-            "format": "edited",
-            "point_count": int(len(new_pts)),
-            "size_bytes": 0,
-            "start_index": 0,
-            "visible": True,
-        }
-    ]
+    _sync_edited_files(state, len(new_pts))
     save_state(session_id, state)
     return get_properties(session_id)
 
@@ -373,5 +484,141 @@ def mesh_delete_vertex(session_id: str, vertex_index: int) -> dict:
     if state.get("mesh"):
         state["mesh"]["vertices"] = info["vertices"]
         state["mesh"]["triangles"] = info["triangles"]
+    save_state(session_id, state)
+    return get_properties(session_id)
+
+
+def clip_box(session_id: str, min_pt: list[float], max_pt: list[float], mode: str = "inside") -> dict:
+    _pipeline_path()
+    from pointcloud_filters import delete_points_in_box
+
+    push_undo(session_id)
+    pts, cols = load_points_colors(session_id)
+    new_pts, new_cols, removed = delete_points_in_box(pts, cols, min_pt, max_pt, mode=mode)
+    if removed == 0:
+        state = load_state(session_id)
+        stack = state.get("undo_stack", [])
+        if stack:
+            stack.pop()
+            state["undo_stack"] = stack
+            save_state(session_id, state)
+        raise ValueError("Không có điểm trong vùng cắt.")
+    save_points_colors(session_id, new_pts, new_cols)
+    state = load_state(session_id)
+    _sync_edited_files(state, len(new_pts))
+    save_state(session_id, state)
+    result = get_properties(session_id)
+    result["removed_count"] = removed
+    return result
+
+
+def polygon_delete(session_id: str, polygon: list[list[float]]) -> dict:
+    _pipeline_path()
+    from pointcloud_filters import delete_points_in_polygon_xy
+
+    push_undo(session_id)
+    pts, cols = load_points_colors(session_id)
+    new_pts, new_cols, removed = delete_points_in_polygon_xy(pts, cols, polygon)
+    if removed == 0:
+        state = load_state(session_id)
+        stack = state.get("undo_stack", [])
+        if stack:
+            stack.pop()
+            state["undo_stack"] = stack
+            save_state(session_id, state)
+        raise ValueError("Không có điểm trong vùng đa giác.")
+    save_points_colors(session_id, new_pts, new_cols)
+    state = load_state(session_id)
+    _sync_edited_files(state, len(new_pts))
+    save_state(session_id, state)
+    result = get_properties(session_id)
+    result["removed_count"] = removed
+    return result
+
+
+def apply_density_filter(session_id: str, radius: float, min_neighbors: int = 5) -> dict:
+    _pipeline_path()
+    from pointcloud_filters import filter_by_density
+
+    push_undo(session_id)
+    pts, cols = load_points_colors(session_id)
+    new_pts, new_cols, removed = filter_by_density(pts, cols, radius=radius, min_neighbors=min_neighbors)
+    save_points_colors(session_id, new_pts, new_cols)
+    state = load_state(session_id)
+    _sync_edited_files(state, len(new_pts))
+    save_state(session_id, state)
+    result = get_properties(session_id)
+    result["removed_count"] = removed
+    return result
+
+
+def apply_ground_filter(session_id: str, cell_size: float, max_offset: float) -> dict:
+    _pipeline_path()
+    from pointcloud_filters import filter_ground_offset
+
+    push_undo(session_id)
+    pts, cols = load_points_colors(session_id)
+    new_pts, new_cols, removed = filter_ground_offset(pts, cols, cell_size=cell_size, max_offset=max_offset)
+    save_points_colors(session_id, new_pts, new_cols)
+    state = load_state(session_id)
+    _sync_edited_files(state, len(new_pts))
+    save_state(session_id, state)
+    result = get_properties(session_id)
+    result["removed_count"] = removed
+    return result
+
+
+def add_coord_point(session_id: str, position: list[float], label: str = "") -> dict:
+    state = load_state(session_id)
+    points = state.get("coord_points", [])
+    points.append({"id": uuid.uuid4().hex[:8], "position": position, "label": label or f"P{len(points) + 1}"})
+    state["coord_points"] = points
+    save_state(session_id, state)
+    return get_properties(session_id)
+
+
+def add_measurement(
+    session_id: str,
+    mtype: str,
+    points: list[list[float]],
+    value: float,
+    unit: str = "m",
+) -> dict:
+    state = load_state(session_id)
+    items = state.get("measurements", [])
+    items.append(
+        {
+            "id": uuid.uuid4().hex[:8],
+            "type": mtype,
+            "points": points,
+            "value": float(value),
+            "unit": unit,
+        }
+    )
+    state["measurements"] = items
+    save_state(session_id, state)
+    return get_properties(session_id)
+
+
+def delete_breakline(session_id: str, breakline_id: str) -> dict:
+    state = load_state(session_id)
+    lines = [bl for bl in state.get("breaklines", []) if bl.get("id") != breakline_id]
+    state["breaklines"] = lines
+    save_state(session_id, state)
+    return get_properties(session_id)
+
+
+def delete_hidden_region(session_id: str, region_id: str) -> dict:
+    state = load_state(session_id)
+    regions = [r for r in state.get("hidden_regions", []) if r.get("id") != region_id]
+    state["hidden_regions"] = regions
+    save_state(session_id, state)
+    return get_properties(session_id)
+
+
+def delete_measurement(session_id: str, measurement_id: str) -> dict:
+    state = load_state(session_id)
+    items = [m for m in state.get("measurements", []) if m.get("id") != measurement_id]
+    state["measurements"] = items
     save_state(session_id, state)
     return get_properties(session_id)

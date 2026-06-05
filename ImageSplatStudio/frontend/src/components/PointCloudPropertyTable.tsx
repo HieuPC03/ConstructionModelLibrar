@@ -1,5 +1,12 @@
 import { useI18n } from "../i18n/I18nProvider";
-import { editorConfigureGrid, editorSetVisibility, type EditorProperties } from "../api/editor";
+import {
+  editorConfigureGrid,
+  editorDeleteBreakline,
+  editorDeleteMeasurement,
+  editorDeleteRegion,
+  editorSetVisibility,
+  type EditorProperties,
+} from "../api/editor";
 import { formatFileSize } from "../utils/pointcloud";
 
 interface PointCloudPropertyTableProps {
@@ -49,6 +56,37 @@ export function PointCloudPropertyTable({
       const props = await editorConfigureGrid(sessionId, enabled, gridCellSize);
       onUpdated(props);
       onRefreshPreview();
+    } catch (e: unknown) {
+      onError(String(e));
+    }
+  };
+
+  const removeRegion = async (id: string) => {
+    if (!sessionId) return;
+    try {
+      const props = await editorDeleteRegion(sessionId, id);
+      onUpdated(props);
+      onRefreshPreview();
+    } catch (e: unknown) {
+      onError(String(e));
+    }
+  };
+
+  const removeBreakline = async (id: string) => {
+    if (!sessionId) return;
+    try {
+      const props = await editorDeleteBreakline(sessionId, id);
+      onUpdated(props);
+    } catch (e: unknown) {
+      onError(String(e));
+    }
+  };
+
+  const removeMeasurement = async (id: string) => {
+    if (!sessionId) return;
+    try {
+      const props = await editorDeleteMeasurement(sessionId, id);
+      onUpdated(props);
     } catch (e: unknown) {
       onError(String(e));
     }
@@ -120,6 +158,74 @@ export function PointCloudPropertyTable({
           </tbody>
         </table>
       </div>
+
+      {properties.measurements.length > 0 && (
+        <div className="pc-property-section">
+          <h4>{tr("pcPropMeasurements")}</h4>
+          <ul className="pc-prop-list">
+            {properties.measurements.map((m) => (
+              <li key={m.id}>
+                <span>
+                  {m.type === "distance" ? tr("toolMeasureDistance") : tr("toolMeasureArea")}:{" "}
+                  {m.value.toFixed(4)} {m.unit}
+                </span>
+                <button type="button" className="pc-prop-del" onClick={() => void removeMeasurement(m.id)}>
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {properties.coord_points.length > 0 && (
+        <div className="pc-property-section">
+          <h4>{tr("pcPropCoordPoints")}</h4>
+          <ul className="pc-prop-list">
+            {properties.coord_points.map((p) => (
+              <li key={p.id}>
+                <span>
+                  {p.label}: {p.position.map((v) => v.toFixed(3)).join(", ")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {properties.breaklines.length > 0 && (
+        <div className="pc-property-section">
+          <h4>{tr("pcPropBreaklines")}</h4>
+          <ul className="pc-prop-list">
+            {properties.breaklines.map((bl) => (
+              <li key={bl.id}>
+                <span>
+                  {bl.id} · {bl.points.length} {tr("pcPropVertices")}
+                </span>
+                <button type="button" className="pc-prop-del" onClick={() => void removeBreakline(bl.id)}>
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {properties.hidden_regions.length > 0 && (
+        <div className="pc-property-section">
+          <h4>{tr("pcHiddenRegions")}</h4>
+          <ul className="pc-prop-list">
+            {properties.hidden_regions.map((r) => (
+              <li key={r.id}>
+                <span>{r.id}</span>
+                <button type="button" className="pc-prop-del" onClick={() => void removeRegion(r.id)}>
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

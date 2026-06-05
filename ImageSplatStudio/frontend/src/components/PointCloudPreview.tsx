@@ -11,7 +11,7 @@ import {
   type PointCloudPreviewMeta,
 } from "../api";
 import { formatFileSize } from "../utils/pointcloud";
-import { OSNAP_CURSOR, TOOL_CURSORS, type EditorTool } from "../utils/editorTools";
+import { OSNAP_CURSOR, TOOL_CURSORS, toolHintKey, type EditorTool, type OsnapMode } from "../utils/editorTools";
 import {
   formatSnapLabel,
   ndcFromEvent,
@@ -43,26 +43,33 @@ interface PointCloudPreviewProps {
   showMesh?: boolean;
   meshReloadToken?: number;
   activeTool?: EditorTool;
-  osnapEnabled?: boolean;
+  osnapMode?: OsnapMode;
   breaklines?: { id: string; points: number[][] }[];
   breaklineDraft?: [number, number, number][];
+  polygonDraft?: [number, number, number][];
+  coordPoints?: { id: string; position: number[]; label: string }[];
+  measurements?: { id: string; type: string; points: number[][]; value: number; unit: string }[];
+  measureStart?: [number, number, number] | null;
   regionStart?: [number, number, number] | null;
   onSessionReady?: (sessionId: string) => void;
   onPick?: (position: [number, number, number], meta?: PickMeta) => void;
   onSnapHover?: (position: [number, number, number] | null) => void;
 }
 
-function toolHintKey(tool: EditorTool): "toolHint_navigate" | "toolHint_delete_point" | "toolHint_add_point" | "toolHint_select_region" | "toolHint_mesh_add" | "toolHint_mesh_delete" | "toolHint_breakline" {
-  const map: Record<EditorTool, ReturnType<typeof toolHintKey>> = {
-    navigate: "toolHint_navigate",
-    delete_point: "toolHint_delete_point",
-    add_point: "toolHint_add_point",
-    select_region: "toolHint_select_region",
-    mesh_add: "toolHint_mesh_add",
-    mesh_delete: "toolHint_mesh_delete",
-    breakline: "toolHint_breakline",
-  };
-  return map[tool];
+function buildLineGeometry(segments: [number[], number[]][]): THREE.BufferGeometry | null {
+  if (segments.length === 0) return null;
+  const positions = new Float32Array(segments.length * 6);
+  segments.forEach(([a, b], i) => {
+    positions[i * 6] = a[0];
+    positions[i * 6 + 1] = a[1];
+    positions[i * 6 + 2] = a[2];
+    positions[i * 6 + 3] = b[0];
+    positions[i * 6 + 4] = b[1];
+    positions[i * 6 + 5] = b[2];
+  });
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  return geom;
 }
 
 function buildBreaklineGeometry(lines: number[][][]): THREE.BufferGeometry | null {
@@ -98,9 +105,13 @@ export function PointCloudPreview({
   showMesh = false,
   meshReloadToken = 0,
   activeTool = "navigate",
-  osnapEnabled = true,
+  osnapMode = "point",
   breaklines = [],
   breaklineDraft = [],
+  polygonDraft = [],
+  coordPoints = [],
+  measurements = [],
+  measureStart = null,
   regionStart = null,
   onSessionReady,
   onPick,
@@ -121,13 +132,14 @@ export function PointCloudPreview({
     breaklineGroup: THREE.Group;
     snapMarker: THREE.Mesh;
     regionGroup: THREE.Group;
+    annotationGroup: THREE.Group;
     maxDim: number;
     raycaster: THREE.Raycaster;
     pickPlane: THREE.Plane;
   } | null>(null);
 
   const toolRef = useRef(activeTool);
-  const osnapRef = useRef(osnapEnabled);
+  const osnapRef = useRef(osnapMode);
   const onPickRef = useRef(onPick);
   const onSnapHoverRef = useRef(onSnapHover);
 
@@ -143,8 +155,8 @@ export function PointCloudPreview({
     toolRef.current = activeTool;
   }, [activeTool]);
   useEffect(() => {
-    osnapRef.current = osnapEnabled;
-  }, [osnapEnabled]);
+    osnapRef.current = osnapMode;
+  }, [osnapMode]);
   useEffect(() => {
     onPickRef.current = onPick;
   }, [onPick]);
@@ -222,20 +234,26 @@ export function PointCloudPreview({
     ): { point: THREE.Vector3; vertexIndex?: number } | null => {
       const tool = toolRef.current;
       const osnap = osnapRef.current;
-      const threshold = ctx.maxDim * (osnap ? 0.012 : 0.06);
+      const useOsnap = osnap !== "off";
+      const threshold = ctx.maxDim * (useOsnap ? 0.012 : 0.06);
       const meshObj = ctx.meshRoot.children[0] ?? null;
 
-      if (tool === "mesh_add" || tool === "mesh_delete" || tool === "breakline") {
+      if (osnap === "mesh" || tool === "mesh_add" || tool === "mesh_delete" || tool === "breakline") {
         if (meshObj) {
           const snap = snapToMesh(raycaster, meshObj, ctx.maxDim * 0.025);
           if (snap) return { point: snap.point, vertexIndex: snap.vertexIndex };
         }
       }
 
-      const ptSnap = snapToPointCloud(raycaster, ctx.points, threshold);
-      if (ptSnap) return { point: ptSnap };
+      if (osnap === "point" || tool === "delete_point" || tool === "add_point" || tool === "coord_point") {
+        const ptSnap = snapToPointCloud(raycaster, ctx.points, threshold);
+        if (ptSnap) return { point: ptSnap };
+      } else {
+        const ptSnap = snapToPointCloud(raycaster, ctx.points, threshold);
+        if (ptSnap) return { point: ptSnap };
+      }
 
-      if (!osnap && (tool === "add_point" || tool === "breakline")) {
+      if (!useOsnap && (tool === "add_point" || tool === "breakline" || tool === "coord_point")) {
         const hit = new THREE.Vector3();
         if (raycaster.ray.intersectPlane(ctx.pickPlane, hit)) {
           return { point: hit };
@@ -314,6 +332,9 @@ export function PointCloudPreview({
     const regionGroup = new THREE.Group();
     scene.add(regionGroup);
 
+    const annotationGroup = new THREE.Group();
+    scene.add(annotationGroup);
+
     const snapMarker = new THREE.Mesh(
       new THREE.SphereGeometry(maxDim * 0.008, 12, 12),
       new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.9 }),
@@ -334,6 +355,7 @@ export function PointCloudPreview({
       breaklineGroup,
       snapMarker,
       regionGroup,
+      annotationGroup,
       maxDim,
       raycaster,
       pickPlane,
@@ -583,10 +605,88 @@ export function PointCloudPreview({
     ctx.regionGroup.add(marker);
   }, [regionStart]);
 
+  useEffect(() => {
+    const ctx = sceneCtxRef.current;
+    if (!ctx) return;
+
+    while (ctx.annotationGroup.children.length) {
+      const child = ctx.annotationGroup.children[0];
+      ctx.annotationGroup.remove(child);
+      child.traverse((obj) => {
+        if (obj instanceof THREE.Mesh || obj instanceof THREE.LineSegments || obj instanceof THREE.Points) {
+          if ("geometry" in obj && obj.geometry) obj.geometry.dispose();
+          if ("material" in obj && obj.material) {
+            const m = obj.material;
+            if (Array.isArray(m)) m.forEach((x) => x.dispose());
+            else m.dispose();
+          }
+        }
+      });
+    }
+
+    for (const cp of coordPoints) {
+      const m = new THREE.Mesh(
+        new THREE.SphereGeometry(ctx.maxDim * 0.01, 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0x00ff88 }),
+      );
+      m.position.set(cp.position[0], cp.position[1], cp.position[2]);
+      ctx.annotationGroup.add(m);
+    }
+
+    if (measureStart) {
+      const m = new THREE.Mesh(
+        new THREE.SphereGeometry(ctx.maxDim * 0.012, 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0xffff00 }),
+      );
+      m.position.set(measureStart[0], measureStart[1], measureStart[2]);
+      ctx.annotationGroup.add(m);
+    }
+
+    const measureSegs: [number[], number[]][] = [];
+    for (const m of measurements) {
+      if (m.type === "distance" && m.points.length >= 2) {
+        measureSegs.push([m.points[0], m.points[1]]);
+      } else if (m.type === "area" && m.points.length >= 2) {
+        for (let i = 0; i < m.points.length; i++) {
+          const j = (i + 1) % m.points.length;
+          measureSegs.push([m.points[i], m.points[j]]);
+        }
+      }
+    }
+    if (polygonDraft.length >= 2) {
+      for (let i = 0; i < polygonDraft.length - 1; i++) {
+        measureSegs.push([polygonDraft[i], polygonDraft[i + 1]]);
+      }
+      if (polygonDraft.length >= 3) {
+        measureSegs.push([polygonDraft[polygonDraft.length - 1], polygonDraft[0]]);
+      }
+    }
+    const lineGeom = buildLineGeometry(measureSegs);
+    if (lineGeom) {
+      ctx.annotationGroup.add(
+        new THREE.LineSegments(lineGeom, new THREE.LineBasicMaterial({ color: 0x66ccff })),
+      );
+    }
+    if (polygonDraft.length >= 1) {
+      const draftPos = new Float32Array(polygonDraft.length * 3);
+      polygonDraft.forEach((p, i) => {
+        draftPos[i * 3] = p[0];
+        draftPos[i * 3 + 1] = p[1];
+        draftPos[i * 3 + 2] = p[2];
+      });
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(draftPos, 3));
+      ctx.annotationGroup.add(
+        new THREE.Points(g, new THREE.PointsMaterial({ color: 0x66ccff, size: ctx.maxDim * 0.01 })),
+      );
+    }
+  }, [coordPoints, measurements, polygonDraft, measureStart]);
+
+  const osnapActive = osnapMode !== "off";
   const cursorClass =
     activeTool === "navigate"
       ? "pc-cursor-navigate"
-      : osnapEnabled
+      : osnapActive
         ? "pc-cursor-osnap"
         : `pc-cursor-${activeTool}`;
 
@@ -656,7 +756,7 @@ export function PointCloudPreview({
           cursor:
             activeTool === "navigate"
               ? TOOL_CURSORS.navigate
-              : osnapEnabled
+              : osnapActive
                 ? OSNAP_CURSOR
                 : TOOL_CURSORS[activeTool],
         }}
@@ -674,8 +774,11 @@ export function PointCloudPreview({
         )}
         {activeTool !== "navigate" && (
           <div className="pc-tool-hint">
-            {tr(toolHintKey(activeTool))}
-            {activeTool === "select_region" && regionStart && ` · ${tr("toolRegionSecond")}`}
+            {tr(toolHintKey(activeTool) as "toolHint_navigate")}
+            {(activeTool === "clip_box" || activeTool === "hide_region") &&
+              regionStart &&
+              ` · ${tr("toolRegionSecond")}`}
+            {activeTool === "measure_distance" && measureStart && ` · ${tr("toolMeasureSecond")}`}
           </div>
         )}
         <div ref={mountRef} className="pc-preview-mount" />
