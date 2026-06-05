@@ -26,6 +26,9 @@ npm install
 npm run build
 Pop-Location
 
+Write-Host "==> Generating app icons..." -ForegroundColor Yellow
+python "$Root\scripts\generate-app-icon.py"
+
 if ($SkipPythonBundle) {
     Write-Error "SkipPythonBundle is disabled for release builds. App requires bundled Python."
 }

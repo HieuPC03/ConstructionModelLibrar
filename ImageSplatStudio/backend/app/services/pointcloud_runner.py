@@ -110,7 +110,9 @@ class PointCloudRunner:
             }
 
             assert process.stdout is not None
+            output_lines: list[str] = []
             for line in process.stdout:
+                output_lines.append(line)
                 line = line.strip()
                 for marker, (stage, percent, message) in stage_map.items():
                     if marker in line:
@@ -123,7 +125,8 @@ class PointCloudRunner:
 
             return_code = process.wait()
             if return_code != 0 or not output_path.exists():
-                raise RuntimeError("Tạo hình khối 3D thất bại. Kiểm tra định dạng point cloud.")
+                err_detail = "".join(output_lines).strip() or "Pipeline thất bại"
+                raise RuntimeError(err_detail)
 
             job_store.update(
                 job_id,

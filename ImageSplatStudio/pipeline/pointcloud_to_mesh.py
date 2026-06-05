@@ -8,33 +8,11 @@ import sys
 from pathlib import Path
 
 
+from pointcloud_io import load_point_cloud_file
+
+
 def load_point_cloud(path: Path):
-    import open3d as o3d
-
-    suffix = path.suffix.lower()
-    if suffix in {".xyz", ".pts", ".txt"}:
-        try:
-            import numpy as np
-
-            data = np.loadtxt(str(path))
-            if data.ndim == 1:
-                raise ValueError("XYZ file must have at least 3 columns")
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(data[:, :3])
-            if data.shape[1] >= 6:
-                pcd.normals = o3d.utility.Vector3dVector(data[:, 3:6])
-            return pcd
-        except Exception as exc:
-            raise ValueError(f"Cannot parse XYZ file: {exc}") from exc
-
-    pcd = o3d.io.read_point_cloud(str(path))
-    if pcd.is_empty():
-        mesh = o3d.io.read_triangle_mesh(str(path))
-        if not mesh.is_empty():
-            pcd = mesh.sample_points_uniformly(number_of_points=max(len(mesh.vertices) * 3, 5000))
-    if pcd.is_empty():
-        raise ValueError(f"Cannot read point cloud: {path}")
-    return pcd
+    return load_point_cloud_file(path)
 
 
 def reconstruct(

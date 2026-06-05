@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 from write_splat import pack_rotation
+from pointcloud_io import is_3dgs_ply_header, load_point_cloud_file
 
 
 def sigmoid(x: float) -> float:
@@ -31,8 +32,7 @@ def sh0_to_rgb(f0: float, f1: float, f2: float) -> tuple[int, int, int]:
 
 
 def is_3dgs_ply(header_text: str) -> bool:
-    lower = header_text.lower()
-    return "scale_0" in lower and "opacity" in lower and ("f_dc_0" in lower or "red" in lower)
+    return is_3dgs_ply_header(header_text)
 
 
 def parse_3dgs_ply(path: Path) -> tuple[list, list, list, list, list]:
@@ -79,26 +79,7 @@ def parse_3dgs_ply(path: Path) -> tuple[list, list, list, list, list]:
 
 
 def load_point_cloud(path: Path):
-    import numpy as np
-    import open3d as o3d
-
-    suffix = path.suffix.lower()
-    if suffix in {".xyz", ".pts", ".txt"}:
-        data = np.loadtxt(str(path))
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(data[:, :3])
-        if data.shape[1] >= 6:
-            cols = data[:, 3:6]
-            if cols.max() > 1:
-                cols = cols / 255.0
-            pcd.colors = o3d.utility.Vector3dVector(cols)
-        return pcd
-
-    if suffix == ".ply":
-        header = path.read_bytes()[:8192].decode("ascii", errors="ignore")
-        if is_3dgs_ply(header):
-            return ("3dgs_ply", path)
-    return o3d.io.read_point_cloud(str(path))
+    return load_point_cloud_file(path)
 
 
 def estimate_scales(points, k: int = 8) -> list[tuple[float, float, float]]:

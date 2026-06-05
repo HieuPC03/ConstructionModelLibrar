@@ -1,6 +1,6 @@
 {
   "name": "imagesplat-studio-desktop",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "ImageSplat Studio — 3D Gaussian Splatting desktop app",
   "main": "electron/main.cjs",
   "author": "ImageSplat Studio",
@@ -24,6 +24,7 @@
     },
     "files": [
       "electron/**/*",
+      "assets/**/*",
       "package.json"
     ],
     "extraResources": [
@@ -63,6 +64,7 @@
       }
     ],
     "win": {
+      "icon": "assets/icon.ico",
       "signAndEditExecutable": false,
       "target": [
         {
@@ -86,6 +88,7 @@
       "language": "1033"
     },
     "linux": {
+      "icon": "assets/icon.png",
       "target": ["AppImage"],
       "category": "Graphics",
       "artifactName": "ImageSplatStudio-${version}.${ext}"

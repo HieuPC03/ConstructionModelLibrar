@@ -59,6 +59,7 @@ body {
 .app-logo {
   flex-shrink: 0;
   filter: drop-shadow(0 0 12px rgba(129, 140, 248, 0.45));
+  border-radius: 50%;
 }
 
 .header-actions {

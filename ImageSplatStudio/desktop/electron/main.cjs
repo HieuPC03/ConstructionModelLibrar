@@ -151,13 +151,24 @@ function waitForServer(timeoutMs) {
   });
 }
 
+function appIconPath() {
+  const name = process.platform === "win32" ? "icon.ico" : "icon.png";
+  const dev = path.join(__dirname, "..", "assets", name);
+  if (fs.existsSync(dev)) return dev;
+  const packaged = path.join(process.resourcesPath, "assets", name);
+  if (fs.existsSync(packaged)) return packaged;
+  return undefined;
+}
+
 function createWindow() {
+  const icon = appIconPath();
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1024,
     minHeight: 680,
     title: "ImageSplat Studio",
+    icon,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
