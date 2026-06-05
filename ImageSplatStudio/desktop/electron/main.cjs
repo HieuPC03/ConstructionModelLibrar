@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const http = require("http");
 
+const APP_VERSION = "0.1.3";
 const PORT = 17890;
 let backendProcess = null;
 let mainWindow = null;
@@ -49,7 +50,17 @@ function findPythonExecutable() {
 
   if (app.isPackaged) {
     throw new Error(
-      `Khong tim thay Python trong app.\nDuong dan: ${bundled}\nTai lai ban cai dat day du tu GitHub Releases.`,
+      [
+        `Ban cai dat khong day du (v${APP_VERSION}).`,
+        `Thieu: resources\\python\\python.exe`,
+        ``,
+        `Hay tai lai file ZIP OFFLINE (~250 MB):`,
+        `ImageSplatStudio-0.1.3-win-offline.zip`,
+        ``,
+        `Link: https://github.com/HieuPC03/ConstructionModelLibrar/releases`,
+        ``,
+        `Giai nen TOAN BO zip, khong chi file .exe.`,
+      ].join("\n"),
     );
   }
 
@@ -175,7 +186,11 @@ app.whenReady().then(async () => {
     await startBackend();
     createWindow();
   } catch (err) {
-    dialog.showErrorBox("ImageSplat Studio", String(err.message || err));
+    const msg = String(err.message || err);
+    const hint = msg.includes("Python was not found")
+      ? "\n\nBan dang dung ban CU (chua dong goi Python).\nTai ImageSplatStudio-0.1.3-win-offline.zip tu GitHub Releases."
+      : "";
+    dialog.showErrorBox("ImageSplat Studio", `Khong khoi dong duoc (v${APP_VERSION}):\n\n${msg}${hint}`);
     app.quit();
   }
 });
