@@ -1,6 +1,0 @@
-# Place bundled Python here for offline install (optional).
-# Run build-desktop.ps1 on Windows — it downloads embeddable Python + pip packages.
-#
-# Structure after build:
-#   python/python.exe
-#   python/Lib/site-packages/...

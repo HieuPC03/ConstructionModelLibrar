@@ -1,43 +1,25 @@
-# ImageSplat Studio — Hướng dẫn cài đặt Windows
+# ImageSplat Studio v0.1.2 — Cài đặt Windows (OFFLINE)
 
-## ⚠️ QUAN TRONG
+## Không cần cài Python!
 
-File **`ImageSplatStudio-Setup-0.1.0.zip` KHÔNG phải file Setup.exe!**
+Ban nay da dong goi san Python + thu vien trong app.
 
-Bạn phải **GIẢI NÉN** trước, rồi chạy **`CaiDat.bat`**.
+## Cach cai (2 buoc)
 
----
+### 1. Giai nen
+- Tai file: **ImageSplatStudio-0.1.2-win-offline.zip** (~250 MB)
+- Click phai → **Extract All...**
+- Chon thu muc: `C:\ImageSplatStudio\`
 
-## Cách cài (3 bước)
+### 2. Chay app
+- Double-click **`ImageSplat Studio.exe`**
+- Hoac chay **`CaiDat.bat`** (neu can)
 
-### Bước 1 — Giải nén
-1. Tải file `.zip` từ [Release](https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/imagesplat-v0.1.1)
-2. **Click phải** → **Extract All...** / **Giải nén tất cả...**
-3. Chọn thư mục, ví dụ: `C:\ImageSplatStudio\`
+## Luu y
+- KHONG can cai Python
+- KHONG can pip install
+- Neu Windows chan: More info → Run anyway
+- Lan dau mo co the mat 10-20 giay de khoi dong
 
-### Bước 2 — Chạy CaiDat.bat
-1. Mở thư mục vừa giải nén
-2. **Click phải `CaiDat.bat`** → **Run as administrator**
-3. Đợi cài thư viện (2–5 phút lần đầu)
-
-### Bước 3 — Mở app
-- App tự mở sau khi cài xong
-- Lần sau chạy **`ImageSplat Studio.exe`**
-
----
-
-## Lỗi thường gặp
-
-| Triệu chứng | Cách sửa |
-|-------------|----------|
-| Bấm file zip không chạy | **Giải nén** trước, không chạy trực tiếp file zip |
-| "Windows protected your PC" | **More info** → **Run anyway** |
-| Báo thiếu Python | Cài [Python 3.11](https://www.python.org/downloads/) — tick **Add to PATH** |
-| Exe mở rồi tắt ngay | Chạy **CaiDat.bat** (Admin) trước |
-| Admin vẫn không được | Giải nén ra `C:\ImageSplatStudio\` (tránh OneDrive/Desktop) |
-
----
-
-## Link release
-
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/latest
+## Link
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/imagesplat-v0.1.2

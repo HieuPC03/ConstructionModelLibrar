@@ -1,5 +1,5 @@
 const { app, BrowserWindow, dialog, shell } = require("electron");
-const { spawn, execSync } = require("child_process");
+const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const http = require("http");
@@ -15,9 +15,7 @@ function logPath() {
 function log(msg) {
   try {
     fs.appendFileSync(logPath(), `[${new Date().toISOString()}] ${msg}\n`);
-  } catch (_) {
-    /* ignore */
-  }
+  } catch (_) {}
 }
 
 function resolveResource(...parts) {
@@ -33,45 +31,40 @@ function resolveResource(...parts) {
   return path.join(root, ...parts);
 }
 
-function appDataDir() {
-  return path.join(app.getPath("userData"), "data");
+function bundledPythonPath() {
+  if (process.platform === "win32") {
+    return resolveResource("python", "python.exe");
+  }
+  const linuxPy = resolveResource("python", "bin", "python3");
+  if (fs.existsSync(linuxPy)) return linuxPy;
+  return resolveResource("python", "python.exe");
 }
 
 function findPythonExecutable() {
-  const bundledWin = resolveResource("python", "python.exe");
-  if (process.platform === "win32" && fs.existsSync(bundledWin)) {
-    return { cmd: bundledWin, args: [], shell: false };
+  const bundled = bundledPythonPath();
+  if (fs.existsSync(bundled)) {
+    log(`Using bundled Python: ${bundled}`);
+    return { cmd: bundled, args: [], shell: false };
   }
 
-  const bundledLinux = resolveResource("python", "bin", "python3");
-  if (fs.existsSync(bundledLinux)) {
-    return { cmd: bundledLinux, args: [], shell: false };
+  if (app.isPackaged) {
+    throw new Error(
+      `Khong tim thay Python trong app.\nDuong dan: ${bundled}\nTai lai ban cai dat day du tu GitHub Releases.`,
+    );
   }
 
-  if (process.platform === "win32") {
-    for (const candidate of ["py -3", "python3", "python"]) {
-      try {
-        execSync(`${candidate} --version`, { stdio: "ignore", shell: true });
-        const parts = candidate.split(" ");
-        return { cmd: parts[0], args: parts.slice(1), shell: true };
-      } catch (_) {
-        /* try next */
-      }
-    }
-    return { cmd: "python", args: [], shell: true };
-  }
-
-  return { cmd: "python3", args: [], shell: false };
+  const devPy = process.platform === "win32" ? "python" : "python3";
+  return { cmd: devPy, args: [], shell: true };
 }
 
 function buildBackendEnv() {
   const backendDir = resolveResource("backend");
   const frontendDir = resolveResource("frontend", "dist");
   const appRoot = app.isPackaged ? process.resourcesPath : path.join(__dirname, "..", "..");
-  const dataDir = appDataDir();
-
+  const dataDir = path.join(app.getPath("userData"), "data");
   fs.mkdirSync(dataDir, { recursive: true });
 
+  const pythonRoot = resolveResource("python");
   const env = {
     ...process.env,
     SPLAT_DATA_DIR: dataDir,
@@ -81,11 +74,10 @@ function buildBackendEnv() {
     PYTHONUNBUFFERED: "1",
   };
 
-  if (process.platform === "win32") {
-    const pythonRoot = resolveResource("python");
-    if (fs.existsSync(path.join(pythonRoot, "python.exe"))) {
-      env.PATH = `${pythonRoot};${path.join(pythonRoot, "Scripts")};${env.PATH || ""}`;
-    }
+  if (fs.existsSync(path.join(pythonRoot, "python.exe"))) {
+    env.PATH = `${pythonRoot};${path.join(pythonRoot, "Scripts")};${env.PATH || ""}`;
+  } else if (fs.existsSync(path.join(pythonRoot, "bin"))) {
+    env.PATH = `${path.join(pythonRoot, "bin")}:${env.PATH || ""}`;
   }
 
   return { backendDir, env };
@@ -93,42 +85,37 @@ function buildBackendEnv() {
 
 function startBackend() {
   return new Promise((resolve, reject) => {
-    const { cmd, args: pyArgs, shell } = findPythonExecutable();
+    let py;
+    try {
+      py = findPythonExecutable();
+    } catch (err) {
+      reject(err);
+      return;
+    }
+
     const { backendDir, env } = buildBackendEnv();
-    const args = [...pyArgs, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", String(PORT)];
+    const args = [...py.args, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", String(PORT)];
 
-    log(`Starting backend: ${cmd} ${args.join(" ")}`);
-    log(`Backend dir: ${backendDir}`);
+    log(`Backend: ${py.cmd} ${args.join(" ")}`);
 
-    backendProcess = spawn(cmd, args, {
+    backendProcess = spawn(py.cmd, args, {
       cwd: backendDir,
       env,
-      shell,
+      shell: py.shell,
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     });
 
     let stderr = "";
-    backendProcess.stdout?.on("data", (c) => log(`stdout: ${c}`));
     backendProcess.stderr.on("data", (chunk) => {
-      const t = chunk.toString();
-      stderr += t;
-      log(`stderr: ${t}`);
+      stderr += chunk.toString();
+      log(`stderr: ${chunk}`);
     });
-    backendProcess.on("error", (err) => {
-      log(`spawn error: ${err.message}`);
-      reject(err);
-    });
+    backendProcess.on("error", (err) => reject(err));
 
     waitForServer(120_000)
       .then(resolve)
-      .catch(() => {
-        const hint =
-          process.platform === "win32"
-            ? "Chay CaiDat.bat (Run as administrator) trong thu muc da giai nen.\nCan Python 3.10+ trong PATH."
-            : "pip install -r backend/requirements.txt";
-        reject(new Error(`${stderr.trim() || "Backend timeout"}\n\n${hint}\n\nLog: ${logPath()}`));
-      });
+      .catch(() => reject(new Error(`${stderr.trim() || "Backend timeout"}\nLog: ${logPath()}`)));
   });
 }
 
@@ -165,7 +152,6 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
-
   mainWindow.loadURL(`http://127.0.0.1:${PORT}/`);
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -186,15 +172,10 @@ function stopBackend() {
 
 app.whenReady().then(async () => {
   try {
-    log("App starting...");
     await startBackend();
     createWindow();
   } catch (err) {
-    log(`Fatal: ${err.message}`);
-    dialog.showErrorBox(
-      "ImageSplat Studio — Loi khoi dong",
-      `${err.message}\n\nNeu lan dau cai dat:\n1. Giai nen file .zip\n2. Chay CaiDat.bat (Run as administrator)\n3. Mo lai ImageSplat Studio.exe`,
-    );
+    dialog.showErrorBox("ImageSplat Studio", String(err.message || err));
     app.quit();
   }
 });
