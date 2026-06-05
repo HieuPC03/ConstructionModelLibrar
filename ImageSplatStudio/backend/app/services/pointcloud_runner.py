@@ -52,7 +52,12 @@ class PointCloudRunner:
                 )
                 return
 
-            input_path = input_files[0] if input_files else DEMO_POINTCLOUD
+            if len(input_files) == 1:
+                input_path = input_files[0]
+            elif len(input_files) > 1:
+                input_path = upload_dir
+            else:
+                input_path = DEMO_POINTCLOUD
             if job.demo and not input_files:
                 if DEMO_POINTCLOUD.exists():
                     shutil.copy2(DEMO_POINTCLOUD, upload_dir / "demo_pointcloud.ply")

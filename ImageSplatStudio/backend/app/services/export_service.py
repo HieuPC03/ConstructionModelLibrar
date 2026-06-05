@@ -1,10 +1,17 @@
 import io
 import json
+import os
 import re
+import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
+from app.config import settings
 from app.models import JobInfo
+from app.services.python_exec import get_python_executable
+
+PIPELINE_ROOT = settings.app_root / "pipeline"
 
 
 def safe_filename(name: str, fallback: str = "export") -> str:
@@ -64,5 +71,40 @@ def create_export_zip(job: JobInfo, output_dir: Path) -> tuple[io.BytesIO, str]:
         if obj_path.exists():
             zf.write(obj_path, f"{folder}/model.obj")
 
+        fbx_path = output_dir / "model.fbx"
+        if fbx_path.exists():
+            zf.write(fbx_path, f"{folder}/model.fbx")
+
     buf.seek(0)
     return buf, archive_name
+
+
+def ensure_fbx_export(job_id: str, output_dir: Path) -> Path:
+    """Generate model.fbx on demand from model.splat."""
+    fbx_path = output_dir / "model.fbx"
+    splat_path = output_dir / "model.splat"
+    if fbx_path.exists() and fbx_path.stat().st_size > 0:
+        return fbx_path
+    if not splat_path.exists():
+        raise FileNotFoundError("model.splat not found")
+
+    script = PIPELINE_ROOT / "export_fbx.py"
+    if not script.exists():
+        raise FileNotFoundError(f"export_fbx.py not found: {script}")
+
+    python = get_python_executable()
+    env = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join(p for p in (str(PIPELINE_ROOT), os.environ.get("PYTHONPATH", "")) if p),
+    }
+    result = subprocess.run(
+        [python, str(script), "--input", str(splat_path), "--output", str(fbx_path)],
+        cwd=str(PIPELINE_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if result.returncode != 0 or not fbx_path.exists():
+        raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "FBX export failed")
+    return fbx_path

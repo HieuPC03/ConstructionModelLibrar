@@ -17,8 +17,8 @@ export function SplatViewer({ url }: SplatViewerProps) {
 
     const viewer = new GaussianSplats3D.Viewer({
       rootElement: mount,
-      cameraUp: [0, -1, 0],
-      initialCameraPosition: [0, -2.5, 4],
+      cameraUp: [0, 1, 0],
+      initialCameraPosition: [0, 1.5, 3],
       initialCameraLookAt: [0, 0, 0],
       sharedMemoryForWorkers: false,
       gpuAcceleratedSort: false,

@@ -6,9 +6,9 @@ from fastapi.responses import FileResponse, StreamingResponse
 from app.config import settings
 from app.models import HealthResponse, JobCreateResponse, JobInfo, JobStatus, JobType, OutputFormat
 from app.services.capabilities import check_colmap_available, check_gpu_available, check_open3d_available
-from app.services.export_service import create_export_zip, safe_filename
+from app.services.export_service import create_export_zip, ensure_fbx_export, safe_filename
 from app.services.job_store import job_store
-from app.services.pointcloud_preview import preview_upload
+from app.services.pointcloud_preview import preview_upload_files
 from app.services.pipeline_runner import pipeline_runner
 from app.services.pointcloud_runner import pointcloud_runner
 from app.services.upload_helpers import resolve_image_suffix, supported_image_formats_hint
@@ -105,23 +105,30 @@ async def create_image_job(
 
 
 @router.post("/pointcloud-preview")
-async def pointcloud_preview(file: UploadFile = File(...)) -> dict:
+async def pointcloud_preview(files: list[UploadFile] = File(...)) -> dict:
     if not check_open3d_available():
         raise HTTPException(status_code=503, detail="Open3D chưa sẵn sàng.")
+    if not files:
+        raise HTTPException(status_code=400, detail="Chọn ít nhất 1 file point cloud.")
 
-    suffix = Path(file.filename or "").suffix.lower()
-    if suffix not in settings.pointcloud_extensions:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Định dạng không hỗ trợ. Dùng: {', '.join(sorted(settings.pointcloud_extensions))}",
-        )
+    payloads: list[tuple[bytes, str]] = []
+    for upload in files:
+        suffix = Path(upload.filename or "").suffix.lower()
+        if suffix not in settings.pointcloud_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Định dạng không hỗ trợ: {upload.filename}. Dùng PLY, TXT, LAS, LAZ, XYZ...",
+            )
+        content = await upload.read()
+        if len(content) == 0:
+            continue
+        payloads.append((content, suffix))
 
-    content = await file.read()
-    if len(content) == 0:
-        raise HTTPException(status_code=400, detail="File rỗng.")
+    if not payloads:
+        raise HTTPException(status_code=400, detail="Tất cả file rỗng.")
 
     try:
-        return preview_upload(content, suffix)
+        return preview_upload_files(payloads)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -131,13 +138,13 @@ async def create_pointcloud_job(
     name: str = Form(...),
     demo: bool = Form(False),
     method: str = Form("luma"),
-    pointcloud: UploadFile | None = File(default=None),
+    pointcloud: list[UploadFile] = File(default=[]),
 ) -> JobCreateResponse:
     if method not in {"luma", "standard"}:
         raise HTTPException(status_code=400, detail="mode phải là luma hoặc standard.")
 
-    if not demo and pointcloud is None:
-        raise HTTPException(status_code=400, detail="Upload file point cloud (.ply, .pcd, .xyz, ...).")
+    if not demo and not pointcloud:
+        raise HTTPException(status_code=400, detail="Upload ít nhất 1 file point cloud (.ply, .txt, .las...).")
 
     if not check_open3d_available():
         raise HTTPException(
@@ -149,24 +156,29 @@ async def create_pointcloud_job(
         name=name.strip() or "Point Cloud",
         job_type=JobType.POINTCLOUD,
         output_format=OutputFormat.SPLAT,
-        file_count=1 if pointcloud else 0,
+        file_count=len(pointcloud) if pointcloud else 0,
         demo=demo,
         mesh_method=method,
     )
     upload_dir = job_store.job_dir(job.job_id, "uploads")
 
-    if pointcloud is not None:
-        suffix = Path(pointcloud.filename or "").suffix.lower()
+    saved = 0
+    for index, upload in enumerate(pointcloud):
+        suffix = Path(upload.filename or "").suffix.lower()
         if suffix not in settings.pointcloud_extensions:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Định dạng không hỗ trợ. Dùng: {', '.join(sorted(settings.pointcloud_extensions))}",
-            )
-        content = await pointcloud.read()
+            continue
+        content = await upload.read()
         if len(content) == 0:
-            raise HTTPException(status_code=400, detail="File rỗng.")
-        dest = upload_dir / f"input{suffix}"
+            continue
+        dest = upload_dir / f"input_{index:04d}{suffix}"
         dest.write_bytes(content)
+        saved += 1
+
+    if not demo and saved == 0:
+        job_store.delete(job.job_id)
+        raise HTTPException(status_code=400, detail="Không lưu được file point cloud hợp lệ.")
+
+    job_store.update(job.job_id, image_count=saved)
 
     pointcloud_runner.start(job.job_id)
 
@@ -199,6 +211,27 @@ def download_splat(job_id: str) -> FileResponse:
     filename = f"{safe_filename(job.name, job_id)}.splat"
     return FileResponse(
         path=model_path,
+        media_type="application/octet-stream",
+        filename=filename,
+    )
+
+
+@router.get("/jobs/{job_id}/model.fbx")
+def download_fbx(job_id: str) -> FileResponse:
+    job = job_store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job không tồn tại.")
+    if job.status != JobStatus.COMPLETED:
+        raise HTTPException(status_code=409, detail="Mô hình chưa sẵn sàng.")
+
+    output_dir = settings.data_dir / "outputs" / job_id
+    fbx_path = ensure_fbx_export(job_id, output_dir)
+    if not fbx_path.exists():
+        raise HTTPException(status_code=500, detail="Không tạo được file FBX.")
+
+    filename = f"{safe_filename(job.name, job_id)}.fbx"
+    return FileResponse(
+        path=fbx_path,
         media_type="application/octet-stream",
         filename=filename,
     )

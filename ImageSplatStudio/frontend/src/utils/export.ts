@@ -14,6 +14,10 @@ export function exportPackageUrl(job: JobInfo): string {
   return downloadUrl(`${API}/jobs/${job.job_id}/export.zip`);
 }
 
+export function fbxDownloadUrl(job: JobInfo): string {
+  return downloadUrl(`${API}/jobs/${job.job_id}/model.fbx`);
+}
+
 /** Trigger browser download for a URL */
 export function triggerDownload(url: string, filename?: string): void {
   const anchor = document.createElement("a");

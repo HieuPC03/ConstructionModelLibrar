@@ -22,6 +22,7 @@ if _ROOT not in sys.path:
 
 from write_splat import pack_rotation
 from pointcloud_io import is_3dgs_ply_header, load_point_cloud_file
+from pointcloud_coords import merge_point_cloud_files, normalize_point_cloud, sample_fraction
 
 
 def sigmoid(x: float) -> float:
@@ -84,7 +85,18 @@ def parse_3dgs_ply(path: Path) -> tuple[list, list, list, list, list]:
 
 
 def load_point_cloud(path: Path):
-    return load_point_cloud_file(path)
+    if path.is_dir():
+        files = sorted(
+            p for p in path.iterdir()
+            if p.is_file() and p.suffix.lower() in {".ply", ".pcd", ".xyz", ".pts", ".las", ".laz", ".txt", ".obj"}
+        )
+        pcd, _ = merge_point_cloud_files(files)
+        return pcd
+    pcd_raw = load_point_cloud_file(path)
+    if isinstance(pcd_raw, tuple):
+        return pcd_raw
+    pcd, _ = normalize_point_cloud(pcd_raw)
+    return pcd
 
 
 def estimate_scales(points, k: int = 8) -> list[tuple[float, float, float]]:

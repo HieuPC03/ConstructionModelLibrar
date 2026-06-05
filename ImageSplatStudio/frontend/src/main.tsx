@@ -29,7 +29,7 @@ function AppContent() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pcPreviewFile, setPcPreviewFile] = useState<File | null>(null);
+  const [pcPreviewFiles, setPcPreviewFiles] = useState<File[]>([]);
 
   const selectedJob = jobs.find((j) => j.job_id === selectedId) ?? null;
 
@@ -62,13 +62,19 @@ function AppContent() {
   useEffect(() => {
     if (!selectedId) return;
     const job = jobs.find((j) => j.job_id === selectedId);
-    if (job?.status === "completed") return;
+    if (job?.status === "completed") {
+      setPcPreviewFiles([]);
+      return;
+    }
     const timer = setInterval(() => {
       fetchJob(selectedId)
         .then((updated) => {
           setJobs((prev) =>
             prev.map((j) => (j.job_id === updated.job_id ? updated : j)),
           );
+          if (updated.status === "completed" || updated.status === "failed") {
+            setPcPreviewFiles([]);
+          }
         })
         .catch(() => undefined);
     }, 1500);
@@ -80,6 +86,7 @@ function AppContent() {
     setError(null);
     try {
       const result = await createJob(name, files, demo);
+      setPcPreviewFiles([]);
       await refresh();
       setSelectedId(result.job_id);
     } catch (e: unknown) {
@@ -91,14 +98,15 @@ function AppContent() {
 
   const handlePointCloudSubmit = async (
     name: string,
-    file: File | null,
+    files: File[],
     demo: boolean,
     method: "luma" | "standard",
   ) => {
     setBusy(true);
     setError(null);
     try {
-      const result = await createPointCloudJob(name, file, demo, method);
+      const result = await createPointCloudJob(name, files, demo, method);
+      setPcPreviewFiles([]);
       await refresh();
       setSelectedId(result.job_id);
     } catch (e: unknown) {
@@ -114,6 +122,11 @@ function AppContent() {
     if (selectedId === jobId) setSelectedId(null);
     await refresh();
   };
+
+  const showPointCloudPreview =
+    mode === "pointcloud" &&
+    pcPreviewFiles.length > 0 &&
+    !selectedJob;
 
   return (
     <div className="app-shell">
@@ -162,7 +175,7 @@ function AppContent() {
           {mode === "pointcloud" ? (
             <PointCloudPanel
               onSubmit={handlePointCloudSubmit}
-              onFileChange={setPcPreviewFile}
+              onFilesChange={setPcPreviewFiles}
               busy={busy}
               open3dAvailable={!!health?.open3d_available}
             />
@@ -176,7 +189,10 @@ function AppContent() {
           <JobList
             jobs={jobs}
             selectedId={selectedId}
-            onSelect={setSelectedId}
+            onSelect={(id) => {
+              setSelectedId(id);
+              setPcPreviewFiles([]);
+            }}
             onDelete={handleDelete}
           />
         </aside>
@@ -196,8 +212,8 @@ function AppContent() {
               <ExportBar job={selectedJob} />
               <SplatViewer url={modelUrl(selectedJob)} />
             </>
-          ) : mode === "pointcloud" && pcPreviewFile && !selectedJob ? (
-            <PointCloudPreview file={pcPreviewFile} />
+          ) : showPointCloudPreview ? (
+            <PointCloudPreview files={pcPreviewFiles} />
           ) : (
             <div className="viewer-placeholder">
               {selectedJob ? (

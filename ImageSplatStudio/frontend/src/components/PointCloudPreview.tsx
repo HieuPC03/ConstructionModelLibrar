@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { useI18n } from "../i18n/I18nProvider";
-import { previewPointCloud, type PointCloudPreviewData } from "../api";
-import { formatFileSize, getPointCloudExtension } from "../utils/pointcloud";
+import { previewPointClouds, type PointCloudPreviewData } from "../api";
+import { formatFileSize } from "../utils/pointcloud";
 
 interface PointCloudPreviewProps {
-  file: File;
+  files: File[];
 }
 
-export function PointCloudPreview({ file }: PointCloudPreviewProps) {
+export function PointCloudPreview({ files }: PointCloudPreviewProps) {
   const { tr } = useI18n();
   const mountRef = useRef<HTMLDivElement>(null);
   const [data, setData] = useState<PointCloudPreviewData | null>(null);
@@ -20,7 +20,7 @@ export function PointCloudPreview({ file }: PointCloudPreviewProps) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    previewPointCloud(file)
+    previewPointClouds(files)
       .then((result) => {
         if (!cancelled) setData(result);
       })
@@ -33,7 +33,7 @@ export function PointCloudPreview({ file }: PointCloudPreviewProps) {
     return () => {
       cancelled = true;
     };
-  }, [file]);
+  }, [files]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -65,25 +65,21 @@ export function PointCloudPreview({ file }: PointCloudPreviewProps) {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox!;
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z, 0.001);
+    const pointSize = Math.max(maxDim / 200, 0.004);
 
     const material = new THREE.PointsMaterial({
-      size: 0.015,
+      size: pointSize,
       vertexColors: true,
       sizeAttenuation: true,
     });
-    const points = new THREE.Points(geometry, material);
-    scene.add(points);
+    scene.add(new THREE.Points(geometry, material));
 
-    geometry.computeBoundingBox();
-    const box = geometry.boundingBox!;
-    const center = new THREE.Vector3();
-    box.getCenter(center);
-    points.position.sub(center);
-
-    const size = box.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z, 0.001);
     const camera = new THREE.PerspectiveCamera(50, 1, maxDim * 0.001, maxDim * 100);
-    camera.position.set(maxDim * 1.2, maxDim * 0.9, maxDim * 1.4);
+    camera.position.set(maxDim * 1.4, maxDim * 1.0, maxDim * 1.4);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -94,7 +90,7 @@ export function PointCloudPreview({ file }: PointCloudPreviewProps) {
     controls.target.set(0, 0, 0);
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const grid = new THREE.GridHelper(maxDim * 2, 20, 0x2a3444, 0x1a2230);
+    const grid = new THREE.GridHelper(maxDim * 2.5, 20, 0x2a3444, 0x1a2230);
     scene.add(grid);
 
     const resize = () => {
@@ -129,7 +125,7 @@ export function PointCloudPreview({ file }: PointCloudPreviewProps) {
     };
   }, [data]);
 
-  const ext = getPointCloudExtension(file.name);
+  const totalSize = files.reduce((s, f) => s + f.size, 0);
 
   return (
     <div className="pc-preview">
@@ -137,13 +133,13 @@ export function PointCloudPreview({ file }: PointCloudPreviewProps) {
         <div>
           <h3>{tr("pcPreviewTitle")}</h3>
           <p className="muted">
-            {file.name} · {formatFileSize(file.size)} · {ext.toUpperCase()}
+            {files.length} {tr("pcFilesSelected")} · {formatFileSize(totalSize)}
             {data && (
               <>
                 {" "}
                 · {data.total_points.toLocaleString()} {tr("pcPreviewPoints")}
-                {data.total_points > data.preview_count &&
-                  ` (${tr("pcPreviewShowing")} ${data.preview_count.toLocaleString()})`}
+                {" "}
+                ({tr("pcPreviewShowing")} {data.preview_count.toLocaleString()} = 20%)
               </>
             )}
           </p>

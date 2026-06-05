@@ -43,7 +43,7 @@ export async function createJob(
 
 export async function createPointCloudJob(
   name: string,
-  file: File | null,
+  files: File[],
   demo: boolean,
   method: "luma" | "standard",
 ): Promise<{ job_id: string; message: string }> {
@@ -51,7 +51,9 @@ export async function createPointCloudJob(
   form.append("name", name);
   form.append("demo", String(demo));
   form.append("method", method);
-  if (file) form.append("pointcloud", file);
+  for (const file of files) {
+    form.append("pointcloud", file);
+  }
   return parseJson(
     await fetch(`${API}/pointcloud-jobs`, {
       method: "POST",
@@ -67,6 +69,8 @@ export async function deleteJob(jobId: string): Promise<void> {
 export interface PointCloudPreviewData {
   total_points: number;
   preview_count: number;
+  preview_fraction?: number;
+  file_count?: number;
   format: string;
   positions: [number, number, number][];
   colors?: [number, number, number][];
@@ -77,15 +81,22 @@ export interface PointCloudPreviewData {
   };
 }
 
-export async function previewPointCloud(file: File): Promise<PointCloudPreviewData> {
+export async function previewPointClouds(files: File[]): Promise<PointCloudPreviewData> {
   const form = new FormData();
-  form.append("file", file);
+  for (const file of files) {
+    form.append("files", file);
+  }
   return parseJson(
     await fetch(`${API}/pointcloud-preview`, {
       method: "POST",
       body: form,
     }),
   );
+}
+
+/** @deprecated use previewPointClouds */
+export async function previewPointCloud(file: File): Promise<PointCloudPreviewData> {
+  return previewPointClouds([file]);
 }
 
 export function modelUrl(job: JobInfo): string {

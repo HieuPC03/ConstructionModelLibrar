@@ -5,52 +5,62 @@ import { formatFileSize, isPointCloudFile } from "../utils/pointcloud";
 interface PointCloudPanelProps {
   onSubmit: (
     name: string,
-    file: File | null,
+    files: File[],
     demo: boolean,
     method: "luma" | "standard",
   ) => Promise<void>;
-  onFileChange?: (file: File | null) => void;
+  onFilesChange?: (files: File[]) => void;
   busy: boolean;
   open3dAvailable: boolean;
 }
 
 export function PointCloudPanel({
   onSubmit,
-  onFileChange,
+  onFilesChange,
   busy,
   open3dAvailable,
 }: PointCloudPanelProps) {
   const { tr } = useI18n();
   const [name, setName] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [demo, setDemo] = useState(false);
   const [method, setMethod] = useState<"luma" | "standard">("luma");
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = (incoming: FileList | File[]) => {
-    const picked = Array.from(incoming).find(isPointCloudFile);
-    if (picked) {
-      setFile(picked);
-      onFileChange?.(picked);
-    }
+  const updateFiles = (next: File[]) => {
+    setFiles(next);
+    onFilesChange?.(next);
   };
 
-  const clearFile = () => {
-    setFile(null);
-    onFileChange?.(null);
+  const handleFile = (incoming: FileList | File[]) => {
+    const accepted = Array.from(incoming).filter(isPointCloudFile);
+    if (accepted.length === 0) return;
+    const map = new Map(files.map((f) => [`${f.name}-${f.size}`, f]));
+    for (const f of accepted) {
+      map.set(`${f.name}-${f.size}`, f);
+    }
+    updateFiles(Array.from(map.values()));
+  };
+
+  const removeFile = (key: string) => {
+    updateFiles(files.filter((f) => `${f.name}-${f.size}` !== key));
+  };
+
+  const clearFiles = () => {
+    updateFiles([]);
     if (inputRef.current) inputRef.current.value = "";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(name.trim() || "Point Cloud", demo ? null : file, demo, method);
+    await onSubmit(name.trim() || "Point Cloud", demo ? [] : files, demo, method);
     setName("");
-    clearFile();
+    clearFiles();
     setDemo(false);
   };
 
-  const canSubmit = demo || file !== null;
+  const canSubmit = demo || files.length > 0;
 
   return (
     <form className="panel upload-panel" onSubmit={handleSubmit}>
@@ -103,6 +113,7 @@ export function PointCloudPanel({
             ref={inputRef}
             type="file"
             accept=".ply,.pcd,.xyz,.pts,.las,.laz,.obj,.txt"
+            multiple
             hidden
             disabled={busy}
             onChange={(e) => {
@@ -111,17 +122,30 @@ export function PointCloudPanel({
             }}
           />
         </label>
-        {file ? (
-          <div className="pointcloud-file-info">
-            <strong>{file.name}</strong>
-            <span>{formatFileSize(file.size)}</span>
-            <button
-              type="button"
-              className="button-link danger"
-              onClick={clearFile}
-              disabled={busy}
-            >
-              {tr("remove")}
+        {files.length > 0 ? (
+          <div className="pc-file-list">
+            <p className="file-count">
+              {files.length} {tr("pcFilesSelected")}
+            </p>
+            <ul>
+              {files.map((f) => (
+                <li key={`${f.name}-${f.size}`}>
+                  <span>
+                    {f.name} · {formatFileSize(f.size)}
+                  </span>
+                  <button
+                    type="button"
+                    className="button-link danger"
+                    onClick={() => removeFile(`${f.name}-${f.size}`)}
+                    disabled={busy}
+                  >
+                    {tr("remove")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="button-link danger" onClick={clearFiles} disabled={busy}>
+              {tr("clearAll")}
             </button>
           </div>
         ) : (
