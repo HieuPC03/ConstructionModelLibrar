@@ -8,7 +8,7 @@ import numpy as np
 
 
 def normalize_point_cloud(pcd):
-    """Center at origin and scale to unit size — fixes LAS large coords and viewer alignment."""
+    """Center at origin and scale to unit size — preserves Z-up (Civil 3D / survey convention)."""
     import open3d as o3d
 
     pts = np.asarray(pcd.points, dtype=np.float64)
@@ -17,9 +17,6 @@ def normalize_point_cloud(pcd):
 
     center = pts.mean(axis=0)
     pts = pts - center
-
-    # GIS / LiDAR often Z-up; Three.js / splat viewers use Y-up — rotate X by -90°
-    pts = np.stack([pts[:, 0], pts[:, 2], -pts[:, 1]], axis=1)
 
     extent = np.max(np.abs(pts), axis=0)
     max_dim = float(np.max(extent))
@@ -34,7 +31,7 @@ def normalize_point_cloud(pcd):
     meta = {
         "center": center.tolist(),
         "scale": scale,
-        "axis_fix": "z_up_to_y_up",
+        "axis_fix": "z_up",
         "world_min": np.min(orig, axis=0).tolist(),
         "world_max": np.max(orig, axis=0).tolist(),
     }

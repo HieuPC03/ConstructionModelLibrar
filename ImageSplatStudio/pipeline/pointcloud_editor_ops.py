@@ -176,8 +176,8 @@ def default_state(*, files: list[dict], norm_meta: dict) -> dict:
         "measurements": [],
         "undo_stack": [],
         "redo_stack": [],
-        "crs": {"epsg": 6668, "name": "JGD2011"},
-        "basemap": {"enabled": False},
+        "crs": {"epsg": 6668, "name": "JGD2011 (Latitude-Longitude)"},
+        "basemap": {"enabled": False, "mode": "aerial"},
         "view": {"show_axes": True, "fov": 50},
     }
 

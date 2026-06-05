@@ -9,7 +9,7 @@ import {
 } from "../api/editor";
 import { useI18n } from "../i18n/I18nProvider";
 import { formatFileSize } from "../utils/pointcloud";
-import { CRS_PRESETS } from "../utils/coordTransform";
+import { CRS_CATEGORIES, CRS_PRESETS } from "../utils/coordTransform";
 
 interface PointCloudPropertyTableProps {
   sessionId: string | null;
@@ -46,7 +46,8 @@ export function PointCloudPropertyTable({
     try {
       const props = await editorConfigureView(sessionId, opts);
       onUpdated(props);
-      if (opts.basemap_enabled != null || opts.show_axes != null) onRefreshPreview();
+      if (opts.basemap_enabled != null || opts.basemap_mode != null || opts.crs_epsg != null || opts.show_axes != null)
+        onRefreshPreview();
     } catch (e: unknown) {
       onError(String(e));
     }
@@ -123,10 +124,14 @@ export function PointCloudPropertyTable({
           value={properties.crs?.epsg ?? 6668}
           onChange={(e) => void applyView({ crs_epsg: Number(e.target.value) })}
         >
-          {CRS_PRESETS.map((c) => (
-            <option key={c.epsg} value={c.epsg}>
-              {c.name}
-            </option>
+          {CRS_CATEGORIES.map((cat) => (
+            <optgroup key={cat} label={cat}>
+              {CRS_PRESETS.filter((c) => c.category === cat).map((c) => (
+                <option key={c.epsg} value={c.epsg}>
+                  {c.name}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
         {wm && wx && (
@@ -143,6 +148,18 @@ export function PointCloudPropertyTable({
           />
           {tr("pcBasemapEnable")}
         </label>
+        {properties.basemap?.enabled && (
+          <select
+            className="tp-select tp-basemap-mode"
+            value={properties.basemap?.mode ?? "aerial"}
+            onChange={(e) => void applyView({ basemap_mode: e.target.value })}
+          >
+            <option value="off">{tr("pcBasemapOff")}</option>
+            <option value="aerial">{tr("pcBasemapAerial")}</option>
+            <option value="road">{tr("pcBasemapRoad")}</option>
+            <option value="hybrid">{tr("pcBasemapHybrid")}</option>
+          </select>
+        )}
         <label className="pc-grid-label">
           <input
             type="checkbox"

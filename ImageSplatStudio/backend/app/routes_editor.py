@@ -124,6 +124,7 @@ class IdBody(BaseModel):
 class ViewSettingsBody(BaseModel):
     crs_epsg: int | None = None
     basemap_enabled: bool | None = None
+    basemap_mode: str | None = None
     show_axes: bool | None = None
 
 
@@ -364,6 +365,7 @@ def editor_view_settings(session_id: str, body: ViewSettingsBody) -> dict:
         session_id,
         crs_epsg=body.crs_epsg,
         basemap_enabled=body.basemap_enabled,
+        basemap_mode=body.basemap_mode,
         show_axes=body.show_axes,
     )
 

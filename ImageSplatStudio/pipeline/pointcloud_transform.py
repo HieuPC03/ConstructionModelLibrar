@@ -1,8 +1,12 @@
-"""World ↔ viewer coordinate transforms (Z-up GIS → Y-up Three.js)."""
+"""World ↔ viewer coordinate transforms (Z-up GIS, identity in viewer)."""
 
 from __future__ import annotations
 
 import numpy as np
+
+
+def _legacy_y_up(meta: dict) -> bool:
+    return meta.get("axis_fix") == "z_up_to_y_up"
 
 
 def centered_world_from_viewer(points: np.ndarray, meta: dict) -> np.ndarray:
@@ -10,15 +14,19 @@ def centered_world_from_viewer(points: np.ndarray, meta: dict) -> np.ndarray:
     pts = np.asarray(points, dtype=np.float64)
     scale = float(meta.get("scale", 1.0)) or 1.0
     p = pts / scale
-    # Inverse axis fix: viewer [x,y,z] → centered world [x, -z, y]
-    return np.stack([p[:, 0], -p[:, 2], p[:, 1]], axis=1)
+    if _legacy_y_up(meta):
+        return np.stack([p[:, 0], -p[:, 2], p[:, 1]], axis=1)
+    return p
 
 
 def viewer_from_centered_world(centered: np.ndarray, meta: dict) -> np.ndarray:
     """Centered Z-up world → viewer coords."""
     wc = np.asarray(centered, dtype=np.float64)
     scale = float(meta.get("scale", 1.0)) or 1.0
-    v = np.stack([wc[:, 0], wc[:, 2], -wc[:, 1]], axis=1)
+    if _legacy_y_up(meta):
+        v = np.stack([wc[:, 0], wc[:, 2], -wc[:, 1]], axis=1)
+    else:
+        v = wc
     return (v * scale).astype(np.float32)
 
 

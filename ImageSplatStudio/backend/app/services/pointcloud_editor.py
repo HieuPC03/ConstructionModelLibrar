@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from app.config import settings
+from app.services.crs_presets import crs_name_for_epsg
 from app.services.preview_cache import get_session, update_session_total
 
 
@@ -104,7 +105,7 @@ def get_properties(session_id: str) -> dict:
         "bounds": bbox,
         "norm_meta": state.get("norm_meta", {}),
         "crs": state.get("crs", {"epsg": 6668, "name": "JGD2011"}),
-        "basemap": state.get("basemap", {"enabled": False}),
+        "basemap": state.get("basemap", {"enabled": False, "mode": "aerial"}),
         "view": state.get("view", {"show_axes": True, "fov": 50}),
     }
 
@@ -633,14 +634,18 @@ def configure_view(
     *,
     crs_epsg: int | None = None,
     basemap_enabled: bool | None = None,
+    basemap_mode: str | None = None,
     show_axes: bool | None = None,
 ) -> dict:
     state = load_state(session_id)
     if crs_epsg is not None:
-        names = {6668: "JGD2011", 6677: "JGD2011 / Plane VII", 4326: "WGS84", 0: "Local"}
-        state["crs"] = {"epsg": crs_epsg, "name": names.get(crs_epsg, f"EPSG:{crs_epsg}")}
+        state["crs"] = {"epsg": crs_epsg, "name": crs_name_for_epsg(crs_epsg)}
+    basemap = state.get("basemap", {"enabled": False, "mode": "aerial"})
     if basemap_enabled is not None:
-        state["basemap"] = {"enabled": bool(basemap_enabled)}
+        basemap["enabled"] = bool(basemap_enabled)
+    if basemap_mode is not None and basemap_mode in ("aerial", "road", "hybrid", "off"):
+        basemap["mode"] = basemap_mode
+    state["basemap"] = basemap
     if show_axes is not None:
         view = state.get("view", {"show_axes": True, "fov": 50})
         view["show_axes"] = bool(show_axes)

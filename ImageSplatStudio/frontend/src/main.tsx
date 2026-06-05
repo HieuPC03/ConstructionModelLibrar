@@ -517,6 +517,10 @@ function AppContent() {
                 meshReloadToken={meshReloadToken}
                 showAxes={editorProperties?.view?.show_axes ?? true}
                 basemapEnabled={!!editorProperties?.basemap?.enabled}
+                basemapMode={
+                  (editorProperties?.basemap?.mode as "aerial" | "road" | "hybrid" | "off") ?? "aerial"
+                }
+                crsEpsg={editorProperties?.crs?.epsg ?? 6668}
                 normMeta={editorProperties?.norm_meta}
                 swapXy={!!editorProperties?.swap_xy}
                 activeTool={activeTool}
