@@ -1,0 +1,27 @@
+HUONG DAN CAI DAT - ImageSplat Studio (Windows)
+==============================================
+
+QUAN TRONG: File .zip KHONG PHAI installer Setup!
+Ban phai GIAI NEN (Extract) truoc khi dung.
+
+BUOC 1: Giai nen
+  - Click phai file ImageSplatStudio-Setup-0.1.0.zip
+  - Chon "Extract All..." / "Giai nen tat ca..."
+  - Chon thu muc (vi du C:\ImageSplatStudio\)
+
+BUOC 2: Chay cai dat
+  - Mo thu muc vua giai nen
+  - Click phai CaiDat.bat -> "Run as administrator" (Quan trong!)
+  - Hoac double-click CaiDat.bat
+
+BUOC 3: Doi cai thu vien xong -> app tu mo
+
+NEU Windows chan file .exe:
+  - Hien "Windows protected your PC" -> bam "More info" -> "Run anyway"
+
+NEU CaiDat.bat bao loi Python:
+  - Cai Python 3.11 tu https://www.python.org/downloads/
+  - Tick "Add python.exe to PATH"
+  - Chay lai CaiDat.bat
+
+KHONG can cai file .zip truc tiep - phai giai nen truoc!

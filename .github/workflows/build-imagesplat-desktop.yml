@@ -27,11 +27,12 @@ jobs:
           npm install
           npm run build
 
-      - name: Build Windows installer
+      - name: Build Windows installer (with bundled Python)
         shell: pwsh
+        timeout-minutes: 45
         run: |
           cd ImageSplatStudio
-          .\build-desktop.ps1 -SkipPythonBundle
+          .\build-desktop.ps1
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
