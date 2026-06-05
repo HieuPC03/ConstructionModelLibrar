@@ -9,13 +9,15 @@ import {
 
 export type BasemapMode = "off" | "aerial" | "road" | "hybrid";
 
-const GSI_TILE_URL: Record<Exclude<BasemapMode, "off">, string> = {
-  aerial: "https://cyberjapandrs.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",
-  road: "https://cyberjapandrs.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",
-  hybrid: "https://cyberjapandrs.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",
-};
+const TILE_PROXY = "/api/basemap/tile";
 
-const JGD2011_GEO = "+proj=longlat +ellps=GRS80 +no_defs +type=crs";
+function sourceCrsDef(epsg: number): string | null {
+  if (epsg === 6668) return "+proj=longlat +ellps=GRS80 +no_defs +type=crs";
+  if (epsg === 4326) return "+proj=longlat +datum=WGS84 +no_defs +type=crs";
+  if (isProjectedCrs(epsg)) return JGD2011_PLANE_DEFS[epsg] ?? null;
+  return null;
+}
+
 const WGS84 = "+proj=longlat +datum=WGS84 +no_defs +type=crs";
 
 const JGD2011_PLANE_DEFS: Record<number, string> = {
@@ -40,13 +42,6 @@ const JGD2011_PLANE_DEFS: Record<number, string> = {
   6687: "+proj=tmerc +lat_0=44 +lon_0=145.5 +k=0.9999 +x_0=0 +y_0=0 +ellps=GRS80 +units=m +no_defs",
 };
 
-function sourceCrsDef(epsg: number): string | null {
-  if (epsg === 6668) return JGD2011_GEO;
-  if (epsg === 4326) return WGS84;
-  if (isProjectedCrs(epsg)) return JGD2011_PLANE_DEFS[epsg] ?? null;
-  return null;
-}
-
 function toLonLat(x: number, y: number, epsg: number): [number, number] | null {
   const src = sourceCrsDef(epsg);
   if (!src) {
@@ -56,8 +51,7 @@ function toLonLat(x: number, y: number, epsg: number): [number, number] | null {
     return null;
   }
   try {
-    const [lon, lat] = proj4(src, WGS84, [x, y]);
-    return [lon, lat];
+    return proj4(src, WGS84, [x, y]) as [number, number];
   } catch {
     return null;
   }
@@ -81,10 +75,16 @@ function pickZoom(lonSpan: number, latSpan: number): number {
   return 17;
 }
 
+function tileUrl(mode: BasemapMode, z: number, x: number, y: number): string {
+  if (mode === "hybrid") {
+    return `${TILE_PROXY}/hybrid_photo/${z}/${x}/${y}`;
+  }
+  return `${TILE_PROXY}/${mode}/${z}/${x}/${y}`;
+}
+
 async function loadTile(url: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const img = new Image();
-    img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
     img.src = url;
@@ -96,6 +96,12 @@ export interface BasemapPlacement {
   width: number;
   height: number;
   center: THREE.Vector3;
+}
+
+export function effectiveBasemapMode(enabled: boolean, mode: BasemapMode): BasemapMode {
+  if (!enabled) return "off";
+  if (mode === "off") return "aerial";
+  return mode;
 }
 
 export async function buildGeoreferencedBasemap(
@@ -136,36 +142,34 @@ export async function buildGeoreferencedBasemap(
 
   const tileW = tMax.x - tMin.x + 1;
   const tileH = tMax.y - tMin.y + 1;
-  if (tileW <= 0 || tileH <= 0 || tileW > 8 || tileH > 8) return null;
+  if (tileW <= 0 || tileH <= 0 || tileW > 20 || tileH > 20) return null;
 
   const canvas = document.createElement("canvas");
   const tileSize = 256;
   canvas.width = tileW * tileSize;
   canvas.height = tileH * tileSize;
   const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#1a2230";
+  ctx.fillStyle = "#2a3444";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const baseUrl = GSI_TILE_URL[mode];
+  let loaded = 0;
   for (let ty = tMin.y; ty <= tMax.y; ty++) {
     for (let tx = tMin.x; tx <= tMax.x; tx++) {
-      const url = baseUrl.replace("{z}", String(zoom)).replace("{x}", String(tx)).replace("{y}", String(ty));
+      const url = tileUrl(mode, zoom, tx, ty);
       const img = await loadTile(url);
       const dx = (tx - tMin.x) * tileSize;
       const dy = (ty - tMin.y) * tileSize;
       if (img) {
         ctx.drawImage(img, dx, dy, tileSize, tileSize);
+        loaded++;
         if (mode === "hybrid") {
-          const roadUrl = GSI_TILE_URL.road
-            .replace("{z}", String(zoom))
-            .replace("{x}", String(tx))
-            .replace("{y}", String(ty));
-          const road = await loadTile(roadUrl);
+          const road = await loadTile(`${TILE_PROXY}/hybrid_road/${zoom}/${tx}/${ty}`);
           if (road) ctx.drawImage(road, dx, dy, tileSize, tileSize);
         }
       }
     }
   }
+  if (loaded === 0) return null;
 
   const v00 = worldToViewer([wmin[0], wmin[1], wmin[2]], meta, swapXy);
   const v11 = worldToViewer([wmax[0], wmax[1], wmax[2]], meta, swapXy);
@@ -182,8 +186,8 @@ export async function buildGeoreferencedBasemap(
 
   return {
     texture: tex,
-    width: width * 1.05,
-    height: height * 1.05,
-    center: new THREE.Vector3(centerX, centerY, centerZ - width * 0.005),
+    width: width * 1.08,
+    height: height * 1.08,
+    center: new THREE.Vector3(centerX, centerY, centerZ - width * 0.008),
   };
 }

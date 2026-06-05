@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   editorConfigureGrid,
   editorConfigureView,
@@ -10,6 +11,8 @@ import {
 import { useI18n } from "../i18n/I18nProvider";
 import { formatFileSize } from "../utils/pointcloud";
 import { CRS_CATEGORIES, CRS_PRESETS } from "../utils/coordTransform";
+
+type PropTab = "files" | "crs" | "grid" | "results";
 
 interface PointCloudPropertyTableProps {
   sessionId: string | null;
@@ -31,12 +34,13 @@ export function PointCloudPropertyTable({
   onError,
 }: PointCloudPropertyTableProps) {
   const { tr } = useI18n();
+  const [tab, setTab] = useState<PropTab>("crs");
 
   if (!properties) {
     return (
       <div className="panel pc-property-panel tp-panel empty">
         <h3>{tr("pcPropertyTitle")}</h3>
-        <p className="muted">{tr("pcPropertyEmpty")}</p>
+        <p className="tp-muted">{tr("pcPropertyEmpty")}</p>
       </div>
     );
   }
@@ -46,8 +50,14 @@ export function PointCloudPropertyTable({
     try {
       const props = await editorConfigureView(sessionId, opts);
       onUpdated(props);
-      if (opts.basemap_enabled != null || opts.basemap_mode != null || opts.crs_epsg != null || opts.show_axes != null)
+      if (
+        opts.basemap_enabled != null ||
+        opts.basemap_mode != null ||
+        opts.crs_epsg != null ||
+        opts.show_axes != null
+      ) {
         onRefreshPreview();
+      }
     } catch (e: unknown) {
       onError(String(e));
     }
@@ -109,174 +119,214 @@ export function PointCloudPropertyTable({
   const wm = properties.norm_meta?.world_min;
   const wx = properties.norm_meta?.world_max;
 
+  const tabs: { id: PropTab; label: string }[] = [
+    { id: "crs", label: tr("propTabCrs") },
+    { id: "files", label: tr("propTabFiles") },
+    { id: "grid", label: tr("propTabGrid") },
+    { id: "results", label: tr("propTabResults") },
+  ];
+
+  const hasResults =
+    properties.measurements.length > 0 ||
+    properties.breaklines.length > 0 ||
+    properties.hidden_regions.length > 0;
+
   return (
     <div className="panel pc-property-panel tp-panel">
       <h3>{tr("pcPropertyTitle")}</h3>
-      <div className="pc-property-summary muted">
+      <div className="pc-property-summary tp-muted">
         {properties.total_points.toLocaleString()} {tr("pcPreviewPoints")}
         {properties.swap_xy ? ` · ${tr("pcMenuSwapXy")}` : ""}
       </div>
 
-      <div className="tp-prop-section">
-        <h4>{tr("pcPropCrs")}</h4>
-        <select
-          className="tp-select"
-          value={properties.crs?.epsg ?? 6668}
-          onChange={(e) => void applyView({ crs_epsg: Number(e.target.value) })}
-        >
-          {CRS_CATEGORIES.map((cat) => (
-            <optgroup key={cat} label={cat}>
-              {CRS_PRESETS.filter((c) => c.category === cat).map((c) => (
-                <option key={c.epsg} value={c.epsg}>
-                  {c.name}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        {wm && wx && (
-          <p className="tp-bounds muted">
-            X: {wm[0].toFixed(2)}…{wx[0].toFixed(2)} · Y: {wm[1].toFixed(2)}…{wx[1].toFixed(2)} · Z:{" "}
-            {wm[2].toFixed(2)}…{wx[2].toFixed(2)}
-          </p>
-        )}
-        <label className="pc-grid-label">
-          <input
-            type="checkbox"
-            checked={properties.basemap?.enabled ?? false}
-            onChange={(e) => void applyView({ basemap_enabled: e.target.checked })}
-          />
-          {tr("pcBasemapEnable")}
-        </label>
-        {properties.basemap?.enabled && (
-          <select
-            className="tp-select tp-basemap-mode"
-            value={properties.basemap?.mode ?? "aerial"}
-            onChange={(e) => void applyView({ basemap_mode: e.target.value })}
+      <div className="pc-prop-tabs" role="tablist">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            className={`pc-prop-tab ${tab === t.id ? "active" : ""}`}
+            onClick={() => setTab(t.id)}
           >
-            <option value="off">{tr("pcBasemapOff")}</option>
-            <option value="aerial">{tr("pcBasemapAerial")}</option>
-            <option value="road">{tr("pcBasemapRoad")}</option>
-            <option value="hybrid">{tr("pcBasemapHybrid")}</option>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "crs" && (
+        <div className="tp-prop-section">
+          <h4>{tr("pcPropCrs")}</h4>
+          <select
+            className="tp-select"
+            value={properties.crs?.epsg ?? 6668}
+            onChange={(e) => void applyView({ crs_epsg: Number(e.target.value) })}
+          >
+            {CRS_CATEGORIES.map((cat) => (
+              <optgroup key={cat} label={cat}>
+                {CRS_PRESETS.filter((c) => c.category === cat).map((c) => (
+                  <option key={c.epsg} value={c.epsg}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
           </select>
-        )}
-        <label className="pc-grid-label">
-          <input
-            type="checkbox"
-            checked={properties.view?.show_axes ?? true}
-            onChange={(e) => void applyView({ show_axes: e.target.checked })}
-          />
-          {tr("pcAxesEnable")}
-        </label>
-      </div>
+          {wm && wx && (
+            <p className="tp-bounds">
+              X: {wm[0].toFixed(2)}…{wx[0].toFixed(2)} · Y: {wm[1].toFixed(2)}…{wx[1].toFixed(2)} · Z:{" "}
+              {wm[2].toFixed(2)}…{wx[2].toFixed(2)}
+            </p>
+          )}
+          <label className="pc-grid-label">
+            <input
+              type="checkbox"
+              checked={properties.basemap?.enabled ?? false}
+              onChange={(e) =>
+                void applyView({
+                  basemap_enabled: e.target.checked,
+                  basemap_mode: e.target.checked ? "aerial" : undefined,
+                })
+              }
+            />
+            {tr("pcBasemapEnable")}
+          </label>
+          {properties.basemap?.enabled && (
+            <select
+              className="tp-select tp-basemap-mode"
+              value={properties.basemap?.mode === "off" ? "aerial" : (properties.basemap?.mode ?? "aerial")}
+              onChange={(e) => void applyView({ basemap_mode: e.target.value })}
+            >
+              <option value="aerial">{tr("pcBasemapAerial")}</option>
+              <option value="road">{tr("pcBasemapRoad")}</option>
+              <option value="hybrid">{tr("pcBasemapHybrid")}</option>
+            </select>
+          )}
+          <label className="pc-grid-label">
+            <input
+              type="checkbox"
+              checked={properties.view?.show_axes ?? true}
+              onChange={(e) => void applyView({ show_axes: e.target.checked })}
+            />
+            {tr("pcAxesEnable")}
+          </label>
+        </div>
+      )}
 
-      <div className="pc-property-grid-controls">
-        <label className="pc-grid-label">
-          <input
-            type="checkbox"
-            checked={properties.grid.enabled}
-            onChange={(e) => void applyGrid(e.target.checked)}
-          />
-          {tr("pcGridEnable")}
-        </label>
-        <label className="pc-grid-size">
-          {tr("pcGridCellSize")}
-          <input
-            type="number"
-            min={0.01}
-            step={0.1}
-            value={gridCellSize}
-            onChange={(e) => onGridCellSizeChange(Number(e.target.value))}
-            onBlur={() => {
-              if (properties.grid.enabled) void applyGrid(true);
-            }}
-          />
-          <span>m</span>
-        </label>
-      </div>
+      {tab === "grid" && (
+        <div className="pc-property-grid-controls">
+          <label className="pc-grid-label">
+            <input
+              type="checkbox"
+              checked={properties.grid.enabled}
+              onChange={(e) => void applyGrid(e.target.checked)}
+            />
+            {tr("pcGridEnable")}
+          </label>
+          <label className="pc-grid-size">
+            {tr("pcGridCellSize")}
+            <input
+              type="number"
+              min={0.01}
+              step={0.1}
+              value={gridCellSize}
+              onChange={(e) => onGridCellSizeChange(Number(e.target.value))}
+              onBlur={() => {
+                if (properties.grid.enabled) void applyGrid(true);
+              }}
+            />
+            <span>m</span>
+          </label>
+        </div>
+      )}
 
-      <div className="pc-property-table-wrap">
-        <table className="pc-property-table">
-          <thead>
-            <tr>
-              <th>{tr("pcPropVisible")}</th>
-              <th>{tr("pcPropName")}</th>
-              <th>{tr("pcPropFormat")}</th>
-              <th>{tr("pcPropPoints")}</th>
-              <th>{tr("pcPropSize")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {properties.files.map((f, i) => (
-              <tr key={`${f.name}-${i}`}>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={f.visible}
-                    onChange={(e) => void toggleVisible(i, e.target.checked)}
-                  />
-                </td>
-                <td title={f.name}>{f.name}</td>
-                <td>{f.format.toUpperCase()}</td>
-                <td>{f.point_count.toLocaleString()}</td>
-                <td>{f.size_bytes > 0 ? formatFileSize(f.size_bytes) : "—"}</td>
+      {tab === "files" && (
+        <div className="pc-property-table-wrap">
+          <table className="pc-property-table">
+            <thead>
+              <tr>
+                <th>{tr("pcPropVisible")}</th>
+                <th>{tr("pcPropName")}</th>
+                <th>{tr("pcPropFormat")}</th>
+                <th>{tr("pcPropPoints")}</th>
+                <th>{tr("pcPropSize")}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {properties.measurements.length > 0 && (
-        <div className="pc-property-section">
-          <h4>{tr("pcPropMeasurements")}</h4>
-          <ul className="pc-prop-list">
-            {properties.measurements.map((m) => (
-              <li key={m.id}>
-                <span>
-                  {m.type === "distance" ? tr("toolMeasureDistance") : tr("toolMeasureArea")}:{" "}
-                  {m.value.toFixed(4)} {m.unit}
-                </span>
-                <button type="button" className="pc-prop-del" onClick={() => void removeMeasurement(m.id)}>
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
+            </thead>
+            <tbody>
+              {properties.files.map((f, i) => (
+                <tr key={`${f.name}-${i}`}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={f.visible}
+                      onChange={(e) => void toggleVisible(i, e.target.checked)}
+                    />
+                  </td>
+                  <td title={f.name}>{f.name}</td>
+                  <td>{f.format.toUpperCase()}</td>
+                  <td>{f.point_count.toLocaleString()}</td>
+                  <td>{f.size_bytes > 0 ? formatFileSize(f.size_bytes) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {properties.breaklines.length > 0 && (
-        <div className="pc-property-section">
-          <h4>{tr("pcPropBreaklines")}</h4>
-          <ul className="pc-prop-list">
-            {properties.breaklines.map((bl) => (
-              <li key={bl.id}>
-                <span>
-                  {bl.id} · {bl.points.length} {tr("pcPropVertices")}
-                </span>
-                <button type="button" className="pc-prop-del" onClick={() => void removeBreakline(bl.id)}>
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {properties.hidden_regions.length > 0 && (
-        <div className="pc-property-section">
-          <h4>{tr("pcHiddenRegions")}</h4>
-          <ul className="pc-prop-list">
-            {properties.hidden_regions.map((r) => (
-              <li key={r.id}>
-                <span>{r.id}</span>
-                <button type="button" className="pc-prop-del" onClick={() => void removeRegion(r.id)}>
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {tab === "results" && (
+        <>
+          {!hasResults && <p className="tp-muted">{tr("propTabResultsEmpty")}</p>}
+          {properties.measurements.length > 0 && (
+            <div className="pc-property-section">
+              <h4>{tr("pcPropMeasurements")}</h4>
+              <ul className="pc-prop-list">
+                {properties.measurements.map((m) => (
+                  <li key={m.id}>
+                    <span>
+                      {m.type === "distance" ? tr("toolMeasureDistance") : tr("toolMeasureArea")}:{" "}
+                      {m.value.toFixed(4)} {m.unit}
+                    </span>
+                    <button type="button" className="pc-prop-del" onClick={() => void removeMeasurement(m.id)}>
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {properties.breaklines.length > 0 && (
+            <div className="pc-property-section">
+              <h4>{tr("pcPropBreaklines")}</h4>
+              <ul className="pc-prop-list">
+                {properties.breaklines.map((bl) => (
+                  <li key={bl.id}>
+                    <span>
+                      {bl.id} · {bl.points.length} {tr("pcPropVertices")}
+                    </span>
+                    <button type="button" className="pc-prop-del" onClick={() => void removeBreakline(bl.id)}>
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {properties.hidden_regions.length > 0 && (
+            <div className="pc-property-section">
+              <h4>{tr("pcHiddenRegions")}</h4>
+              <ul className="pc-prop-list">
+                {properties.hidden_regions.map((r) => (
+                  <li key={r.id}>
+                    <span>{r.id}</span>
+                    <button type="button" className="pc-prop-del" onClick={() => void removeRegion(r.id)}>
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -12,7 +12,7 @@ import {
 } from "../api";
 import { formatFileSize } from "../utils/pointcloud";
 import { viewerToWorld, formatWorldCoords, type NormMeta } from "../utils/coordTransform";
-import { buildGeoreferencedBasemap, type BasemapMode } from "../utils/basemapTiles";
+import { buildGeoreferencedBasemap, effectiveBasemapMode, type BasemapMode } from "../utils/basemapTiles";
 import { applyViewDirection, createAxesHelper, ViewCube, type ViewDirection } from "./ViewCube";
 import { OSNAP_CURSOR, TOOL_CURSORS, toolHintKey, type EditorTool, type OsnapMode } from "../utils/editorTools";
 import {
@@ -170,7 +170,7 @@ export function PointCloudPreview({
   const [debouncedPercent, setDebouncedPercent] = useState(DEFAULT_PERCENT);
   const [pointSizeM, setPointSizeM] = useState(DEFAULT_POINT_SIZE_M);
   const [snapLabel, setSnapLabel] = useState<string | null>(null);
-  const [viewCubeCamera, setViewCubeCamera] = useState<THREE.PerspectiveCamera | null>(null);
+  const viewCubeCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
 
   useEffect(() => {
     toolRef.current = activeTool;
@@ -378,20 +378,23 @@ export function PointCloudPreview({
     scene.add(axesGroup);
 
     let basemapPlane: THREE.Mesh | null = null;
-    if (basemapEnabled && normMeta) {
+    const mapMode = effectiveBasemapMode(basemapEnabled, basemapMode);
+    if (mapMode !== "off" && normMeta) {
       const planeGeom = new THREE.PlaneGeometry(maxDim * 2, maxDim * 2);
       const planeMat = new THREE.MeshBasicMaterial({
-        color: 0x888888,
+        color: 0x3a4a5a,
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.9,
         side: THREE.DoubleSide,
+        depthWrite: false,
       });
       basemapPlane = new THREE.Mesh(planeGeom, planeMat);
+      basemapPlane.renderOrder = -1000;
       basemapPlane.position.copy(center);
-      basemapPlane.position.z = box.min.z - maxDim * 0.01;
+      basemapPlane.position.z = box.min.z - maxDim * 0.015;
       scene.add(basemapPlane);
 
-      void buildGeoreferencedBasemap(normMeta, crsEpsg, basemapMode, swapXy).then((placement) => {
+      void buildGeoreferencedBasemap(normMeta, crsEpsg, mapMode, swapXy).then((placement) => {
         if (cancelled || !placement || !basemapPlane) return;
         basemapPlane.geometry.dispose();
         basemapPlane.geometry = new THREE.PlaneGeometry(placement.width, placement.height);
@@ -399,6 +402,7 @@ export function PointCloudPreview({
         const mat = basemapPlane.material as THREE.MeshBasicMaterial;
         mat.map = placement.texture;
         mat.color.set(0xffffff);
+        mat.opacity = 0.92;
         mat.needsUpdate = true;
       });
     }
@@ -442,7 +446,7 @@ export function PointCloudPreview({
       raycaster,
       pickPlane,
     };
-    setViewCubeCamera(camera);
+    viewCubeCameraRef.current = camera;
 
     const sid = sessionRef.current;
     if (gridEnabled && sid) {
@@ -586,7 +590,7 @@ export function PointCloudPreview({
       renderer.dispose();
       mount.removeChild(renderer.domElement);
       sceneCtxRef.current = null;
-      setViewCubeCamera(null);
+      viewCubeCameraRef.current = null;
     };
   }, [data, resolvePick, showAxes, basemapEnabled, basemapMode, crsEpsg, normMeta, swapXy]);
 
@@ -597,6 +601,10 @@ export function PointCloudPreview({
     applyViewDirection(ctx.camera, ctx.controls, ctx.controls.target.clone(), dist, dir);
   };
 
+  const handleViewHome = () => {
+    handleViewCube("front-right");
+  };
+
   useEffect(() => {
     const ctx = sceneCtxRef.current;
     if (ctx) ctx.axesGroup.visible = showAxes;
@@ -605,8 +613,10 @@ export function PointCloudPreview({
   useEffect(() => {
     const ctx = sceneCtxRef.current;
     if (!ctx || !basemapEnabled || !normMeta || !ctx.basemapPlane) return;
+    const mapMode = effectiveBasemapMode(basemapEnabled, basemapMode);
+    if (mapMode === "off") return;
     let cancelled = false;
-    void buildGeoreferencedBasemap(normMeta, crsEpsg, basemapMode, swapXy).then((placement) => {
+    void buildGeoreferencedBasemap(normMeta, crsEpsg, mapMode, swapXy).then((placement) => {
       if (cancelled || !placement || !ctx.basemapPlane) return;
       ctx.basemapPlane.geometry.dispose();
       ctx.basemapPlane.geometry = new THREE.PlaneGeometry(placement.width, placement.height);
@@ -615,6 +625,7 @@ export function PointCloudPreview({
       if (mat.map) mat.map.dispose();
       mat.map = placement.texture;
       mat.color.set(0xffffff);
+      mat.opacity = 0.92;
       mat.needsUpdate = true;
     });
     return () => {
@@ -904,7 +915,11 @@ export function PointCloudPreview({
           </div>
         )}
         <div ref={mountRef} className="pc-preview-mount" />
-        <ViewCube onSelect={handleViewCube} camera={viewCubeCamera} />
+        <ViewCube
+          onSelect={handleViewCube}
+          onHome={handleViewHome}
+          cameraRef={viewCubeCameraRef}
+        />
       </div>
     </div>
   );

@@ -13,12 +13,12 @@ import { ExportBar } from "./components/ExportBar";
 import { JobList } from "./components/JobList";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { Logo } from "./components/Logo";
-import { PointCloudMenuBar } from "./components/PointCloudMenuBar";
+import { PointCloudEditorChrome } from "./components/PointCloudEditorChrome";
 import { PointCloudPanel } from "./components/PointCloudPanel";
 import { PointCloudPreview, type PickMeta } from "./components/PointCloudPreview";
 import { PointCloudPropertyTable } from "./components/PointCloudPropertyTable";
 import { PointCloudStatusBar } from "./components/PointCloudStatusBar";
-import { PointCloudToolBar } from "./components/PointCloudToolBar";
+import { ResizableSplit } from "./components/ResizableSplit";
 import { SplatViewer } from "./components/SplatViewer";
 import { UploadPanel } from "./components/UploadPanel";
 import { I18nProvider, useI18n } from "./i18n/I18nProvider";
@@ -418,148 +418,168 @@ function AppContent() {
       </div>
 
       {mode === "pointcloud" && showPointCloudPreview && (
-        <>
-          <PointCloudMenuBar
-            sessionId={pcSessionId}
-            properties={editorProperties}
-            onUpdated={handleEditorUpdated}
-            onRefreshPreview={bumpPreview}
-            onError={setError}
-          />
-          <PointCloudToolBar
-            activeTool={activeTool}
-            osnapMode={osnapMode}
-            clipMode={clipMode}
-            deleteRadius={deleteRadius}
-            breaklineCount={breaklineDraft.length}
-            polygonCount={polygonDraft.length}
-            meshReady={!!editorProperties?.mesh}
-            canUndo={!!editorProperties?.can_undo}
-            canRedo={!!editorProperties?.can_redo}
-            onToolChange={setActiveTool}
-            onOsnapModeChange={setOsnapMode}
-            onClipModeChange={setClipMode}
-            onDeleteRadiusChange={setDeleteRadius}
-            onFinishBreakline={() => void handleFinishBreakline()}
-            onFinishPolygon={() => void handleFinishPolygon()}
-            onUndo={() => void handleUndo()}
-            onRedo={() => void handleRedo()}
-          />
-        </>
+        <PointCloudEditorChrome
+          sessionId={pcSessionId}
+          properties={editorProperties}
+          activeTool={activeTool}
+          osnapMode={osnapMode}
+          clipMode={clipMode}
+          deleteRadius={deleteRadius}
+          breaklineCount={breaklineDraft.length}
+          polygonCount={polygonDraft.length}
+          canUndo={!!editorProperties?.can_undo}
+          canRedo={!!editorProperties?.can_redo}
+          onUpdated={handleEditorUpdated}
+          onRefreshPreview={bumpPreview}
+          onError={setError}
+          onToolChange={setActiveTool}
+          onOsnapModeChange={setOsnapMode}
+          onClipModeChange={setClipMode}
+          onDeleteRadiusChange={setDeleteRadius}
+          onFinishBreakline={() => void handleFinishBreakline()}
+          onFinishPolygon={() => void handleFinishPolygon()}
+          onUndo={() => void handleUndo()}
+          onRedo={() => void handleRedo()}
+        />
       )}
 
       {error && <div className="banner banner-error">{error}</div>}
 
-      <main className="layout">
-        <aside className="sidebar">
-          {mode === "pointcloud" ? (
-            <>
-              <PointCloudPanel
-                onSubmit={handlePointCloudSubmit}
-                onFilesChange={handlePointCloudFilesChange}
-                busy={busy}
-                open3dAvailable={!!health?.open3d_available}
-              />
-              {pcPreviewFiles.length > 0 && (
-                <PointCloudPropertyTable
-                  sessionId={pcSessionId}
-                  properties={editorProperties}
-                  gridCellSize={gridCellSize}
-                  onGridCellSizeChange={setGridCellSize}
-                  onUpdated={handleEditorUpdated}
-                  onRefreshPreview={bumpPreview}
-                  onError={setError}
+      <main className={`layout ${showPointCloudPreview ? "layout-resizable" : ""}`}>
+        {showPointCloudPreview ? (
+          <ResizableSplit
+            sidebar={
+              <>
+                <PointCloudPanel
+                  onSubmit={handlePointCloudSubmit}
+                  onFilesChange={handlePointCloudFilesChange}
+                  busy={busy}
+                  open3dAvailable={!!health?.open3d_available}
+                />
+                {pcPreviewFiles.length > 0 && (
+                  <PointCloudPropertyTable
+                    sessionId={pcSessionId}
+                    properties={editorProperties}
+                    gridCellSize={gridCellSize}
+                    onGridCellSizeChange={setGridCellSize}
+                    onUpdated={handleEditorUpdated}
+                    onRefreshPreview={bumpPreview}
+                    onError={setError}
+                  />
+                )}
+                <JobList
+                  jobs={jobs}
+                  selectedId={selectedId}
+                  onSelect={(id) => {
+                    setSelectedId(id);
+                    setPcPreviewFiles([]);
+                  }}
+                  onDelete={handleDelete}
+                />
+              </>
+            }
+            main={
+              <section className="viewer-section panel">
+                <PointCloudPreview
+                  files={pcPreviewFiles}
+                  refreshToken={previewRefresh}
+                  gridEnabled={!!editorProperties?.grid.enabled}
+                  showMesh={!!editorProperties?.mesh}
+                  meshReloadToken={meshReloadToken}
+                  showAxes={editorProperties?.view?.show_axes ?? true}
+                  basemapEnabled={!!editorProperties?.basemap?.enabled}
+                  basemapMode={
+                    (editorProperties?.basemap?.mode as "aerial" | "road" | "hybrid" | "off") ?? "aerial"
+                  }
+                  crsEpsg={editorProperties?.crs?.epsg ?? 6668}
+                  normMeta={editorProperties?.norm_meta}
+                  swapXy={!!editorProperties?.swap_xy}
+                  activeTool={activeTool}
+                  osnapMode={osnapMode}
+                  breaklines={editorProperties?.breaklines ?? []}
+                  breaklineDraft={breaklineDraft}
+                  polygonDraft={polygonDraft}
+                  coordPoints={editorProperties?.coord_points ?? []}
+                  measurements={editorProperties?.measurements ?? []}
+                  measureStart={measureStart}
+                  regionStart={regionStart}
+                  onSessionReady={handleSessionReady}
+                  onPick={(pos, meta) => void handlePreviewPick(pos, meta)}
+                  onSnapHover={setSnapCoords}
+                />
+                <PointCloudStatusBar
+                  activeTool={activeTool}
+                  snapCoords={snapCoords}
+                  totalPoints={editorProperties?.total_points ?? null}
+                  lastResult={lastResult}
+                  crsName={editorProperties?.crs?.name}
+                />
+              </section>
+            }
+          />
+        ) : (
+          <>
+            <aside className="sidebar">
+              {mode === "pointcloud" ? (
+                <PointCloudPanel
+                  onSubmit={handlePointCloudSubmit}
+                  onFilesChange={handlePointCloudFilesChange}
+                  busy={busy}
+                  open3dAvailable={!!health?.open3d_available}
+                />
+              ) : (
+                <UploadPanel
+                  onSubmit={handleImageSubmit}
+                  busy={busy}
+                  demoMode={!!health?.demo_mode}
                 />
               )}
-            </>
-          ) : (
-            <UploadPanel
-              onSubmit={handleImageSubmit}
-              busy={busy}
-              demoMode={!!health?.demo_mode}
-            />
-          )}
-          <JobList
-            jobs={jobs}
-            selectedId={selectedId}
-            onSelect={(id) => {
-              setSelectedId(id);
-              setPcPreviewFiles([]);
-            }}
-            onDelete={handleDelete}
-          />
-        </aside>
+              <JobList
+                jobs={jobs}
+                selectedId={selectedId}
+                onSelect={(id) => {
+                  setSelectedId(id);
+                  setPcPreviewFiles([]);
+                }}
+                onDelete={handleDelete}
+              />
+            </aside>
 
-        <section className="viewer-section panel">
-          {!showPointCloudPreview && (
-            <div className="viewer-header">
-              <h2>{tr("viewerTitle")}</h2>
-              {selectedJob && (
-                <p className="muted">
-                  {selectedJob.name} — {selectedJob.progress.message}
-                </p>
+            <section className="viewer-section panel">
+              {!showPointCloudPreview && (
+                <div className="viewer-header">
+                  <h2>{tr("viewerTitle")}</h2>
+                  {selectedJob && (
+                    <p className="muted">
+                      {selectedJob.name} — {selectedJob.progress.message}
+                    </p>
+                  )}
+                </div>
               )}
-            </div>
-          )}
 
-          {selectedJob?.status === "completed" ? (
-            <>
-              <ExportBar job={selectedJob} />
-              <SplatViewer url={modelUrl(selectedJob)} />
-            </>
-          ) : showPointCloudPreview ? (
-            <>
-              <PointCloudPreview
-                files={pcPreviewFiles}
-                refreshToken={previewRefresh}
-                gridEnabled={!!editorProperties?.grid.enabled}
-                showMesh={!!editorProperties?.mesh}
-                meshReloadToken={meshReloadToken}
-                showAxes={editorProperties?.view?.show_axes ?? true}
-                basemapEnabled={!!editorProperties?.basemap?.enabled}
-                basemapMode={
-                  (editorProperties?.basemap?.mode as "aerial" | "road" | "hybrid" | "off") ?? "aerial"
-                }
-                crsEpsg={editorProperties?.crs?.epsg ?? 6668}
-                normMeta={editorProperties?.norm_meta}
-                swapXy={!!editorProperties?.swap_xy}
-                activeTool={activeTool}
-                osnapMode={osnapMode}
-                breaklines={editorProperties?.breaklines ?? []}
-                breaklineDraft={breaklineDraft}
-                polygonDraft={polygonDraft}
-                coordPoints={editorProperties?.coord_points ?? []}
-                measurements={editorProperties?.measurements ?? []}
-                measureStart={measureStart}
-                regionStart={regionStart}
-                onSessionReady={handleSessionReady}
-                onPick={(pos, meta) => void handlePreviewPick(pos, meta)}
-                onSnapHover={setSnapCoords}
-              />
-              <PointCloudStatusBar
-                activeTool={activeTool}
-                snapCoords={snapCoords}
-                totalPoints={editorProperties?.total_points ?? null}
-                lastResult={lastResult}
-                crsName={editorProperties?.crs?.name}
-              />
-            </>
-          ) : (
-            <div className="viewer-placeholder">
-              {selectedJob ? (
+              {selectedJob?.status === "completed" ? (
                 <>
-                  <div className="spinner" />
-                  <p>{selectedJob.progress.message}</p>
-                  <p className="muted">{Math.round(selectedJob.progress.percent)}%</p>
+                  <ExportBar job={selectedJob} />
+                  <SplatViewer url={modelUrl(selectedJob)} />
                 </>
               ) : (
-                <p className="muted">
-                  {mode === "pointcloud" ? tr("viewerEmptyPc") : tr("viewerEmptyImages")}
-                </p>
+                <div className="viewer-placeholder">
+                  {selectedJob ? (
+                    <>
+                      <div className="spinner" />
+                      <p>{selectedJob.progress.message}</p>
+                      <p className="muted">{Math.round(selectedJob.progress.percent)}%</p>
+                    </>
+                  ) : (
+                    <p className="muted">
+                      {mode === "pointcloud" ? tr("viewerEmptyPc") : tr("viewerEmptyImages")}
+                    </p>
+                  )}
+                </div>
               )}
-            </div>
-          )}
-        </section>
+            </section>
+          </>
+        )}
       </main>
     </div>
   );

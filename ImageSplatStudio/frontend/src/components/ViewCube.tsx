@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import * as THREE from "three";
 
 export type ViewDirection =
@@ -13,7 +13,6 @@ export type ViewDirection =
   | "back-right"
   | "back-left";
 
-/** Z-up views (Civil 3D / AutoCAD convention). */
 const VIEWS: Record<ViewDirection, { position: [number, number, number]; up: [number, number, number] }> = {
   top: { position: [0, 0, 1], up: [0, 1, 0] },
   bottom: { position: [0, 0, -1], up: [0, -1, 0] },
@@ -29,21 +28,25 @@ const VIEWS: Record<ViewDirection, { position: [number, number, number]; up: [nu
 
 interface ViewCubeProps {
   onSelect: (dir: ViewDirection) => void;
-  camera?: THREE.PerspectiveCamera | null;
+  onHome?: () => void;
+  cameraRef: RefObject<THREE.PerspectiveCamera | null>;
 }
 
-function makeFaceTexture(label: string, bg: string): THREE.CanvasTexture {
+function makeFaceTexture(label: string, bg: string, textColor = "#1e293b"): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = 128;
   canvas.height = 128;
   const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = bg;
+  const grad = ctx.createLinearGradient(0, 0, 128, 128);
+  grad.addColorStop(0, bg);
+  grad.addColorStop(1, "#ffffff");
+  ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 128, 128);
-  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.strokeStyle = "rgba(100,116,139,0.6)";
   ctx.lineWidth = 2;
-  ctx.strokeRect(2, 2, 124, 124);
-  ctx.fillStyle = "#1e293b";
-  ctx.font = "bold 22px Segoe UI, sans-serif";
+  ctx.strokeRect(3, 3, 122, 122);
+  ctx.fillStyle = textColor;
+  ctx.font = "bold 20px Segoe UI, Arial, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(label, 64, 64);
@@ -64,7 +67,7 @@ function faceDirection(materialIndex: number): ViewDirection | null {
   return map[materialIndex] ?? null;
 }
 
-export function ViewCube({ onSelect, camera }: ViewCubeProps) {
+export function ViewCube({ onSelect, onHome, cameraRef }: ViewCubeProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
@@ -73,70 +76,50 @@ export function ViewCube({ onSelect, camera }: ViewCubeProps) {
     const mount = mountRef.current;
     if (!mount) return;
 
-    const size = 120;
+    const size = 108;
     const scene = new THREE.Scene();
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(size, size);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mount.appendChild(renderer.domElement);
 
-    const cam = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
-    cam.position.set(2.2, -2.2, 1.8);
+    const cam = new THREE.PerspectiveCamera(28, 1, 0.1, 100);
+    cam.position.set(2.5, -2.5, 2.0);
     cam.up.set(0, 0, 1);
+    cam.lookAt(0, 0, 0);
+
+    const cubeGroup = new THREE.Group();
+    scene.add(cubeGroup);
 
     const cube = new THREE.Mesh(
       new THREE.BoxGeometry(1, 1, 1),
       [
-        new THREE.MeshBasicMaterial({ map: makeFaceTexture("RIGHT", "#fde68a"), transparent: true, opacity: 0.92 }),
-        new THREE.MeshBasicMaterial({ map: makeFaceTexture("LEFT", "#fde68a"), transparent: true, opacity: 0.92 }),
-        new THREE.MeshBasicMaterial({ map: makeFaceTexture("TOP", "#bbf7d0"), transparent: true, opacity: 0.92 }),
-        new THREE.MeshBasicMaterial({ map: makeFaceTexture("BOTTOM", "#fecaca"), transparent: true, opacity: 0.92 }),
-        new THREE.MeshBasicMaterial({ map: makeFaceTexture("FRONT", "#bfdbfe"), transparent: true, opacity: 0.92 }),
-        new THREE.MeshBasicMaterial({ map: makeFaceTexture("BACK", "#bfdbfe"), transparent: true, opacity: 0.92 }),
+        new THREE.MeshBasicMaterial({ map: makeFaceTexture("RIGHT", "#fde68a"), transparent: true, opacity: 0.95 }),
+        new THREE.MeshBasicMaterial({ map: makeFaceTexture("LEFT", "#fde68a"), transparent: true, opacity: 0.95 }),
+        new THREE.MeshBasicMaterial({ map: makeFaceTexture("TOP", "#86efac"), transparent: true, opacity: 0.95 }),
+        new THREE.MeshBasicMaterial({ map: makeFaceTexture("BOTTOM", "#fca5a5"), transparent: true, opacity: 0.95 }),
+        new THREE.MeshBasicMaterial({ map: makeFaceTexture("FRONT", "#93c5fd"), transparent: true, opacity: 0.95 }),
+        new THREE.MeshBasicMaterial({ map: makeFaceTexture("BACK", "#93c5fd"), transparent: true, opacity: 0.95 }),
       ],
     );
-    scene.add(cube);
+    cubeGroup.add(cube);
 
     const edges = new THREE.LineSegments(
-      new THREE.EdgesGeometry(new THREE.BoxGeometry(1.02, 1.02, 1.02)),
-      new THREE.LineBasicMaterial({ color: 0x64748b }),
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(1.01, 1.01, 1.01)),
+      new THREE.LineBasicMaterial({ color: 0x475569, linewidth: 1 }),
     );
-    scene.add(edges);
+    cubeGroup.add(edges);
 
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.85, 1.05, 64),
-      new THREE.MeshBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.45, side: THREE.DoubleSide }),
+      new THREE.RingGeometry(0.78, 0.92, 64),
+      new THREE.MeshBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.35, side: THREE.DoubleSide }),
     );
     ring.rotation.x = Math.PI / 2;
-    ring.position.z = -0.55;
+    ring.position.z = -0.62;
     scene.add(ring);
 
-    const addCompassLabel = (text: string, angle: number, radius: number) => {
-      const canvas = document.createElement("canvas");
-      canvas.width = 64;
-      canvas.height = 64;
-      const ctx = canvas.getContext("2d")!;
-      ctx.fillStyle = "#334155";
-      ctx.font = "bold 36px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(text, 32, 32);
-      const tex = new THREE.CanvasTexture(canvas);
-      const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
-      const sprite = new THREE.Sprite(mat);
-      const rad = (angle * Math.PI) / 180;
-      sprite.position.set(Math.sin(rad) * radius, Math.cos(rad) * radius, -0.52);
-      sprite.scale.set(0.22, 0.22, 1);
-      scene.add(sprite);
-    };
-    addCompassLabel("N", 0, 1.18);
-    addCompassLabel("E", 90, 1.18);
-    addCompassLabel("S", 180, 1.18);
-    addCompassLabel("W", 270, 1.18);
-
-    cam.lookAt(0, 0, 0);
-
+    const syncQuat = new THREE.Quaternion();
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
 
@@ -156,9 +139,10 @@ export function ViewCube({ onSelect, camera }: ViewCubeProps) {
     let frame = 0;
     const tick = () => {
       frame = requestAnimationFrame(tick);
-      if (camera) {
-        const q = camera.quaternion.clone();
-        cube.quaternion.copy(q.invert());
+      const mainCam = cameraRef.current;
+      if (mainCam) {
+        syncQuat.copy(mainCam.quaternion).invert();
+        cubeGroup.quaternion.copy(syncQuat);
       }
       renderer.render(scene, cam);
     };
@@ -179,12 +163,27 @@ export function ViewCube({ onSelect, camera }: ViewCubeProps) {
       renderer.dispose();
       mount.removeChild(renderer.domElement);
     };
-  }, [camera]);
+  }, [cameraRef]);
 
   return (
     <div className="tp-view-cube" title="ViewCube">
-      <div ref={mountRef} className="tp-view-cube-canvas" />
-      <div className="tp-view-cube-wcs">WCS</div>
+      <div className="tp-view-cube-compass">
+        <span className="tp-compass-n">N</span>
+        <span className="tp-compass-e">E</span>
+        <span className="tp-compass-s">S</span>
+        <span className="tp-compass-w">W</span>
+        <div ref={mountRef} className="tp-view-cube-canvas" />
+      </div>
+      <div className="tp-view-cube-footer">
+        <button type="button" className="tp-view-cube-wcs" title="World Coordinate System">
+          WCS
+        </button>
+        {onHome && (
+          <button type="button" className="tp-view-cube-home" onClick={onHome} title="Home view">
+            ⌂
+          </button>
+        )}
+      </div>
     </div>
   );
 }

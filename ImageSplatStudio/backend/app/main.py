@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.routes import router
+from app.routes_basemap import router as basemap_router
 from app.routes_editor import router as editor_router
 
 app = FastAPI(
@@ -24,6 +25,7 @@ app.add_middleware(
 
 app.include_router(router)
 app.include_router(editor_router)
+app.include_router(basemap_router)
 
 frontend_dist = settings.frontend_dir
 if frontend_dist.exists():
