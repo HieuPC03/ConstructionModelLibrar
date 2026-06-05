@@ -10,13 +10,17 @@ import {
   modelUrl,
 } from "./api";
 import { JobList } from "./components/JobList";
+import { LanguageSwitcher } from "./components/LanguageSwitcher";
+import { Logo } from "./components/Logo";
 import { PointCloudPanel } from "./components/PointCloudPanel";
 import { SplatViewer } from "./components/SplatViewer";
 import { UploadPanel } from "./components/UploadPanel";
+import { I18nProvider, useI18n } from "./i18n/I18nProvider";
 import type { AppMode, HealthInfo, JobInfo } from "./types";
 import "./styles.css";
 
-function App() {
+function AppContent() {
+  const { tr } = useI18n();
   const [mode, setMode] = useState<AppMode>("pointcloud");
   const [health, setHealth] = useState<HealthInfo | null>(null);
   const [jobs, setJobs] = useState<JobInfo[]>([]);
@@ -102,7 +106,7 @@ function App() {
   };
 
   const handleDelete = async (jobId: string) => {
-    if (!confirm("Xóa job này?")) return;
+    if (!confirm(tr("confirmDelete"))) return;
     await deleteJob(jobId);
     if (selectedId === jobId) setSelectedId(null);
     await refresh();
@@ -111,17 +115,23 @@ function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div>
-          <p className="eyebrow">3D Reconstruction Studio</p>
-          <h1>ImageSplat Studio</h1>
+        <div className="brand">
+          <Logo size={44} />
+          <div>
+            <p className="eyebrow">{tr("appTagline")}</p>
+            <h1>{tr("appTitle")}</h1>
+          </div>
         </div>
-        <div className="status-pills">
-          <span className={`pill ${health?.open3d_available ? "pill-ok" : "pill-warn"}`}>
-            Open3D {health?.open3d_available ? "OK" : "N/A"}
-          </span>
-          <span className={`pill ${health?.gpu_available ? "pill-ok" : "pill-warn"}`}>
-            GPU {health?.gpu_available ? "OK" : "N/A"}
-          </span>
+        <div className="header-actions">
+          <LanguageSwitcher />
+          <div className="status-pills">
+            <span className={`pill ${health?.open3d_available ? "pill-ok" : "pill-warn"}`}>
+              {tr("statusOpen3d")} {health?.open3d_available ? tr("statusOk") : tr("statusNa")}
+            </span>
+            <span className={`pill ${health?.gpu_available ? "pill-ok" : "pill-warn"}`}>
+              {tr("statusGpu")} {health?.gpu_available ? tr("statusOk") : tr("statusNa")}
+            </span>
+          </div>
         </div>
       </header>
 
@@ -131,14 +141,14 @@ function App() {
           className={`mode-tab ${mode === "pointcloud" ? "active" : ""}`}
           onClick={() => setMode("pointcloud")}
         >
-          Point Cloud → 3D Gaussian
+          {tr("tabPointCloud")}
         </button>
         <button
           type="button"
           className={`mode-tab ${mode === "images" ? "active" : ""}`}
           onClick={() => setMode("images")}
         >
-          Ảnh → Gaussian Splat
+          {tr("tabImages")}
         </button>
       </div>
 
@@ -169,7 +179,7 @@ function App() {
 
         <section className="viewer-section panel">
           <div className="viewer-header">
-            <h2>Xem mô hình 3D</h2>
+            <h2>{tr("viewerTitle")}</h2>
             {selectedJob && (
               <p className="muted">
                 {selectedJob.name} — {selectedJob.progress.message}
@@ -189,9 +199,7 @@ function App() {
                 </>
               ) : (
                 <p className="muted">
-                  {mode === "pointcloud"
-                    ? "Upload point cloud và bấm Tạo hình khối 3D."
-                    : "Chọn hoặc tạo một dự án để xem kết quả 3D."}
+                  {mode === "pointcloud" ? tr("viewerEmptyPc") : tr("viewerEmptyImages")}
                 </p>
               )}
             </div>
@@ -199,6 +207,14 @@ function App() {
         </section>
       </main>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <I18nProvider>
+      <AppContent />
+    </I18nProvider>
   );
 }
 

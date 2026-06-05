@@ -1,21 +1,18 @@
+import { useI18n } from "../i18n/I18nProvider";
+import type { TranslationKey } from "../i18n/translations";
 import type { JobInfo, JobStatus } from "../types";
 
-const STAGE_LABELS: Record<JobStatus, string> = {
-  pending: "Chờ",
-  uploading: "Upload",
-  preprocessing: "Tiền xử lý",
-  colmap: "COLMAP",
-  meshing: "Tạo mesh",
-  training: "Huấn luyện 3DGS",
-  exporting: "Xuất file",
-  completed: "Hoàn tất",
-  failed: "Lỗi",
-  cancelled: "Đã hủy",
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  images: "Ảnh → Splat",
-  pointcloud: "PC → 3D GS",
+const STAGE_KEYS: Record<JobStatus, TranslationKey> = {
+  pending: "stagePending",
+  uploading: "stageUploading",
+  preprocessing: "stagePreprocessing",
+  colmap: "stageColmap",
+  meshing: "stageMeshing",
+  training: "stageTraining",
+  exporting: "stageExporting",
+  completed: "stageCompleted",
+  failed: "stageFailed",
+  cancelled: "stageCancelled",
 };
 
 interface JobListProps {
@@ -26,18 +23,22 @@ interface JobListProps {
 }
 
 export function JobList({ jobs, selectedId, onSelect, onDelete }: JobListProps) {
+  const { tr } = useI18n();
+
   if (jobs.length === 0) {
     return (
       <div className="panel job-list empty">
-        <h3>Dự án</h3>
-        <p className="muted">Chưa có job nào.</p>
+        <h3>{tr("projects")}</h3>
+        <p className="muted">{tr("noProjects")}</p>
       </div>
     );
   }
 
   return (
     <div className="panel job-list">
-      <h3>Dự án ({jobs.length})</h3>
+      <h3>
+        {tr("projects")} ({jobs.length})
+      </h3>
       <ul>
         {jobs.map((job) => (
           <li
@@ -48,12 +49,15 @@ export function JobList({ jobs, selectedId, onSelect, onDelete }: JobListProps) 
             <div className="job-row-top">
               <strong>{job.name}</strong>
               <span className={`badge badge-${job.status}`}>
-                {STAGE_LABELS[job.status]}
+                {tr(STAGE_KEYS[job.status])}
               </span>
             </div>
             <div className="job-meta">
-              <span className="job-type-tag">{TYPE_LABELS[job.job_type] ?? job.job_type}</span>
+              <span className="job-type-tag">
+                {job.job_type === "images" ? tr("typeImages") : tr("typePointcloud")}
+              </span>
               · {Math.round(job.progress.percent)}%
+              {job.image_count > 0 && ` · ${job.image_count} imgs`}
             </div>
             <div className="progress-bar">
               <div
@@ -70,7 +74,7 @@ export function JobList({ jobs, selectedId, onSelect, onDelete }: JobListProps) 
                 onDelete(job.job_id);
               }}
             >
-              Xóa
+              {tr("deleteJob")}
             </button>
           </li>
         ))}

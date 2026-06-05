@@ -1,5 +1,6 @@
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -8,6 +9,7 @@ from app.config import PIPELINE_DIR, settings
 from app.models import JobProgress, JobStatus
 from app.services.capabilities import check_gpu_available
 from app.services.job_store import job_store
+from app.services.python_exec import get_python_executable
 
 PIPELINE_ROOT = PIPELINE_DIR
 DEMO_SPLAT = PIPELINE_ROOT / "demo" / "demo.splat"
@@ -108,7 +110,14 @@ class PipelineRunner:
         )
 
     def _run_full_pipeline(self, job_id: str, upload_dir: Path, output_dir: Path) -> None:
-        script = PIPELINE_ROOT / "run_pipeline.sh"
+        python = get_python_executable()
+        if sys.platform == "win32":
+            script = PIPELINE_ROOT / "run_pipeline.py"
+            cmd = [python, str(script)]
+        else:
+            script = PIPELINE_ROOT / "run_pipeline.sh"
+            cmd = ["bash", str(script)]
+
         if not script.exists():
             raise FileNotFoundError(f"Pipeline script not found: {script}")
 
@@ -130,7 +139,7 @@ class PipelineRunner:
         }
 
         process = subprocess.Popen(
-            ["bash", str(script)],
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,

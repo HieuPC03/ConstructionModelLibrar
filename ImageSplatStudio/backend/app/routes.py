@@ -9,6 +9,7 @@ from app.services.capabilities import check_colmap_available, check_gpu_availabl
 from app.services.job_store import job_store
 from app.services.pipeline_runner import pipeline_runner
 from app.services.pointcloud_runner import pointcloud_runner
+from app.services.upload_helpers import resolve_image_suffix, supported_image_formats_hint
 
 router = APIRouter(prefix="/api")
 
@@ -64,16 +65,33 @@ async def create_image_job(
     upload_dir = job_store.job_dir(job.job_id, "uploads")
 
     saved = 0
+    skipped = 0
     for index, upload in enumerate(images):
-        suffix = Path(upload.filename or "").suffix.lower()
-        if suffix not in settings.allowed_extensions:
+        suffix = resolve_image_suffix(upload.filename, upload.content_type)
+        if suffix is None:
+            skipped += 1
             continue
         dest = upload_dir / f"img_{index:04d}{suffix}"
         content = await upload.read()
         if len(content) == 0:
+            skipped += 1
             continue
         dest.write_bytes(content)
         saved += 1
+
+    if not demo and saved < 3:
+        job_store.delete(job.job_id)
+        formats = supported_image_formats_hint()
+        detail = (
+            f"Chỉ lưu được {saved}/{len(images)} ảnh. Cần ít nhất 3 ảnh hợp lệ. "
+            f"Định dạng hỗ trợ: {formats}."
+        )
+        if skipped > 0:
+            detail += (
+                f" {skipped} file bị bỏ qua (HEIC/HEIF không hỗ trợ — "
+                "hãy chuyển sang JPG/PNG trước khi upload)."
+            )
+        raise HTTPException(status_code=400, detail=detail)
 
     job_store.update(job.job_id, image_count=saved)
     pipeline_runner.start(job.job_id)

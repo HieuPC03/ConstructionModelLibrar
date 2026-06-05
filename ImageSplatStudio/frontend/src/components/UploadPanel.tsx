@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fileKey, isImageFile } from "../utils/files";
+import { useI18n } from "../i18n/I18nProvider";
+import { fileKey, isHeicFile, isSupportedImageFile } from "../utils/files";
 
 interface UploadPanelProps {
   onSubmit: (name: string, files: File[], demo: boolean) => Promise<void>;
@@ -14,29 +15,47 @@ interface FilePreview {
 }
 
 export function UploadPanel({ onSubmit, busy, demoMode }: UploadPanelProps) {
+  const { tr } = useI18n();
   const [name, setName] = useState("");
   const [previews, setPreviews] = useState<FilePreview[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [demo, setDemo] = useState(false);
+  const [skipped, setSkipped] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const previewsRef = useRef(previews);
   previewsRef.current = previews;
 
-  const addFiles = useCallback((incoming: FileList | File[]) => {
-    const accepted = Array.from(incoming).filter(isImageFile);
-    if (accepted.length === 0) return;
-
-    setPreviews((prev) => {
-      const map = new Map(prev.map((p) => [p.key, p]));
-      for (const file of accepted) {
-        const key = fileKey(file);
-        if (!map.has(key)) {
-          map.set(key, { key, file, url: URL.createObjectURL(file) });
+  const addFiles = useCallback(
+    (incoming: FileList | File[]) => {
+      let skipCount = 0;
+      const accepted: File[] = [];
+      for (const file of Array.from(incoming)) {
+        if (isHeicFile(file)) {
+          skipCount += 1;
+          continue;
+        }
+        if (isSupportedImageFile(file)) {
+          accepted.push(file);
+        } else {
+          skipCount += 1;
         }
       }
-      return Array.from(map.values());
-    });
-  }, []);
+      if (skipCount > 0) setSkipped((s) => s + skipCount);
+      if (accepted.length === 0) return;
+
+      setPreviews((prev) => {
+        const map = new Map(prev.map((p) => [p.key, p]));
+        for (const file of accepted) {
+          const key = fileKey(file);
+          if (!map.has(key)) {
+            map.set(key, { key, file, url: URL.createObjectURL(file) });
+          }
+        }
+        return Array.from(map.values());
+      });
+    },
+    [],
+  );
 
   const removeFile = useCallback((key: string) => {
     setPreviews((prev) => {
@@ -51,6 +70,7 @@ export function UploadPanel({ onSubmit, busy, demoMode }: UploadPanelProps) {
       for (const p of prev) URL.revokeObjectURL(p.url);
       return [];
     });
+    setSkipped(0);
     if (inputRef.current) inputRef.current.value = "";
   }, []);
 
@@ -85,25 +105,25 @@ export function UploadPanel({ onSubmit, busy, demoMode }: UploadPanelProps) {
 
   return (
     <form className="panel upload-panel" onSubmit={handleSubmit}>
-      <h2>Tạo mô hình 3D từ ảnh</h2>
-      <p className="muted">
-        Upload 20–100 ảnh chụp quanh vật thể/cảnh (góc overlap ~60%). Hệ thống chạy COLMAP +
-        3D Gaussian Splatting.
-      </p>
+      <h2>{tr("imgTitle")}</h2>
+      <p className="muted">{tr("imgDesc")}</p>
 
       {demoMode && (
+        <div className="banner banner-warn">{tr("imgGpuWarn")}</div>
+      )}
+
+      {skipped > 0 && (
         <div className="banner banner-warn">
-          Máy chủ không có GPU — huấn luyện thật cần CUDA. Bạn vẫn có thể thử{" "}
-          <strong>Demo nhanh</strong> để xem viewer.
+          {skipped} {tr("unsupportedSkipped")}. {tr("imgHeicWarn")}
         </div>
       )}
 
       <label className="field">
-        <span>Tên dự án</span>
+        <span>{tr("projectName")}</span>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Ví dụ: Nhà máy Zone A"
+          placeholder={tr("imgNamePlaceholder")}
           disabled={busy}
         />
       </label>
@@ -117,13 +137,13 @@ export function UploadPanel({ onSubmit, busy, demoMode }: UploadPanelProps) {
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
       >
-        <p>Kéo thả ảnh vào đây hoặc</p>
+        <p>{tr("dropImages")}</p>
         <label className="button button-secondary">
-          Chọn ảnh
+          {tr("chooseImages")}
           <input
             ref={inputRef}
             type="file"
-            accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.tif,.tiff"
+            accept=".jpg,.jpeg,.png,.webp,.tif,.tiff,.gif,.bmp,image/jpeg,image/png,image/webp"
             multiple
             hidden
             disabled={busy}
@@ -131,21 +151,21 @@ export function UploadPanel({ onSubmit, busy, demoMode }: UploadPanelProps) {
           />
         </label>
         <p className="file-count">
-          {fileCount > 0 ? `${fileCount} ảnh đã chọn` : "Chưa chọn ảnh nào"}
+          {fileCount > 0 ? `${fileCount} ${tr("imagesSelected")}` : tr("noImages")}
         </p>
       </div>
 
       {fileCount > 0 && (
         <div className="preview-section">
           <div className="preview-header">
-            <span>Ảnh đã chọn</span>
+            <span>{tr("selectedImages")}</span>
             <button
               type="button"
               className="button-link danger"
               onClick={clearFiles}
               disabled={busy}
             >
-              Xóa tất cả
+              {tr("clearAll")}
             </button>
           </div>
           <div className="preview-grid">
@@ -155,7 +175,7 @@ export function UploadPanel({ onSubmit, busy, demoMode }: UploadPanelProps) {
                 <button
                   type="button"
                   className="preview-remove"
-                  title="Xóa ảnh"
+                  title={tr("remove")}
                   onClick={() => removeFile(preview.key)}
                   disabled={busy}
                 >
@@ -177,15 +197,15 @@ export function UploadPanel({ onSubmit, busy, demoMode }: UploadPanelProps) {
           onChange={(e) => setDemo(e.target.checked)}
           disabled={busy}
         />
-        <span>Demo nhanh (không cần ảnh — xem thử viewer)</span>
+        <span>{tr("imgDemo")}</span>
       </label>
 
       <button className="button button-primary" type="submit" disabled={busy || !canSubmit}>
-        {busy ? "Đang tạo..." : "Bắt đầu reconstruction"}
+        {busy ? tr("imgSubmitting") : tr("imgSubmit")}
       </button>
 
       {!demo && fileCount > 0 && fileCount < 3 && (
-        <p className="error-text">Cần ít nhất 3 ảnh (khuyến nghị ≥ 20).</p>
+        <p className="error-text">{tr("imgMinError")}</p>
       )}
     </form>
   );

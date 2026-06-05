@@ -87,8 +87,10 @@ function buildBackendEnv() {
 
   if (fs.existsSync(path.join(pythonRoot, "python.exe"))) {
     env.PATH = `${pythonRoot};${path.join(pythonRoot, "Scripts")};${env.PATH || ""}`;
+    env.SPLAT_PYTHON = path.join(pythonRoot, "python.exe");
   } else if (fs.existsSync(path.join(pythonRoot, "bin"))) {
     env.PATH = `${path.join(pythonRoot, "bin")}:${env.PATH || ""}`;
+    env.SPLAT_PYTHON = path.join(pythonRoot, "bin", "python3");
   }
 
   return { backendDir, env };

@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useI18n } from "../i18n/I18nProvider";
 import { formatFileSize, isPointCloudFile } from "../utils/pointcloud";
 
 interface PointCloudPanelProps {
@@ -17,6 +18,7 @@ export function PointCloudPanel({
   busy,
   open3dAvailable,
 }: PointCloudPanelProps) {
+  const { tr } = useI18n();
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [demo, setDemo] = useState(false);
@@ -42,37 +44,32 @@ export function PointCloudPanel({
 
   return (
     <form className="panel upload-panel" onSubmit={handleSubmit}>
-      <h2>Point Cloud → Hình khối 3D</h2>
-      <p className="muted">
-        Chuyển point cloud thành mô hình <strong>3D Gaussian Splatting</strong> — hiển thị mượt,
-        có thể tích hợp như <strong>Luma AI</strong>. Hỗ trợ file 3DGS PLY từ Luma/Polycam.
-      </p>
+      <h2>{tr("pcTitle")}</h2>
+      <p className="muted">{tr("pcDesc")}</p>
 
       {!open3dAvailable && (
-        <div className="banner banner-warn">
-          Open3D chưa sẵn sàng trên server. Cài: <code>pip install open3d plyfile</code>
-        </div>
+        <div className="banner banner-warn">{tr("pcOpen3dWarn")}</div>
       )}
 
       <label className="field">
-        <span>Tên dự án</span>
+        <span>{tr("projectName")}</span>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Ví dụ: Scan công trình"
+          placeholder={tr("pcNamePlaceholder")}
           disabled={busy}
         />
       </label>
 
       <label className="field">
-        <span>Chất lượng hình khối 3D</span>
+        <span>{tr("qualityLabel")}</span>
         <select
           value={method}
           onChange={(e) => setMethod(e.target.value as "luma" | "standard")}
           disabled={busy}
         >
-          <option value="luma">Luma style — đặc, mượt, khuyến nghị</option>
-          <option value="standard">Standard — gọn, ít gaussian hơn</option>
+          <option value="luma">{tr("qualityLuma")}</option>
+          <option value="standard">{tr("qualityStandard")}</option>
         </select>
       </label>
 
@@ -89,9 +86,9 @@ export function PointCloudPanel({
           if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files);
         }}
       >
-        <p>Kéo thả point cloud hoặc</p>
+        <p>{tr("dropPc")}</p>
         <label className="button button-secondary">
-          Chọn file
+          {tr("chooseFile")}
           <input
             ref={inputRef}
             type="file"
@@ -116,11 +113,11 @@ export function PointCloudPanel({
                 if (inputRef.current) inputRef.current.value = "";
               }}
             >
-              Xóa
+              {tr("remove")}
             </button>
           </div>
         ) : (
-          <p className="file-count">Chưa chọn file (.ply, .pcd, .xyz...)</p>
+          <p className="file-count">{tr("noPcFile")}</p>
         )}
       </div>
 
@@ -131,7 +128,7 @@ export function PointCloudPanel({
           onChange={(e) => setDemo(e.target.checked)}
           disabled={busy}
         />
-        <span>Demo (dùng point cloud mẫu)</span>
+        <span>{tr("pcDemo")}</span>
       </label>
 
       <button
@@ -139,7 +136,7 @@ export function PointCloudPanel({
         type="submit"
         disabled={busy || !canSubmit || !open3dAvailable}
       >
-        {busy ? "Đang xử lý..." : "Tạo hình khối 3D"}
+        {busy ? tr("pcSubmitting") : tr("pcSubmit")}
       </button>
     </form>
   );

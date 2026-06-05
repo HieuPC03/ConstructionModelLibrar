@@ -6,6 +6,7 @@ from pathlib import Path
 from app.config import PIPELINE_DIR, settings
 from app.models import JobProgress, JobStatus, OutputFormat
 from app.services.job_store import job_store
+from app.services.python_exec import get_python_executable
 
 PIPELINE_ROOT = PIPELINE_DIR
 DEMO_POINTCLOUD = PIPELINE_ROOT / "demo" / "demo_pointcloud.ply"
@@ -82,8 +83,9 @@ class PointCloudRunner:
                 ),
             )
 
+            python = get_python_executable()
             cmd = [
-                "python3",
+                python,
                 str(GAUSSIAN_SCRIPT),
                 "--input",
                 str(input_path),
@@ -131,6 +133,17 @@ class PointCloudRunner:
                     stage=JobStatus.COMPLETED,
                     percent=100,
                     message="Hoàn tất! Hình khối 3D Gaussian sẵn sàng.",
+                ),
+            )
+        except FileNotFoundError as exc:
+            job_store.update(
+                job_id,
+                status=JobStatus.FAILED,
+                error=f"Không tìm thấy Python hoặc script pipeline: {exc}",
+                progress=JobProgress(
+                    stage=JobStatus.FAILED,
+                    percent=0,
+                    message="Lỗi: không tìm thấy Python (WinError 2). Khởi động lại app.",
                 ),
             )
         except Exception as exc:
