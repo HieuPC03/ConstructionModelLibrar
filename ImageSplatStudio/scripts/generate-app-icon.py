@@ -112,7 +112,21 @@ def main() -> None:
     ASSETS.mkdir(parents=True, exist_ok=True)
     write_png(ASSETS / "icon.png", 512)
     write_png(ASSETS / "icon-256.png", 256)
-    write_ico(ASSETS / "icon.ico", [256, 128, 64, 48, 32, 16])
+
+    try:
+        from PIL import Image
+
+        img = Image.open(ASSETS / "icon-256.png").convert("RGBA")
+        img.save(
+            ASSETS / "icon.ico",
+            format="ICO",
+            sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)],
+        )
+        print("  icon.ico (Pillow)")
+    except ImportError:
+        write_ico(ASSETS / "icon.ico", [256, 128, 64, 48, 32, 16])
+        print("  icon.ico (fallback writer)")
+
     print(f"Generated icons in {ASSETS}")
 
 

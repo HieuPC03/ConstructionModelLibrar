@@ -15,6 +15,8 @@ import struct
 import sys
 from pathlib import Path
 
+import _bootstrap  # noqa: F401 — add pipeline dir to sys.path
+
 from write_splat import pack_rotation
 from pointcloud_io import is_3dgs_ply_header, load_point_cloud_file
 

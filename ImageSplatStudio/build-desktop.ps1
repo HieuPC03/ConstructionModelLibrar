@@ -68,8 +68,12 @@ Write-Host "    Installing backend packages (open3d, fastapi, uvicorn...)..."
     --prefer-binary
 
 Write-Host "    Verifying bundled Python..."
-& "$PythonDir\python.exe" -c "import uvicorn, open3d, fastapi; print('Python bundle OK')"
+& "$PythonDir\python.exe" -c "import uvicorn, open3d, fastapi, laspy; print('Python bundle OK')"
 if ($LASTEXITCODE -ne 0) { throw "Bundled Python verification failed" }
+
+$PipelineDir = Join-Path $Root "pipeline"
+& "$PythonDir\python.exe" -c "import sys; sys.path.insert(0, r'$PipelineDir'); import _bootstrap; from write_splat import pack_rotation; print('Pipeline imports OK')"
+if ($LASTEXITCODE -ne 0) { throw "Pipeline import verification failed" }
 
 $pySize = (Get-ChildItem $PythonDir -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
 Write-Host "    Python bundle size: $([math]::Round($pySize, 1)) MB" -ForegroundColor Green
@@ -78,7 +82,8 @@ Write-Host "==> Building Electron package..." -ForegroundColor Yellow
 Push-Location $Desktop
 npm install
 $env:CSC_IDENTITY_AUTO_DISCOVERY = "false"
-npm run dist:win
+# Native Windows build embeds icon into .exe via rcedit
+npm run dist:win -- --config.win.signAndEditExecutable=true
 Pop-Location
 
 $OutDir = Join-Path $Desktop "dist-installer"
@@ -91,6 +96,19 @@ if (-not (Test-Path $bundledInApp)) {
     throw "Python not packaged in app! Missing: $bundledInApp"
 }
 Write-Host "    Verified python.exe inside app package" -ForegroundColor Green
+
+$packagedPipeline = Join-Path $winUnpacked "resources\pipeline"
+foreach ($required in @("_bootstrap.py", "write_splat.py", "pointcloud_io.py", "pointcloud_to_gaussian.py")) {
+    if (-not (Test-Path (Join-Path $packagedPipeline $required))) {
+        throw "Missing pipeline file in app: $required"
+    }
+}
+Write-Host "    Verified pipeline files in app package" -ForegroundColor Green
+
+$offlineZip = Join-Path $DistDir "ImageSplatStudio-$((Get-Content (Join-Path $Desktop 'package.json') | ConvertFrom-Json).version)-win-offline.zip"
+if (Test-Path $offlineZip) { Remove-Item $offlineZip -Force }
+Compress-Archive -Path (Join-Path $winUnpacked "*") -DestinationPath $offlineZip -Force
+Write-Host "    Created offline zip: $offlineZip" -ForegroundColor Green
 
 Get-ChildItem $OutDir -Include "*.exe","*.zip" -Recurse -File | Copy-Item -Destination $DistDir -Force
 

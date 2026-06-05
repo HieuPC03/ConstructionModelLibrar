@@ -39,9 +39,9 @@ jobs:
         with:
           name: ImageSplatStudio-Setup-Windows
           path: |
+            ImageSplatStudio/dist/installers/ImageSplatStudio-*-win-offline.zip
             ImageSplatStudio/desktop/dist-installer/*.exe
             ImageSplatStudio/desktop/dist-installer/*.zip
-            ImageSplatStudio/dist/installers/*
           retention-days: 90
           if-no-files-found: warn
 

@@ -7,6 +7,8 @@ import argparse
 import sys
 from pathlib import Path
 
+import _bootstrap  # noqa: F401
+
 from write_splat import write_demo_splat
 
 

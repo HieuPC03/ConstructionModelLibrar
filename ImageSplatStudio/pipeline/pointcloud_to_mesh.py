@@ -7,6 +7,7 @@ import argparse
 import sys
 from pathlib import Path
 
+import _bootstrap  # noqa: F401
 
 from pointcloud_io import load_point_cloud_file
 

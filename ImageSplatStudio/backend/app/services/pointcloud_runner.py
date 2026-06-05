@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 import threading
@@ -95,12 +96,20 @@ class PointCloudRunner:
                 mode,
             ]
 
+            pipeline_env = {
+                **os.environ,
+                "PYTHONPATH": os.pathsep.join(
+                    p for p in (str(PIPELINE_ROOT), os.environ.get("PYTHONPATH", "")) if p
+                ),
+            }
+
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
                 cwd=str(PIPELINE_ROOT),
+                env=pipeline_env,
             )
 
             stage_map = {

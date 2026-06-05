@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import _bootstrap  # noqa: F401
+
 PIPELINE_ROOT = Path(__file__).resolve().parent
 
 
