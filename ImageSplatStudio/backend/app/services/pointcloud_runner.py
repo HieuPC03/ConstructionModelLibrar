@@ -3,11 +3,11 @@ import subprocess
 import threading
 from pathlib import Path
 
-from app.config import settings
+from app.config import PIPELINE_DIR, settings
 from app.models import JobProgress, JobStatus, OutputFormat
 from app.services.job_store import job_store
 
-PIPELINE_ROOT = Path(__file__).resolve().parents[3] / "pipeline"
+PIPELINE_ROOT = PIPELINE_DIR
 DEMO_POINTCLOUD = PIPELINE_ROOT / "demo" / "demo_pointcloud.ply"
 DEMO_SPLAT = PIPELINE_ROOT / "demo" / "demo.splat"
 GAUSSIAN_SCRIPT = PIPELINE_ROOT / "pointcloud_to_gaussian.py"

@@ -6,10 +6,11 @@ Web app tạo **mô hình 3D** từ:
 
 ## Tính năng
 
-### Point Cloud → Mesh 3D
-- Upload `.ply`, `.pcd`, `.xyz`, `.las`, `.pts`, `.obj`
-- Reconstruction: **Poisson** (mượt) hoặc **Ball Pivoting** (chi tiết)
-- Viewer mesh 3D tương tác (xoay, zoom) — export `.obj`
+### Point Cloud → Hình khối 3D (Luma AI style)
+- Upload `.ply`, `.pcd`, `.xyz`, `.las` — chuyển thành **3D Gaussian Splatting**
+- Hiển thị mượt như **Luma AI** (không phải mesh tam giác)
+- Hỗ trợ file **3DGS PLY** export từ Luma, Polycam, nerfstudio
+- Chế độ **Luma style** — gaussian đặc, volumetric
 - **Chạy trên CPU** — không cần GPU
 
 ### Ảnh → Gaussian Splat
@@ -33,20 +34,29 @@ npm install && npm run dev
 
 Mở http://localhost:5173 → tab **Point Cloud → 3D Gaussian**
 
+## Cài đặt PC (Windows .exe)
+
+```powershell
+cd ImageSplatStudio
+.\build-desktop.ps1
+```
+
+Chạy `desktop/dist-installer/ImageSplatStudio-Setup-0.1.0.exe` để cài trên PC.  
+Chi tiết: [desktop/README.md](desktop/README.md)
+
 ## API
 
 | Method | Endpoint | Mô tả |
 |--------|----------|-------|
-| POST | `/api/pointcloud-jobs` | Upload point cloud → mesh |
+| POST | `/api/pointcloud-jobs` | Point cloud → 3D Gaussian (.splat) |
 | POST | `/api/jobs` | Upload ảnh → splat |
-| GET | `/api/jobs/{id}/model.obj` | Tải mesh |
-| GET | `/api/jobs/{id}/model.splat` | Tải splat |
+| GET | `/api/jobs/{id}/model.splat` | Tải hình khối 3D Gaussian |
 
 ## Point cloud — tips
 
 - File `.ply` có màu cho kết quả tốt hơn
 - Nên có ≥ 10.000 điểm
-- Poisson phù hợp scan đầy đủ; BPA cho surface có lỗ
+- Chọn **Luma style** cho hình khối 3D đặc, mượt
 
 ## Kiến trúc
 
@@ -113,7 +123,9 @@ Cần [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native
 ImageSplatStudio/
 ├── backend/          # FastAPI API + job queue
 ├── frontend/         # React + Gaussian Splat viewer
+├── desktop/          # Electron PC app + installer build
 ├── pipeline/         # COLMAP + training scripts
+├── build-desktop.ps1 # Build Windows .exe installer
 ├── data/             # uploads & outputs (runtime)
 └── docker-compose.yml
 ```
