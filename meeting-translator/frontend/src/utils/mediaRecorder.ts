@@ -74,6 +74,30 @@ async function mixAudioStreams(streams: MediaStream[]): Promise<MediaStream> {
   return dest.stream;
 }
 
+/** Chuẩn hóa âm lượng loopback — STT chính xác hơn với âm thanh hệ thống. */
+export async function prepareLoopbackRecordStream(
+  stream: MediaStream
+): Promise<MediaStream> {
+  if (!stream.getAudioTracks().length) return stream;
+  const ctx = new AudioContext({ sampleRate: 48000 });
+  const src = ctx.createMediaStreamSource(stream);
+  const comp = ctx.createDynamicsCompressor();
+  comp.threshold.value = -22;
+  comp.knee.value = 14;
+  comp.ratio.value = 2.8;
+  comp.attack.value = 0.003;
+  comp.release.value = 0.2;
+  const gain = ctx.createGain();
+  gain.gain.value = 1.12;
+  const dest = ctx.createMediaStreamDestination();
+  src.connect(comp);
+  comp.connect(gain);
+  gain.connect(dest);
+  await resumeContext(ctx);
+  streamContextMap.set(dest.stream, ctx);
+  return dest.stream;
+}
+
 /** Chọn luồng ghi được — ưu tiên VB-Cable đơn, trộn micro khi cần. */
 export async function pickRecordableAudioStream(
   streams: MediaStream[]
@@ -128,8 +152,8 @@ export function createMediaRecorder(
     if (mime && !MediaRecorder.isTypeSupported(mime)) continue;
     try {
       const recorder = mime
-        ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 128000 })
-        : new MediaRecorder(stream, { audioBitsPerSecond: 128000 });
+        ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 192000 })
+        : new MediaRecorder(stream, { audioBitsPerSecond: 192000 });
       return {
         recorder,
         mimeType: recorder.mimeType || mime || "audio/webm",

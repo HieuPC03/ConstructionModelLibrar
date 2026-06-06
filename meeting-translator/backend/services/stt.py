@@ -29,6 +29,7 @@ async def transcribe_audio(
     filename: str = "chunk.webm",
     language: str = "ja",
     engine: str | None = None,
+    capture_mode: str | None = None,
 ) -> str:
     if len(audio_bytes) < MIN_AUDIO_BYTES:
         return ""
@@ -36,11 +37,14 @@ async def transcribe_audio(
         from services.stt_offline import transcribe_offline
 
         return await transcribe_offline(audio_bytes, filename, language)
-    return await _transcribe_openai(audio_bytes, filename, language)
+    return await _transcribe_openai(audio_bytes, filename, language, capture_mode)
 
 
 async def _transcribe_openai(
-    audio_bytes: bytes, filename: str, language: str
+    audio_bytes: bytes,
+    filename: str,
+    language: str,
+    capture_mode: str | None = None,
 ) -> str:
     api_key = get_openai_api_key()
     if not is_valid_openai_key(api_key):
@@ -51,7 +55,7 @@ async def _transcribe_openai(
     from openai import AsyncOpenAI
 
     client = AsyncOpenAI(api_key=api_key)
-    lang, prompt = resolve_stt_language(language)
+    lang, prompt = resolve_stt_language(language, capture_mode)
 
     suffix = _audio_suffix_from_bytes(audio_bytes, filename)
 
@@ -88,6 +92,7 @@ async def _run_openai_transcription(
             kwargs["language"] = lang
         if prompt:
             kwargs["prompt"] = prompt
+        kwargs["temperature"] = 0
         try:
             transcript = await client.audio.transcriptions.create(**kwargs)
             return (transcript.text or "").strip()

@@ -7,16 +7,35 @@ JA_STT_PROMPT = (
     "話し言葉をひらがな・カタカナ・漢字で正確に書き起こしてください。"
 )
 
+JA_LOOPBACK_HINT = (
+    "システム音声（ループバック）です。圧縮・ノイズ・エコーがあっても"
+    "聞き取れる内容を正確に書き起こしてください。"
+)
+
 VI_STT_PROMPT = "Đây là cuộc họp tiếng Việt. Ghi lại chính xác lời nói."
 
+VI_LOOPBACK_HINT = (
+    "Âm thanh hệ thống (loopback), có thể nén hoặc nhiễu — "
+    "ghi lại chính xác nội dung nghe được."
+)
 
-def resolve_stt_language(language: str) -> tuple[str | None, str | None]:
+
+def resolve_stt_language(
+    language: str, capture_mode: str | None = None
+) -> tuple[str | None, str | None]:
     """Chọn mã Whisper + prompt. Không dùng auto — tránh nhận nhầm tiếng Anh."""
     lang = (language or "ja").strip().lower()
+    loopback = (capture_mode or "").strip().lower() == "loopback"
     if lang == "ja":
-        return "ja", JA_STT_PROMPT
+        prompt = JA_STT_PROMPT
+        if loopback:
+            prompt = f"{JA_STT_PROMPT} {JA_LOOPBACK_HINT}"
+        return "ja", prompt
     if lang == "vi":
-        return "vi", VI_STT_PROMPT
+        prompt = VI_STT_PROMPT
+        if loopback:
+            prompt = f"{VI_STT_PROMPT} {VI_LOOPBACK_HINT}"
+        return "vi", prompt
     if lang == "en":
         return "en", None
     return "ja", JA_STT_PROMPT

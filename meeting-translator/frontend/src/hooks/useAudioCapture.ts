@@ -12,6 +12,7 @@ import {
 import {
   friendlyMediaError,
   pickRecordableAudioStream,
+  prepareLoopbackRecordStream,
 } from "../utils/mediaRecorder";
 
 export type CaptureMode = "loopback" | "mic";
@@ -65,23 +66,28 @@ async function captureSystemAudioViaDisplay(): Promise<MediaStream> {
   return new MediaStream(audioTracks);
 }
 
+const LOOPBACK_AUDIO_CONSTRAINTS = {
+  echoCancellation: false,
+  noiseSuppression: false,
+  autoGainControl: false,
+  channelCount: { ideal: 2 },
+  sampleRate: { ideal: 48000 },
+  sampleSize: { ideal: 16 },
+} as const;
+
 async function openLoopbackDevice(deviceId: string): Promise<MediaStream> {
   try {
     return await navigator.mediaDevices.getUserMedia({
       audio: {
         deviceId: { exact: deviceId },
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
+        ...LOOPBACK_AUDIO_CONSTRAINTS,
       },
     });
   } catch {
     return navigator.mediaDevices.getUserMedia({
       audio: {
         deviceId: { ideal: deviceId },
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
+        ...LOOPBACK_AUDIO_CONSTRAINTS,
       },
     });
   }
@@ -228,7 +234,12 @@ export function useAudioCapture() {
 
         let recordable: MediaStream;
         try {
-          recordable = await pickRecordableAudioStream(audioStreams);
+          if (mode === "loopback" && loopbackRawForMonitor && !includeMic) {
+            const enhanced = await prepareLoopbackRecordStream(loopbackRawForMonitor);
+            recordable = await pickRecordableAudioStream([enhanced]);
+          } else {
+            recordable = await pickRecordableAudioStream(audioStreams);
+          }
         } catch (mixErr) {
           if (audioStreams.length > 1 && loopbackRawForMonitor) {
             recordable = await pickRecordableAudioStream([loopbackRawForMonitor]);

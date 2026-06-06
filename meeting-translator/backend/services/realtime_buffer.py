@@ -4,7 +4,7 @@ from __future__ import annotations
 
 SENTENCE_END = ".?!。．？！…"
 MAX_PENDING_CHARS = 600
-# Chunk ~1.2s — 1 chunk im lặng = chờ ~1.2s trước khi chốt câu
+# Chờ im lặng 1 chunk trước khi chốt (Live Caption ~1s, realtime ~0.8s)
 SILENCE_CHUNKS_TO_FLUSH = 1
 # Một chunk im + đủ chữ → coi như hết câu (ngắt nghỉ ~1.2s)
 SILENCE_ONE_CHUNK_MIN_CHARS = 6

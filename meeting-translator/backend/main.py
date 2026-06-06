@@ -522,6 +522,7 @@ async def session_websocket(websocket: WebSocket) -> None:
                     meta.get("filename", "chunk.webm"),
                     meta["source_lang"],
                     engine=meta["stt_engine"],
+                    capture_mode=meta.get("capture_mode"),
                 )
                 await deliver_stt_result(seq, text, meta)
             except Exception as exc:

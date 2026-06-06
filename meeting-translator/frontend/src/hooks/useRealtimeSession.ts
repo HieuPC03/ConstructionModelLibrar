@@ -17,6 +17,7 @@ import {
   applyChunkToSegmentText,
   splitCompletedSentences,
 } from "../utils/transcriptText";
+import type { CaptureMode } from "./useAudioCapture";
 import {
   chunkFilenameForMime,
   createMediaRecorder,
@@ -24,12 +25,20 @@ import {
   resumeStreamAudioContext,
 } from "../utils/mediaRecorder";
 
-/** Chunk 1.2s — chờ im lặng ~1.2s trước khi chốt câu. */
-const CHUNK_MS = 1200;
-/** Chunk nhỏ hơn vẫn gửi STT (micro / loopback). */
-const MIN_CHUNK_BYTES = 120;
 const MODE_TRANSCRIPT: SessionMode = "transcript";
 const MODE_REALTIME: SessionMode = "translate_realtime";
+
+/** Live Caption — độ trễ ~1s/chunk. */
+const CHUNK_MS_TRANSCRIPT = 1000;
+/** Dịch realtime — độ trễ ~0.8s/chunk. */
+const CHUNK_MS_REALTIME = 800;
+
+function chunkMsForMode(mode: SessionMode): number {
+  return mode === MODE_REALTIME ? CHUNK_MS_REALTIME : CHUNK_MS_TRANSCRIPT;
+}
+
+/** Chunk nhỏ hơn vẫn gửi STT (micro / loopback). */
+const MIN_CHUNK_BYTES = 160;
 
 function isSentenceComplete(text: string): boolean {
   const t = text.trim();
@@ -163,6 +172,7 @@ export function useRealtimeSession() {
     (stream: MediaStream, meta: Record<string, string>) => {
       if (chunkPumpIntervalRef.current) return;
       recordChunksRef.current = [];
+      const chunkMs = chunkMsForMode(sessionModeRef.current);
 
       const pump = () => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
@@ -189,14 +199,14 @@ export function useRealtimeSession() {
           rec.start();
           window.setTimeout(() => {
             if (rec.state === "recording") rec.stop();
-          }, CHUNK_MS);
+          }, chunkMs);
         } catch (e) {
           setStatus(`error:${friendlyMediaError(e)}`);
         }
       };
 
       pump();
-      chunkPumpIntervalRef.current = window.setInterval(pump, CHUNK_MS);
+      chunkPumpIntervalRef.current = window.setInterval(pump, chunkMs);
     },
     [sendAudioChunk]
   );
@@ -207,7 +217,8 @@ export function useRealtimeSession() {
       sourceLang: LangCode,
       targetLang: LangCode,
       sessionMode: SessionMode,
-      remoteSpeaker: Speaker
+      remoteSpeaker: Speaker,
+      captureMode: CaptureMode = "loopback"
     ) => {
       sessionModeRef.current = sessionMode;
       setUtterances([]);
@@ -224,6 +235,7 @@ export function useRealtimeSession() {
         target_lang: targetLang,
         session_mode: sessionMode,
         speaker: remoteSpeaker,
+        capture_mode: captureMode,
       };
       chunkMetaRef.current = meta;
       chunkStreamRef.current = stream;

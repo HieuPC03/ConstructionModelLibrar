@@ -100,7 +100,8 @@ export default function ConversationPanel() {
         sourceLang,
         targetLang,
         sessionMode,
-        "remote"
+        "remote",
+        captureMode
       );
     } catch (e) {
       session.setStatus(`error:${friendlyMediaError(e)}`);
