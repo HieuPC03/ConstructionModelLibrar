@@ -4,10 +4,10 @@ from __future__ import annotations
 
 SENTENCE_END = ".?!。．？！…"
 MAX_PENDING_CHARS = 600
-# Số chunk im lặng liên tiếp trước khi chốt câu (chunk ~0.75s)
-SILENCE_CHUNKS_TO_FLUSH = 1
-# Một chunk im + đủ chữ → coi như hết câu (ngắt nghỉ ngắn)
-SILENCE_ONE_CHUNK_MIN_CHARS = 6
+# Số chunk im lặng liên tiếp trước khi chốt câu (chunk ~1.2s)
+SILENCE_CHUNKS_TO_FLUSH = 2
+# Một chunk im + đủ chữ → coi như hết câu (ngưỡng cao hơn = chậm hơn)
+SILENCE_ONE_CHUNK_MIN_CHARS = 14
 
 
 def merge_stt_fragments(previous: str, new: str) -> str:
@@ -45,6 +45,7 @@ def should_flush_on_silence(silence_streak: int, pending: str) -> bool:
         return False
     if silence_streak >= SILENCE_CHUNKS_TO_FLUSH:
         return True
+    # Một chunk im lặng + đoạn đủ dài (ngưỡng cao → chốt chậm hơn)
     if silence_streak >= 1 and len(p) >= SILENCE_ONE_CHUNK_MIN_CHARS:
         return True
     return False
