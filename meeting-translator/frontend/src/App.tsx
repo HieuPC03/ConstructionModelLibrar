@@ -25,8 +25,11 @@ function AppInner() {
   return (
     <>
       <header className="app-header">
-        <h1>{tr("appTitle")}</h1>
-        <span className="badge">
+        <div className="app-header-brand">
+          <span className="brand-accent" aria-hidden />
+          <h1>{tr("appTitle")}</h1>
+        </div>
+        <span className="badge header-status">
           {window.desktopApp?.isDesktop
             ? tr("desktop")
             : backendOk === false

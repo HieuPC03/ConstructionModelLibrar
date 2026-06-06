@@ -86,6 +86,7 @@ export default function SettingsBar() {
           <option value="dark">{tr("themeDark")}</option>
           <option value="light">{tr("themeLight")}</option>
           <option value="ocean">{tr("themeOcean")}</option>
+          <option value="jasty">{tr("themeJasty")}</option>
         </select>
       </label>
       <label className="settings-field settings-path">

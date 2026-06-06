@@ -148,7 +148,7 @@ class SettingsUpdate(BaseModel):
     session_mode: str | None = Field(
         default=None, pattern="^(translate_realtime|transcript)$"
     )
-    theme: str | None = Field(default=None, pattern="^(dark|light|ocean)$")
+    theme: str | None = Field(default=None, pattern="^(dark|light|ocean|jasty)$")
     whisper_offline_model: str | None = Field(
         default=None, pattern="^(tiny|base|small|medium)$"
     )

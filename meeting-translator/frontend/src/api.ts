@@ -76,7 +76,7 @@ export type AppSettings = {
   config_path?: string;
   recordings_dir_active?: string;
   provider?: string;
-  theme?: "dark" | "light" | "ocean";
+  theme?: "dark" | "light" | "ocean" | "jasty";
   whisper_offline_model?: string;
   whisper_offline?: Record<string, string>;
 };

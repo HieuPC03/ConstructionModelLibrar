@@ -15,7 +15,16 @@ import {
 } from "./api";
 import { t, type UiLang } from "./i18n/messages";
 
-export type ThemeId = "dark" | "light" | "ocean";
+export type ThemeId = "dark" | "light" | "ocean" | "jasty";
+
+const THEME_IDS: ThemeId[] = ["dark", "light", "ocean", "jasty"];
+
+function normalizeTheme(value: string | undefined): ThemeId {
+  if (value && THEME_IDS.includes(value as ThemeId)) {
+    return value as ThemeId;
+  }
+  return "dark";
+}
 
 type AppSettingsContextValue = {
   lang: UiLang;
@@ -49,10 +58,10 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       .then((s) => {
         setSettings(s);
         setLangState(s.ui_language || "vi");
-        setThemeState((s.theme as ThemeId) || "dark");
+        setThemeState(normalizeTheme(s.theme));
         setExportDir(s.export_dir || "");
         setRecordingsDir(s.recordings_dir || "");
-        applyTheme((s.theme as ThemeId) || "dark");
+        applyTheme(normalizeTheme(s.theme));
       })
       .catch(() => undefined);
   }, [applyTheme]);
