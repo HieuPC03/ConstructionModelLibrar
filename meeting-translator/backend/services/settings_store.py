@@ -9,7 +9,7 @@ _DEFAULT: dict[str, Any] = {
     "recordings_dir": "",
     "export_dir": "",
     "ui_language": "vi",
-    "default_source_lang": "auto",
+    "default_source_lang": "ja",
     "default_target_lang": "vi",
     "meeting_pair": "vi-ja",
     "translator_provider": "openai",

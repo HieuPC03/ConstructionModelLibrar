@@ -23,13 +23,13 @@ const vi = {
   meeting: "Phiên họp",
   live: "LIVE",
   hintTranscript:
-    "Trên: chữ đang nghe (cập nhật liên tục). Dưới: từng câu hoàn chỉnh. «Dịch đoạn» khóa đoạn. Cần OPENAI_API_KEY.",
+    "Trên: chữ đang nghe (cập nhật liên tục). Dưới: từng câu hoàn chỉnh. Chọn «Ngôn ngữ nói» = 日本語 để nhận dạng tiếng Nhật chính xác. Cần OPENAI_API_KEY.",
   listeningNow: "đang nghe",
   liveStripHint: "Nghe đến đâu hiện đến đó",
   waitingSpeech: "Đang chờ giọng nói…",
   completedSentencesLabel: "Câu đã hoàn chỉnh",
   hintRealtime:
-    "Trên: đang nghe (chưa dịch). Dưới: câu + bản dịch ChatGPT. Cần OPENAI_API_KEY (STT + dịch).",
+    "Trên: đang nghe (chưa dịch). Dưới: câu + bản dịch ChatGPT. «Ngôn ngữ nói» = 日本語 cho họp tiếng Nhật. Cần OPENAI_API_KEY.",
   source: "Nguồn",
   sourceScreen: "Quay màn hình (loa + micro)",
   sourceDisplay: "Chia sẻ tab / màn hình",
@@ -127,13 +127,13 @@ const ja: Record<MessageKey, string> = {
   meeting: "会議セッション",
   live: "LIVE",
   hintTranscript:
-    "上：聞こえたところまで表示。下：完成した文。OPENAI_API_KEY必須。",
+    "上：聞こえたところまで表示。下：完成した文。「話し言葉」= 日本語で精度向上。OPENAI_API_KEY必須。",
   listeningNow: "聴取中",
   liveStripHint: "聞こえた分をその都度表示",
   waitingSpeech: "音声を待っています…",
   completedSentencesLabel: "完成した文",
   hintRealtime:
-    "上：聞こえたところまで。下：完成文＋ChatGPT翻訳。OPENAI_API_KEY必須。",
+    "上：聞こえたところまで。下：完成文＋ChatGPT翻訳。「話し言葉」= 日本語。OPENAI_API_KEY必須。",
   source: "ソース",
   sourceScreen: "画面録画（スピーカー＋マイク）",
   sourceDisplay: "タブ／画面共有",

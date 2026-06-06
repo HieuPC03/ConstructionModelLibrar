@@ -1,12 +1,11 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.7.9
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.0
 ============================================
 
 https://github.com/HieuPC03/ConstructionModelLibrar/releases/latest
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.7.9/Meeting-Translator-Setup-1.7.9.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.0/Meeting-Translator-Setup-1.8.0.exe
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.7.9
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.0
 
-v1.7.9 — Bỏ Grok API; dịch meeting/realtime chỉ dùng ChatGPT (OpenAI)
-v1.7.8 — Sửa cài VB-Cable (Admin + shortcut)
-v1.7.7 — Sửa Grok model (đã gỡ trong v1.7.9)
+v1.8.0 — Cải thiện nhận dạng tiếng Nhật (Live Caption + dịch realtime)
+v1.7.9 — Bỏ Grok API; chỉ ChatGPT + Google

@@ -37,7 +37,7 @@ export default function ConversationPanel() {
   const feedRef = useRef<HTMLDivElement>(null);
   const { sessionMode, setSessionMode, resetToDefaults } = useSessionMode();
   const { tr, exportDir, recordingsDir } = useAppSettings();
-  const [sourceLang, setSourceLang] = useState<LangCode>("auto");
+  const [sourceLang, setSourceLang] = useState<LangCode>("ja");
   const [targetLang, setTargetLang] = useState<LangCode>("vi");
   const [captureMode, setCaptureMode] = useState<CaptureMode>("loopback");
   const [loopbackId, setLoopbackId] = useState("");
@@ -119,7 +119,7 @@ export default function ConversationPanel() {
       setCaptureMode("loopback");
       setLoopbackId("");
       setIncludeMic(true);
-      setSourceLang("auto");
+      setSourceLang("ja");
       setTargetLang("vi");
       await audio.refreshDevices();
       session.setStatus("idle");
@@ -303,10 +303,8 @@ export default function ConversationPanel() {
               value={sourceLang}
               onChange={(e) => setSourceLang(e.target.value as LangCode)}
             >
-              <option value="auto">{tr("auto")}</option>
-              <option value="vi">Tiếng Việt</option>
               <option value="ja">日本語</option>
-              <option value="en">English</option>
+              <option value="vi">Tiếng Việt</option>
             </select>
           </label>
           <label>
@@ -317,7 +315,6 @@ export default function ConversationPanel() {
             >
               <option value="vi">Tiếng Việt</option>
               <option value="ja">日本語</option>
-              <option value="en">English</option>
             </select>
           </label>
         </div>

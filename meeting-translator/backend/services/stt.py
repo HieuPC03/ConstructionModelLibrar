@@ -5,8 +5,8 @@ import tempfile
 
 from services.config import OPENAI_STT_MODEL, get_openai_api_key
 from services.errors import is_valid_openai_key
+from services.stt_lang import filter_stt_hallucination, resolve_stt_language
 
-WHISPER_LANG = {"vi": "vi", "ja": "ja", "en": "en", "auto": None}
 MIN_AUDIO_BYTES = 200
 
 
@@ -27,7 +27,7 @@ def _audio_suffix_from_bytes(data: bytes, filename: str) -> str:
 async def transcribe_audio(
     audio_bytes: bytes,
     filename: str = "chunk.webm",
-    language: str = "auto",
+    language: str = "ja",
     engine: str | None = None,
 ) -> str:
     if len(audio_bytes) < MIN_AUDIO_BYTES:
@@ -51,7 +51,7 @@ async def _transcribe_openai(
     from openai import AsyncOpenAI
 
     client = AsyncOpenAI(api_key=api_key)
-    lang = WHISPER_LANG.get(language)
+    lang, prompt = resolve_stt_language(language)
 
     suffix = _audio_suffix_from_bytes(audio_bytes, filename)
 
@@ -60,28 +60,38 @@ async def _transcribe_openai(
         tmp_path = tmp.name
 
     try:
-        with open(tmp_path, "rb") as audio_file:
-            kwargs: dict = {"model": OPENAI_STT_MODEL, "file": audio_file}
-            if lang:
-                kwargs["language"] = lang
-            try:
-                transcript = await client.audio.transcriptions.create(**kwargs)
-            except Exception as primary_exc:
-                if "invalid file format" in str(primary_exc).lower():
-                    return ""
-                with open(tmp_path, "rb") as fallback_file:
-                    fb: dict = {"model": "whisper-1", "file": fallback_file}
-                    if lang:
-                        fb["language"] = lang
-                    try:
-                        transcript = await client.audio.transcriptions.create(**fb)
-                    except Exception as fb_exc:
-                        if "invalid file format" in str(fb_exc).lower():
-                            return ""
-                        raise fb_exc from primary_exc
-        return (transcript.text or "").strip()
+        text = await _run_openai_transcription(
+            client, tmp_path, OPENAI_STT_MODEL, lang, prompt
+        )
+        if not text and lang == "ja":
+            text = await _run_openai_transcription(
+                client, tmp_path, "whisper-1", lang, prompt
+            )
+        return filter_stt_hallucination(text, lang or "ja")
     finally:
         try:
             os.unlink(tmp_path)
         except OSError:
             pass
+
+
+async def _run_openai_transcription(
+    client,
+    path: str,
+    model: str,
+    lang: str | None,
+    prompt: str | None,
+) -> str:
+    with open(path, "rb") as audio_file:
+        kwargs: dict = {"model": model, "file": audio_file}
+        if lang:
+            kwargs["language"] = lang
+        if prompt:
+            kwargs["prompt"] = prompt
+        try:
+            transcript = await client.audio.transcriptions.create(**kwargs)
+            return (transcript.text or "").strip()
+        except Exception as exc:
+            if "invalid file format" in str(exc).lower():
+                return ""
+            raise

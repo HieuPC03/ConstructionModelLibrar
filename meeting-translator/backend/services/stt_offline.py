@@ -8,7 +8,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-WHISPER_LANG = {"vi": "vi", "ja": "ja", "en": "en", "auto": None}
+from services.stt_lang import filter_stt_hallucination, resolve_stt_language
 
 _model = None
 _model_lock = asyncio.Lock()
@@ -159,17 +159,20 @@ def _transcribe_file_sync(path: str, language: str) -> str:
     global _model
     if _model is None:
         _model = _load_model_sync()
-    lang = WHISPER_LANG.get(language)
+    lang, prompt = resolve_stt_language(language)
     kwargs: dict = {"beam_size": 5, "vad_filter": True}
     if lang:
         kwargs["language"] = lang
+    if prompt:
+        kwargs["initial_prompt"] = prompt
     segments, _info = _model.transcribe(path, **kwargs)
     parts = [seg.text.strip() for seg in segments if seg.text.strip()]
-    return " ".join(parts).strip()
+    text = " ".join(parts).strip()
+    return filter_stt_hallucination(text, lang or "ja")
 
 
 async def transcribe_offline(
-    audio_bytes: bytes, filename: str = "chunk.webm", language: str = "auto"
+    audio_bytes: bytes, filename: str = "chunk.webm", language: str = "ja"
 ) -> str:
     if not audio_bytes or len(audio_bytes) < 400:
         return ""

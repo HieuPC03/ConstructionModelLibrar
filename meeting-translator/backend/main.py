@@ -46,6 +46,7 @@ from services.realtime_buffer import (
     should_flush_buffer,
 )
 from services.stt import transcribe_audio
+from services.stt_lang import translation_source_lang
 from services.translate import translate_meeting_text, translate_text
 
 
@@ -381,7 +382,7 @@ async def translate_text_endpoint(body: TextTranslateRequest) -> TextTranslateRe
 @app.post("/api/transcribe")
 async def transcribe_endpoint(
     audio: UploadFile = File(...),
-    source_lang: str = Form("auto"),
+    source_lang: str = Form("ja"),
     target_lang: str = Form("vi"),
     speaker: str = Form("remote"),
 ) -> dict[str, Any]:
@@ -404,7 +405,7 @@ async def session_websocket(websocket: WebSocket) -> None:
     pending_meta: dict[str, Any] = {}
     pending_rt_text = ""
     rt_silence_streak = 0
-    last_source_lang = "auto"
+    last_source_lang = "ja"
     last_target_lang = "vi"
     last_speaker = "remote"
     last_session_mode = SESSION_TRANSCRIPT
@@ -435,7 +436,7 @@ async def session_websocket(websocket: WebSocket) -> None:
             return
         pending_rt_text = ""
         rt_silence_streak = 0
-        src = last_source_lang if last_source_lang != "auto" else "en"
+        src = translation_source_lang(last_source_lang)
         tr = await translate_meeting_text(text, src, last_target_lang)
         await emit_utterance(
             text,
@@ -481,7 +482,7 @@ async def session_websocket(websocket: WebSocket) -> None:
                 meta = pending_meta
                 pending_meta = {}
                 data = message["bytes"]
-                source_lang = meta.get("source_lang", "auto")
+                source_lang = meta.get("source_lang", "ja")
                 target_lang = meta.get("target_lang", "vi")
                 speaker = meta.get("speaker", "remote")
                 session_mode = get_session_mode(meta.get("session_mode"))
