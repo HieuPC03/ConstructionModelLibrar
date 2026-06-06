@@ -63,14 +63,6 @@ function AppInner() {
         </div>
       )}
       <main className="split-layout">
-        <div className="split-bg-watermark" aria-hidden="true">
-          <img
-            src={jastyLogo}
-            alt=""
-            className="split-bg-logo"
-            draggable={false}
-          />
-        </div>
         <ConversationPanel />
         <TextTranslatePanel />
       </main>
