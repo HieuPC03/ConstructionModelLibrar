@@ -1,4 +1,16 @@
 const SENTENCE_END = ".?!。．？！…";
+const CJK_CHAR = /[\u3040-\u30ff\u4e00-\u9fff]/;
+const NO_SPACE_BEFORE = /^[,.;:!?)、。．！？…]/;
+
+/** Chuẩn hóa đoạn transcript hiển thị liên tục (không xuống dòng từng câu). */
+export function formatSegmentParagraph(text: string): string {
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{2,}/g, " ")
+    .replace(/\n/g, " ")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
 
 /** Tách câu đã hoàn chỉnh (có dấu kết thúc) và phần đang nói dở. */
 export function splitCompletedSentences(text: string): {
@@ -28,7 +40,21 @@ export function splitCompletedSentences(text: string): {
 export function applyChunkToSegmentText(prev: string, chunk: string): string {
   const c = chunk.trim();
   if (!c) return prev;
-  if (!prev.trim()) return c;
-  const needsSpace = !prev.endsWith(" ") && !/^[,.;:!?)]/.test(c);
-  return needsSpace ? `${prev} ${c}` : `${prev}${c}`;
+  const p = prev.trimEnd();
+  if (!p) return c;
+
+  const last = p.slice(-1);
+  const first = c[0];
+  const bothCjk = CJK_CHAR.test(last) && CJK_CHAR.test(first);
+
+  if (bothCjk || NO_SPACE_BEFORE.test(c)) {
+    return `${p}${c}`;
+  }
+  if (SENTENCE_END.includes(last)) {
+    return `${p}${c}`;
+  }
+  if (!p.endsWith(" ") && !NO_SPACE_BEFORE.test(c)) {
+    return `${p} ${c}`;
+  }
+  return `${p}${c}`;
 }

@@ -635,9 +635,14 @@ textarea {
 
 .segment-original {
   margin: 0;
-  line-height: 1.65;
-  white-space: pre-wrap;
+  line-height: 1.75;
+  white-space: normal;
   word-break: break-word;
+}
+
+.segment-paragraph {
+  text-align: justify;
+  text-justify: inter-character;
 }
 
 .segment-translation {
