@@ -4,13 +4,14 @@ import asyncio
 from dataclasses import dataclass
 
 from services.config import (
-    GEMINI_MODEL,
+    GROK_API_BASE,
+    GROK_MODEL,
     OPENAI_TRANSLATE_MODEL,
-    get_gemini_api_key,
+    get_grok_api_key,
     get_openai_api_key,
     get_translator_provider,
 )
-from services.errors import is_valid_gemini_key, is_valid_openai_key
+from services.errors import is_valid_grok_key, is_valid_openai_key
 
 VI_JA_SYSTEM = """You are a professional Vietnamese–Japanese interpreter for business meetings.
 Translate accurately, preserve tone (formal です/ます for Japanese when appropriate), and keep names unchanged.
@@ -18,9 +19,9 @@ Output ONLY the translation, no explanations."""
 
 _GOOGLE_LANG = {"vi": "vi", "ja": "ja", "en": "en"}
 
-GEMINI_FALLBACK_NOTICE = (
-    "Gemini hết quota hoặc tạm thời không khả dụng. "
-    "Đã tự chuyển sang Google Translate (miễn phí, không cần API key)."
+GROK_FALLBACK_NOTICE = (
+    "Grok hết quota hoặc tạm thời không khả dụng. "
+    "Đã tự chuyển sang ChatGPT (OpenAI)."
 )
 
 
@@ -35,8 +36,7 @@ def _lang_name(code: str) -> str:
     return {"vi": "Vietnamese", "ja": "Japanese", "en": "English"}.get(code, code)
 
 
-def _gemini_should_fallback_to_google(exc: Exception) -> bool:
-    """Chỉ fallback khi quota/rate limit/lỗi tạm thời — không che lỗi key sai."""
+def _should_fallback_to_openai(exc: Exception) -> bool:
     msg = str(exc).lower()
     if any(
         p in msg
@@ -46,6 +46,7 @@ def _gemini_should_fallback_to_google(exc: Exception) -> bool:
             "api key not valid",
             "permission denied",
             "unauthenticated",
+            "incorrect api key",
         )
     ):
         return False
@@ -58,7 +59,6 @@ def _gemini_should_fallback_to_google(exc: Exception) -> bool:
             "rate limit",
             "ratelimit",
             "resource exhausted",
-            "resource_exhausted",
             "too many requests",
             "limit exceeded",
             "exceeded your",
@@ -66,24 +66,37 @@ def _gemini_should_fallback_to_google(exc: Exception) -> bool:
             "unavailable",
             "503",
             "capacity",
+            "insufficient",
         )
     )
 
 
-async def _gemini_with_google_fallback(
-    prompt: str, text: str, source_lang: str, target_lang: str
+async def translate_meeting_text(
+    text: str,
+    source_lang: str,
+    target_lang: str,
 ) -> TranslateResult:
-    try:
-        translated = await _translate_gemini(prompt)
-        return TranslateResult(translated, "Google Gemini", None)
-    except Exception as gemini_err:
-        if not _gemini_should_fallback_to_google(gemini_err):
-            raise
+    """Live Caption «Dịch đoạn» + dịch realtime: Grok trước, ChatGPT khi hết quota."""
+    if not text.strip():
+        return TranslateResult("", "Grok (xAI)", None)
+    if source_lang == target_lang:
+        return TranslateResult(text, "Grok (xAI)", None)
+
+    prompt = (
+        f"Translate the following from {_lang_name(source_lang)} to {_lang_name(target_lang)}:\n\n{text}"
+    )
+
+    if is_valid_grok_key(get_grok_api_key()):
         try:
-            translated = await _translate_google(text, source_lang, target_lang)
-            return TranslateResult(translated, "Google Translate", GEMINI_FALLBACK_NOTICE)
-        except Exception:
-            raise gemini_err
+            translated = await _translate_grok(prompt)
+            return TranslateResult(translated, "Grok (xAI)", None)
+        except Exception as grok_err:
+            if not _should_fallback_to_openai(grok_err):
+                raise
+
+    translated = await _translate_openai(prompt)
+    notice = GROK_FALLBACK_NOTICE if is_valid_grok_key(get_grok_api_key()) else None
+    return TranslateResult(translated, "ChatGPT (OpenAI)", notice)
 
 
 async def translate_text(
@@ -102,41 +115,27 @@ async def translate_text(
         f"Translate the following from {_lang_name(source_lang)} to {_lang_name(target_lang)}:\n\n{text}"
     )
 
+    if provider == "grok":
+        if not is_valid_grok_key(get_grok_api_key()):
+            raise ValueError(
+                "XAI_API_KEY không hợp lệ — lấy tại https://console.x.ai"
+            )
+        translated = await _translate_grok(prompt)
+        return TranslateResult(translated, "Grok (xAI)", None)
     if provider == "openai":
         translated = await _translate_openai(prompt)
         return TranslateResult(translated, "ChatGPT (OpenAI)", None)
-    if provider == "gemini":
-        return await _gemini_with_google_fallback(prompt, text, source_lang, target_lang)
     if provider == "google":
         translated = await _translate_google(text, source_lang, target_lang)
         return TranslateResult(translated, "Google Translate", None)
 
-    try:
-        translated = await _translate_openai(prompt)
-        return TranslateResult(translated, "ChatGPT (OpenAI)", None)
-    except Exception as openai_err:
-        msg = str(openai_err).lower()
-        if "insufficient_quota" in msg or "billing" in msg or "429" in msg:
-            if is_valid_gemini_key(get_gemini_api_key()):
-                try:
-                    return await _gemini_with_google_fallback(
-                        prompt, text, source_lang, target_lang
-                    )
-                except Exception:
-                    pass
-            translated = await _translate_google(text, source_lang, target_lang)
-            return TranslateResult(
-                translated,
-                "Google Translate",
-                "OpenAI hết quota. Đã tự chuyển sang Google Translate (miễn phí).",
-            )
-        raise
+    return await translate_meeting_text(text, source_lang, target_lang)
 
 
 async def _translate_openai(prompt: str) -> str:
     api_key = get_openai_api_key()
     if not is_valid_openai_key(api_key):
-        raise ValueError("OPENAI_API_KEY không hợp lệ — chọn Google Translate trong Cài đặt")
+        raise ValueError("OPENAI_API_KEY không hợp lệ — kiểm tra file .env")
 
     from openai import AsyncOpenAI
 
@@ -152,23 +151,25 @@ async def _translate_openai(prompt: str) -> str:
     return (response.choices[0].message.content or "").strip()
 
 
-async def _translate_gemini(prompt: str) -> str:
-    api_key = get_gemini_api_key()
-    if not is_valid_gemini_key(api_key):
+async def _translate_grok(prompt: str) -> str:
+    api_key = get_grok_api_key()
+    if not is_valid_grok_key(api_key):
         raise ValueError(
-            "GEMINI_API_KEY không hợp lệ (AIza... hoặc AQ.... từ https://aistudio.google.com/apikey). "
-            "Không dán key OpenAI sk-proj."
+            "XAI_API_KEY không hợp lệ — lấy tại https://console.x.ai (dạng xai-...)"
         )
 
-    import google.generativeai as genai
+    from openai import AsyncOpenAI
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(GEMINI_MODEL)
-    result = await model.generate_content_async(
-        f"{VI_JA_SYSTEM}\n\n{prompt}",
-        generation_config={"temperature": 0.2},
+    client = AsyncOpenAI(api_key=api_key, base_url=GROK_API_BASE)
+    response = await client.chat.completions.create(
+        model=GROK_MODEL,
+        messages=[
+            {"role": "system", "content": VI_JA_SYSTEM},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.2,
     )
-    return (result.text or "").strip()
+    return (response.choices[0].message.content or "").strip()
 
 
 async def _translate_google(text: str, source_lang: str, target_lang: str) -> str:

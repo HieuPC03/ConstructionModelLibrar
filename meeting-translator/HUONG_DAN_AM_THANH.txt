@@ -1,0 +1,34 @@
+HƯỚNG DẪN ÂM THANH — VB-Cable (cài kèm Meeting Translator)
+============================================================
+
+Mục tiêu:
+- Ghi âm thanh hệ thống (cuộc họp, video) cho Live Caption / dịch meeting
+- Vẫn NGHE qua tai nghe bình thường
+- Micro trên tai nghe vẫn thu được giọng bạn nói
+
+Bước 1 — Cài VB-Cable (tự chạy khi cài app, hoặc chạy lại):
+  Thư mục cài đặt\resources\runtime\vbcable\VBCABLE_Setup_x64.exe
+  (Cần quyền Administrator — chấp nhận driver ảo)
+
+Bước 2 — Windows Sound (Win + R → mmsys.cpl):
+
+  TAB «Phát» (Playback):
+    - Đặt «Tai nghe / Headphones» làm THIẾT BỊ MẶC ĐỊNH
+      → Bạn vẫn nghe mọi thứ qua tai nghe
+
+  TAB «Ghi» (Recording):
+    - Có thêm «CABLE Output (VB-Audio Virtual Cable)»
+
+Bước 3 — Trong Zoom / Teams / Meet / trình duyệt:
+    - Chọn LOA / Speaker = «CABLE Input (VB-Audio Virtual Cable)»
+      → Âm thanh cuộc họp đi vào card ảo để app ghi
+
+Bước 4 — Trong Meeting Translator:
+    - Nguồn: «Âm thanh hệ thống»
+    - Thiết bị: «CABLE Output» (hoặc Tự động nếu thấy VB-Cable)
+    - Bật «Nghe lại qua tai nghe» — nghe lại tiếng họp qua tai nghe khi ghi
+    - Bật «Thêm micro» — thu thêm giọng bạn qua mic tai nghe
+
+Lưu ý:
+- Nếu không nghe được: kiểm tra loa mặc định vẫn là Tai nghe (không phải CABLE Input)
+- Chỉ âm từ app chọn CABLE Input mới được ghi; nhạc hệ thống khác có thể không vào cable

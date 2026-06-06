@@ -50,7 +50,7 @@ Tạo lại gói zip: `./pack-release.sh` hoặc `.\pack-release.ps1`.
 ```bash
 cd meeting-translator
 cp backend/.env.example backend/.env
-# Sửa backend/.env: OPENAI_API_KEY và/hoặc GEMINI_API_KEY
+# Sửa backend/.env: XAI_API_KEY (Grok) và OPENAI_API_KEY (Whisper STT)
 
 chmod +x start.sh install.sh
 ./install.sh
@@ -84,7 +84,7 @@ GEMINI_API_KEY=...
 ```
 
 - **OpenAI:** Whisper STT + GPT dịch (`gpt-4o-mini` mặc định).
-- **Gemini:** chỉ dịch văn bản; STT vẫn dùng Whisper (OpenAI key).
+- **Grok:** ưu tiên dịch live meeting; hết quota → ChatGPT.
 
 ## Bắt âm thanh khi đeo tai nghe
 

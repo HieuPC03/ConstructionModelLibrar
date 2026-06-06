@@ -28,7 +28,7 @@ install.bat            (Dev) Cai dependencies source
 
 API KEY / OFFLINE
 -----------------
-Live Caption: OFFLINE tren may (Whisper) — KHONG can GEMINI_API_KEY
+Live Caption: OpenAI Whisper STT — can OPENAI_API_KEY. Dich: Grok (XAI_API_KEY) uu tien
   Ban 1.5.3+: model small da trong file cai, khong tai lan dau.
   Can FFmpeg (kem trong ban cai day du).
 

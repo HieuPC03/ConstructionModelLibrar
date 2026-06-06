@@ -28,7 +28,9 @@ Push-Location $Root
 if (-not $SkipPythonBundle -and -not $SkipRuntimeBundle) {
     Write-Host "[1/6] Dong goi Python runtime..." -ForegroundColor Yellow
     & "$Root\scripts\bundle-python.ps1" -Root $Root
-    Write-Host "[1b/6] Bo qua FFmpeg/Whisper (STT qua OpenAI, giam dung luong cai dat)" -ForegroundColor DarkYellow
+    Write-Host "[1b/6] Bo qua FFmpeg/Whisper (STT qua OpenAI)" -ForegroundColor DarkYellow
+    Write-Host "[1c/6] VB-Cable (card am thanh ao)..." -ForegroundColor Yellow
+    & "$Root\scripts\bundle-vbcable.ps1" -Root $Root
 } elseif ($SkipRuntimeBundle) {
     Write-Host "[1/6] Bo qua bundle runtime (da chay o buoc CI truoc)" -ForegroundColor DarkYellow
 } else {

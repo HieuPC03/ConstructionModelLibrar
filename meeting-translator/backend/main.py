@@ -14,12 +14,12 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from services.config import (
-    GEMINI_MODEL,
+    GROK_MODEL,
     OPENAI_STT_MODEL,
     OPENAI_TRANSLATE_MODEL,
     PROVIDER_LABELS,
     RECORDINGS_DIR,
-    get_gemini_api_key,
+    get_grok_api_key,
     get_openai_api_key,
     get_translator_provider,
 )
@@ -27,7 +27,7 @@ from services.errors import (
     env_file_hint,
     friendly_api_error,
     is_placeholder_key,
-    is_valid_gemini_key,
+    is_valid_grok_key,
     is_valid_openai_key,
 )
 from services.settings_store import (
@@ -49,7 +49,7 @@ from services.realtime_buffer import (
     should_flush_buffer,
 )
 from services.stt import transcribe_audio
-from services.translate import translate_text
+from services.translate import translate_meeting_text, translate_text
 
 
 def recordings_dir() -> Path:
@@ -77,7 +77,11 @@ class TextTranslateRequest(BaseModel):
     session_mode: str | None = Field(
         default=None, pattern="^(translate_realtime|transcript)$"
     )
+    provider: str | None = Field(
+        default=None, pattern="^(google|grok|openai)$"
+    )
     use_openai: bool = False
+    meeting: bool = False
 
 
 class TranscriptSegmentExport(BaseModel):
@@ -106,36 +110,26 @@ def _provider_health() -> tuple[bool, str, str, str | None]:
     provider = get_translator_provider()
     label = PROVIDER_LABELS.get(provider, provider)
 
+    grok_ok = is_valid_grok_key(get_grok_api_key())
+    openai_ok = is_valid_openai_key(get_openai_api_key())
+    stt = f"OpenAI STT ({OPENAI_STT_MODEL})"
+    hints = [
+        "Dịch văn bản: Google / Grok / ChatGPT.",
+        f"Live Caption: {stt} — cần OPENAI_API_KEY.",
+        "Live meeting: Grok trước → ChatGPT khi hết quota — cần XAI_API_KEY và/hoặc OPENAI_API_KEY.",
+    ]
+    ok = openai_ok or grok_ok
+    msg = None
+    if not openai_ok:
+        msg = f"Thêm OPENAI_API_KEY (Whisper STT) trong {config_path}"
+    if not grok_ok:
+        extra = f"Thêm XAI_API_KEY (Grok dịch) tại https://console.x.ai — {config_path}"
+        msg = f"{msg} · {extra}" if msg else extra
     if provider == "google":
-        stt = "Google Translate (chữ)"
-        hints = [
-            "Dịch văn bản: Google Translate (không cần key).",
-            f"Live Caption / dịch realtime: cần OPENAI_API_KEY trong {config_path}",
-        ]
-        if is_valid_openai_key(get_openai_api_key()):
-            return True, label, f"{stt} + OpenAI STT", " ".join(hints)
-        return False, label, stt, " ".join(hints)
-
-    if provider == "gemini":
-        gkey = get_gemini_api_key()
-        ok = is_valid_gemini_key(gkey)
-        msg = None
-        if not ok:
-            if gkey.startswith("sk-"):
-                msg = f"Đang dán nhầm key OpenAI vào GEMINI_API_KEY. Sửa {config_path}"
-            else:
-                msg = f"Thêm GEMINI_API_KEY (AIza... hoặc AQ....) vào {config_path}"
-        return ok, label, GEMINI_MODEL, msg
-
-    ok = is_valid_openai_key(get_openai_api_key())
-    msg = (
-        None
-        if ok
-        else (
-            f"Thêm OPENAI_API_KEY hoặc đổi TRANSLATOR_PROVIDER=google/gemini trong {config_path}"
-        )
-    )
-    return ok, label, OPENAI_STT_MODEL, msg
+        return openai_ok or grok_ok, label, stt, " ".join(hints) if not ok else None
+    if provider == "grok":
+        return grok_ok or openai_ok, "Grok (xAI)", GROK_MODEL, msg
+    return ok, label, stt, msg
 
 
 @app.get("/api/health", response_model=HealthResponse)
@@ -160,7 +154,7 @@ class SettingsUpdate(BaseModel):
     default_target_lang: str | None = Field(default=None, pattern="^(vi|ja|en)$")
     meeting_pair: str | None = Field(default=None, pattern="^(vi-ja|ja-vi)$")
     translator_provider: str | None = Field(
-        default=None, pattern="^(openai|gemini|google)$"
+        default=None, pattern="^(openai|grok|google)$"
     )
     session_mode: str | None = Field(
         default=None, pattern="^(translate_realtime|transcript)$"
@@ -275,18 +269,22 @@ async def test_provider_config() -> dict[str, Any]:
                 "ok": True,
                 "message": f"Google Translate OK (ví dụ: xin chào → {outcome.text})",
             }
-        if via == "gemini":
-            if not is_valid_gemini_key(get_gemini_api_key()):
+        if mode == SESSION_TRANSLATE:
+            if not is_valid_grok_key(get_grok_api_key()) and not is_valid_openai_key(
+                get_openai_api_key()
+            ):
                 raise HTTPException(
                     status_code=400,
-                    detail=f"GEMINI_API_KEY không hợp lệ trong {env_file_hint()}",
+                    detail=(
+                        f"Cần XAI_API_KEY (Grok) hoặc OPENAI_API_KEY trong {env_file_hint()}"
+                    ),
                 )
-            outcome = await translate_text("test", "en", "vi", provider_override="gemini")
-            msg = f"Gemini OK (thử dịch: {outcome.text})"
+            outcome = await translate_meeting_text("xin chào", "vi", "ja")
+            msg = f"Dịch meeting OK ({outcome.provider}: {outcome.text})"
             if outcome.notice:
                 msg += f" — {outcome.notice}"
             return {"ok": True, "message": msg}
-        if mode == SESSION_TRANSLATE and not is_valid_openai_key(get_openai_api_key()):
+        if not is_valid_openai_key(get_openai_api_key()):
             raise HTTPException(
                 status_code=400,
                 detail=f"Thiếu OPENAI_API_KEY trong {env_file_hint()}",
@@ -347,8 +345,34 @@ async def export_text(body: ExportRequest) -> dict[str, str]:
 
 @app.post("/api/translate/text", response_model=TextTranslateResponse)
 async def translate_text_endpoint(body: TextTranslateRequest) -> TextTranslateResponse:
-    mode = get_session_mode(body.session_mode)
-    via = "openai" if body.use_openai else text_translate_provider_for_mode(mode)
+    if body.meeting:
+        via = "grok"
+        try:
+            outcome = await translate_meeting_text(
+                body.text,
+                body.source_lang,
+                body.target_lang,
+            )
+        except Exception as exc:
+            from fastapi import HTTPException
+
+            raise HTTPException(
+                status_code=400,
+                detail=friendly_api_error(exc, provider_hint=via),
+            ) from exc
+        return TextTranslateResponse(
+            translation=outcome.text,
+            provider=outcome.provider,
+            notice=outcome.notice,
+        )
+
+    if body.provider:
+        via = body.provider
+    elif body.use_openai:
+        via = "openai"
+    else:
+        via = "google"
+
     try:
         outcome = await translate_text(
             body.text,
@@ -363,7 +387,7 @@ async def translate_text_endpoint(body: TextTranslateRequest) -> TextTranslateRe
             status_code=400,
             detail=friendly_api_error(exc, provider_hint=via),
         ) from exc
-    label = PROVIDER_LABELS.get(via, via)
+    label = outcome.provider or PROVIDER_LABELS.get(via, via)
     return TextTranslateResponse(
         translation=outcome.text,
         provider=label,
@@ -429,12 +453,7 @@ async def session_websocket(websocket: WebSocket) -> None:
         pending_rt_text = ""
         rt_silence_streak = 0
         src = last_source_lang if last_source_lang != "auto" else "en"
-        tr = await translate_text(
-            text,
-            src,
-            last_target_lang,
-            provider_override="openai",
-        )
+        tr = await translate_meeting_text(text, src, last_target_lang)
         await emit_utterance(
             text,
             tr.text,

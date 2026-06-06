@@ -44,7 +44,7 @@
 ■ DỮ LIỆU TRÊN MÁY BẠN
 ──────────────────────────────────────────────────────────────
   %APPDATA%\meeting-translator-desktop\
-    .env           ← OPENAI_API_KEY, GEMINI_API_KEY
+    .env           ← XAI_API_KEY (Grok), OPENAI_API_KEY (Whisper)
     recordings\    ← Âm thanh + transcript đã lưu
 
 ■ GỠ CÀI

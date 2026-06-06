@@ -52,7 +52,7 @@ function ensureUserConfig() {
     } else {
       fs.writeFileSync(
         ud.env,
-        "TRANSLATOR_PROVIDER=openai\nOPENAI_API_KEY=\nGEMINI_API_KEY=\n",
+        "TRANSLATOR_PROVIDER=grok\nXAI_API_KEY=\nGROK_MODEL=grok-2-latest\nOPENAI_API_KEY=\n",
         "utf8"
       );
     }

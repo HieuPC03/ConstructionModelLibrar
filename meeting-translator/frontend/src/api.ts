@@ -58,7 +58,7 @@ export async function testApiKey(): Promise<string> {
   return (data as { message?: string }).message ?? "OK";
 }
 
-export type TranslatorProvider = "openai" | "gemini" | "google";
+export type TranslatorProvider = "openai" | "grok" | "google";
 
 export type SessionMode = "translate_realtime" | "transcript";
 
@@ -130,7 +130,7 @@ export type TextTranslateResult = {
   notice: string | null;
 };
 
-export type TextTranslateProvider = "google" | "openai";
+export type TextTranslateProvider = "google" | "grok" | "openai";
 
 export async function translateText(
   text: string,
@@ -146,7 +146,7 @@ export async function translateText(
       source_lang: sourceLang === "auto" ? "vi" : sourceLang,
       target_lang: targetLang === "auto" ? "ja" : targetLang,
       session_mode: "transcript",
-      use_openai: provider === "openai",
+      provider,
     }),
   });
   const data = await res.json().catch(() => ({}));
@@ -267,8 +267,8 @@ export async function exportVideoToFolder(
   return (data as { message: string }).message;
 }
 
-/** Dịch đoạn Live Caption bằng ChatGPT (OpenAI). */
-export async function translateCaptionOpenAI(
+/** Dịch đoạn Live Caption — Grok trước, ChatGPT khi hết quota. */
+export async function translateCaptionMeeting(
   text: string,
   sourceLang: LangCode,
   targetLang: LangCode
@@ -281,7 +281,7 @@ export async function translateCaptionOpenAI(
       text,
       source_lang: src,
       target_lang: targetLang,
-      use_openai: true,
+      meeting: true,
     }),
   });
   const data = await res.json().catch(() => ({}));

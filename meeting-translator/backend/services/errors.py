@@ -22,27 +22,18 @@ def is_placeholder_key(key: str) -> bool:
         "sk-...",
         "sk-your",
         "sk-xxxx",
+        "xai-...",
         "your-api-key",
         "paste-your-key",
-        "aiza",
     }
     return any(p in lowered for p in placeholders) or len(key.strip()) < 20
 
 
-def is_valid_gemini_key(key: str) -> bool:
-    """Google AI Studio: AIza... (cũ) hoặc AQ.... (key mới 2024+)."""
+def is_valid_grok_key(key: str) -> bool:
     k = (key or "").strip()
     if is_placeholder_key(k):
         return False
-    if k.startswith("sk-"):
-        return False
-    if len(k) < 20:
-        return False
-    if k.startswith("AIza"):
-        return True
-    if k.startswith("AQ."):
-        return True
-    return bool(re.match(r"^AQ[A-Za-z0-9._-]{15,}$", k))
+    return k.startswith("xai-") and len(k) >= 24
 
 
 def is_valid_openai_key(key: str) -> bool:
@@ -57,42 +48,30 @@ def friendly_api_error(exc: Exception, provider_hint: str | None = None) -> str:
     hint = env_file_hint()
     provider_hint = (provider_hint or "").lower()
 
-    if (
-        "api key not valid" in msg.lower()
-        or "API_KEY_INVALID" in msg
-        or "invalid api key" in msg.lower()
-    ):
-        return (
-            "GEMINI_API_KEY không hợp lệ hoặc đã revoke. Key từ "
-            "https://aistudio.google.com/apikey (dạng AIza... hoặc AQ....). "
-            f"KHÔNG dùng key OpenAI sk-proj. File: {hint} — "
-            "https://aistudio.google.com/apikey — hoặc chọn Nhà cung cấp "
-            "'Google Translate' và xóa/để trống GEMINI_API_KEY nếu chỉ dịch chữ."
-        )
     if "invalid_api_key" in msg or "Incorrect API key" in msg or "401" in msg:
+        if provider_hint == "grok" or "x.ai" in msg.lower():
+            return (
+                "XAI_API_KEY không đúng hoặc đã hết hạn. "
+                f"Lấy key tại https://console.x.ai — File: {hint}"
+            )
         return (
-            "API key OpenAI không đúng hoặc đã hết hạn. "
-            f"Sửa file: {hint} — hoặc đổi sang Google Translate trong Cài đặt."
+            "OPENAI_API_KEY không đúng hoặc đã hết hạn. "
+            f"Sửa file: {hint}"
         )
     lower = msg.lower()
-    if "insufficient_quota" in lower or "billing" in lower:
-        if "openai" in lower or "sk-proj" in lower or provider_hint == "openai":
+    if "insufficient_quota" in lower or "billing" in lower or "quota" in lower:
+        if provider_hint == "grok":
             return (
-                "OpenAI hết quota / chưa bật billing (https://platform.openai.com/account/billing). "
-                "Dịch văn bản dùng Google Translate (miễn phí). "
-                "Dịch realtime cần OPENAI_API_KEY trong .env."
+                "Grok hết quota. Live meeting sẽ tự chuyển ChatGPT nếu có OPENAI_API_KEY. "
+                f"Kiểm tra {hint}"
             )
-        if "gemini" in lower or "generative" in lower or "google" in lower:
+        if provider_hint == "openai" or "openai" in lower:
             return (
-                "Gemini/Google hết quota hoặc tạm thời không dùng được. "
-                f"Kiểm tra GEMINI_API_KEY trong {hint} — "
-                "https://aistudio.google.com/apikey — hoặc thử lại sau."
+                "OpenAI hết quota / chưa bật billing. "
+                f"Kiểm tra {hint} — hoặc dùng Google Translate cho dịch văn bản."
             )
-        return (
-            "Hết quota API. Dịch văn bản vẫn dùng Google Translate (miễn phí). "
-            f"Dịch realtime: kiểm tra OPENAI_API_KEY trong {hint}."
-        )
-    if "OPENAI_API_KEY" in msg:
+        return f"Hết quota API. Kiểm tra key trong {hint}."
+    if "OPENAI_API_KEY" in msg or "XAI_API_KEY" in msg:
         return f"{msg} — File cấu hình: {hint}"
 
     if len(msg) > 280:

@@ -10,7 +10,7 @@ import {
   exportTranscript,
   exportTranscriptSegments,
   fillTextTranslateInput,
-  translateCaptionOpenAI,
+  translateCaptionMeeting,
 } from "../api";
 import { copyText } from "../utils/clipboard";
 import { SYSTEM_AUDIO_AUTO_ID, deviceOptionLabel } from "../utils/audioDevices";
@@ -167,7 +167,7 @@ export default function ConversationPanel() {
     });
     session.beginNextSegmentAfterTranslate(seg.id);
     try {
-      const result = await translateCaptionOpenAI(text, sourceLang, targetLang);
+      const result = await translateCaptionMeeting(text, sourceLang, targetLang);
       session.setSegmentTranslation(seg.id, result.translation);
     } catch (e) {
       session.setSegmentTranslateError(seg.id);

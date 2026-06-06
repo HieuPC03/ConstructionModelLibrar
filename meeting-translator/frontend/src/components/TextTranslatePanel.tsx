@@ -15,7 +15,7 @@ const TEXT_PROVIDER_KEY = "meeting-translator-text-provider";
 function loadTextProvider(): TextTranslateProvider {
   try {
     const v = localStorage.getItem(TEXT_PROVIDER_KEY);
-    if (v === "openai" || v === "google") return v;
+    if (v === "openai" || v === "google" || v === "grok") return v;
   } catch {
     /* ignore */
   }
@@ -126,7 +126,11 @@ export default function TextTranslatePanel() {
   };
 
   const providerBadge =
-    provider === "openai" ? tr("chatGptTranslate") : tr("googleTranslate");
+    provider === "openai"
+      ? tr("chatGptTranslate")
+      : provider === "grok"
+        ? tr("grokTranslate")
+        : tr("googleTranslate");
 
   return (
     <section className="panel">
@@ -151,6 +155,16 @@ export default function TextTranslatePanel() {
         <button
           type="button"
           className={
+            provider === "grok" ? "mode-btn active" : "mode-btn secondary"
+          }
+          onClick={() => setProvider("grok")}
+          disabled={loading}
+        >
+          {tr("textProviderGrok")}
+        </button>
+        <button
+          type="button"
+          className={
             provider === "openai" ? "mode-btn active" : "mode-btn secondary"
           }
           onClick={() => setProvider("openai")}
@@ -161,7 +175,11 @@ export default function TextTranslatePanel() {
       </div>
 
       <div className="hint-box">
-        {provider === "openai" ? tr("textHintChatGpt") : tr("textHintGoogle")}
+        {provider === "openai"
+          ? tr("textHintChatGpt")
+          : provider === "grok"
+            ? tr("textHintGrok")
+            : tr("textHintGoogle")}
       </div>
 
       <div className="text-translate-body">

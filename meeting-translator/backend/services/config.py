@@ -30,20 +30,20 @@ def get_openai_api_key() -> str:
     return _clean_secret(os.getenv("OPENAI_API_KEY", ""))
 
 
-def get_gemini_api_key() -> str:
+def get_grok_api_key() -> str:
     _reload_env()
-    return _clean_secret(os.getenv("GEMINI_API_KEY", ""))
+    return _clean_secret(os.getenv("XAI_API_KEY", ""))
 
 
 def get_translator_provider() -> str:
     _reload_env()
     from_settings = (load_settings().get("translator_provider") or "").strip().lower()
-    if from_settings in ("openai", "gemini", "google"):
+    if from_settings in ("openai", "grok", "google"):
         return from_settings
-    env = (os.getenv("TRANSLATOR_PROVIDER") or "google").strip().lower()
-    if env in ("openai", "gemini", "google"):
+    env = (os.getenv("TRANSLATOR_PROVIDER") or "grok").strip().lower()
+    if env in ("openai", "grok", "google"):
         return env
-    return "google"
+    return "grok"
 
 
 _reload_env()
@@ -51,8 +51,9 @@ _reload_env()
 OPENAI_API_KEY = get_openai_api_key()
 OPENAI_STT_MODEL = os.getenv("OPENAI_STT_MODEL", "gpt-4o-mini-transcribe")
 OPENAI_TRANSLATE_MODEL = os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-4o-mini")
-GEMINI_API_KEY = get_gemini_api_key()
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GROK_API_KEY = get_grok_api_key()
+GROK_MODEL = os.getenv("GROK_MODEL", "grok-2-latest")
+GROK_API_BASE = os.getenv("GROK_API_BASE", "https://api.x.ai/v1")
 TRANSLATOR_PROVIDER = get_translator_provider()
 
 _default_recordings = (
@@ -65,7 +66,7 @@ RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 
 PROVIDER_LABELS = {
     "openai": "ChatGPT (OpenAI)",
-    "gemini": "Google Gemini",
+    "grok": "Grok (xAI)",
     "google": "Google Translate",
 }
 

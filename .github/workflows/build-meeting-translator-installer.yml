@@ -38,10 +38,12 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Bundle Python runtime
+      - name: Bundle Python runtime and VB-Cable
         shell: pwsh
         timeout-minutes: 25
-        run: ./scripts/bundle-python.ps1
+        run: |
+          ./scripts/bundle-python.ps1
+          ./scripts/bundle-vbcable.ps1
 
       - name: Build installer (NSIS)
         shell: pwsh
@@ -104,5 +106,6 @@ jobs:
             meeting-translator/BAT-HUONG-DAN.txt
             meeting-translator/TAI-BAN-CAI-DAT.txt
             meeting-translator/HUONG_DAN_CAI_DAT.txt
+            meeting-translator/HUONG_DAN_AM_THANH.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
