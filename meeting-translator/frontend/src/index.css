@@ -62,11 +62,11 @@ body {
 }
 
 .app-bg-logo {
-  width: min(58vw, 520px);
+  width: min(72vw, 640px);
   height: auto;
   transform: rotate(-22deg);
-  opacity: 0.07;
-  filter: drop-shadow(0 0 48px rgba(59, 158, 255, 0.15));
+  opacity: 0.2;
+  filter: drop-shadow(0 0 40px rgba(217, 30, 42, 0.28));
   user-select: none;
 }
 
@@ -640,6 +640,11 @@ textarea {
   word-break: break-word;
 }
 
+.segment-paragraph {
+  text-align: justify;
+  text-justify: inter-character;
+}
+
 .segment-translation {
   margin: 0.75rem 0 0;
   padding-top: 0.75rem;
@@ -790,8 +795,9 @@ textarea {
 }
 
 [data-theme="jasty"] .app-bg-logo {
-  opacity: 0.11;
-  filter: drop-shadow(0 0 60px rgba(217, 30, 42, 0.25));
+  opacity: 0.34;
+  filter: drop-shadow(0 0 72px rgba(217, 30, 42, 0.45))
+    drop-shadow(0 0 28px rgba(56, 189, 248, 0.22));
 }
 
 [data-theme="jasty"] .app-header {

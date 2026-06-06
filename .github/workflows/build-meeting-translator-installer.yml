@@ -9,6 +9,7 @@ on:
       - cursor/package-v1.4.2-6e16
       - cursor/app-v1.5-features-6e16
       - cursor/offline-live-caption-6e16
+      - cursor/v1-8-5-plus-6e16
       - main
     paths:
       - "meeting-translator/**"
@@ -91,7 +92,8 @@ jobs:
         if: |
           startsWith(github.ref, 'refs/tags/meeting-translator-v') ||
           github.event_name == 'workflow_dispatch' ||
-          (github.event_name == 'push' && github.ref == 'refs/heads/cursor/offline-live-caption-6e16')
+          (github.event_name == 'push' && github.ref == 'refs/heads/cursor/offline-live-caption-6e16') ||
+          (github.event_name == 'push' && github.ref == 'refs/heads/cursor/v1-8-5-plus-6e16')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: meeting-translator-v${{ steps.ver.outputs.version }}

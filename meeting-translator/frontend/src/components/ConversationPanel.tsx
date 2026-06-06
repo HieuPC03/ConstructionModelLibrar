@@ -13,6 +13,7 @@ import {
   translateCaptionMeeting,
 } from "../api";
 import { copyText } from "../utils/clipboard";
+import { formatSegmentParagraph } from "../utils/transcriptText";
 import { SYSTEM_AUDIO_AUTO_ID, deviceOptionLabel } from "../utils/audioDevices";
 import { friendlyMediaError } from "../utils/mediaRecorder";
 
@@ -413,10 +414,11 @@ export default function ConversationPanel() {
               ? session.liveDraft || (
                   <span className="live-waiting">{tr("waitingSpeech")}</span>
                 )
-              : session.activeSegment?.liveTail ||
-                (session.activeSegment && !session.activeSegment.closed
-                  ? session.activeSegment.original
-                  : "") || (
+              : formatSegmentParagraph(
+                  session.activeSegment?.original ||
+                    session.activeSegment?.liveTail ||
+                    ""
+                ) || (
                   <span className="live-waiting">{tr("waitingSpeech")}</span>
                 )}
           </p>
@@ -458,30 +460,15 @@ export default function ConversationPanel() {
                     </button>
                   )}
                 </div>
-                {seg.completedSentences.length > 0 ? (
-                  <div className="segment-sentences">
-                    {seg.completedSentences.map((sent, i) => (
-                      <p key={`${seg.id}-s-${i}`} className="segment-sentence">
-                        {sent}
-                      </p>
-                    ))}
-                  </div>
-                ) : seg.closed && seg.original ? (
-                  <p className="segment-original">{seg.original}</p>
+                {seg.original.trim() ? (
+                  <p className="segment-original segment-paragraph">
+                    {formatSegmentParagraph(seg.original)}
+                  </p>
                 ) : (
-                  seg.closed && (
-                    <p className="empty-hint segment-placeholder">
-                      {tr("segmentRecording")}
-                    </p>
-                  )
+                  <p className="empty-hint segment-placeholder">
+                    {tr("segmentRecording")}
+                  </p>
                 )}
-                {!seg.closed &&
-                  seg.completedSentences.length === 0 &&
-                  !seg.liveTail && (
-                    <p className="empty-hint segment-placeholder">
-                      {tr("segmentRecording")}
-                    </p>
-                  )}
                 {seg.translation && (
                   <p className="segment-translation">{seg.translation}</p>
                 )}
