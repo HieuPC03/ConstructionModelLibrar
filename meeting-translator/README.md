@@ -8,7 +8,7 @@
 |--------|------------------|
 | Dịch khi vẫn đeo tai nghe, không cần micro cuộc họp | Bắt **âm thanh hệ thống (loopback)**: Stereo Mix (Windows), Monitor of … (Linux), hoặc chia sẻ tab Zoom/Teams trên trình duyệt |
 | Nửa màn hình hội thoại + ghi âm | Cột trái: dòng thoại gốc + bản dịch; **Record** gộp âm cuộc họp + micro của bạn (tùy chọn) |
-| ChatGPT hoặc Gemini | `TRANSLATOR_PROVIDER=openai` hoặc `gemini` trong `backend/.env` |
+| Grok / ChatGPT / Google | `XAI_API_KEY`, `OPENAI_API_KEY` trong `backend/.env` |
 | Gõ văn bản Việt ↔ Nhật | Cột phải: nhập text, nút Việt→Nhật / Nhật→Việt |
 
 **STT (nhận dạng giọng nói):** OpenAI Whisper (cần `OPENAI_API_KEY`).
@@ -78,9 +78,9 @@ npm install && npm run dev
 `backend/.env`:
 
 ```env
-TRANSLATOR_PROVIDER=openai   # hoặc gemini
+TRANSLATOR_PROVIDER=grok
+XAI_API_KEY=xai-...
 OPENAI_API_KEY=sk-...
-GEMINI_API_KEY=...
 ```
 
 - **OpenAI:** Whisper STT + GPT dịch (`gpt-4o-mini` mặc định).
@@ -119,7 +119,7 @@ Khi bấm **Dừng & lưu**:
 ```
 Browser (React)
   ├─ Loopback / Display capture → MediaRecorder chunks (3s)
-  ├─ WebSocket /ws/session → Whisper STT → GPT/Gemini dịch
+  ├─ WebSocket /ws/session → Whisper STT → Grok/ChatGPT dịch
   └─ REST /api/translate/text → dịch văn bản Việt↔Nhật
 
 FastAPI backend
