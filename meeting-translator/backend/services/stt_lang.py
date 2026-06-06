@@ -3,8 +3,9 @@ from __future__ import annotations
 import re
 
 JA_STT_PROMPT = (
-    "以下は日本語の会議・オンライン通話の音声です。"
-    "話し言葉をひらがな・カタカナ・漢字で正確に書き起こしてください。"
+    "以下は日本語のビジネス会議・オンライン通話です。"
+    "日本語のみ正確に書き起こす。韓国語・英語・中国語は出力しない。"
+    "句読点を適切に付け、話し言葉をそのまま記録する。"
 )
 
 JA_LOOPBACK_HINT = (
@@ -19,26 +20,132 @@ VI_LOOPBACK_HINT = (
     "ghi lại chính xác nội dung nghe được."
 )
 
+JA_VI_STT_PROMPT = (
+    "日本語とベトナム語の会議です。"
+    "日本語はひらがな・カタカナ・漢字で正確に。韓国語・英語は絶対に出力しない。"
+    "ベトナム語はそのまま書き起こす。句読点を適切に付ける。"
+)
+
+_HANGUL = re.compile(r"[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]+")
+_LATIN_RUN = re.compile(r"[A-Za-z]{2,}")
+
+_VI_DIACRITIC = re.compile(
+    r"[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
+    r"ÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ]"
+)
+
+_VI_WORD_MARKERS = frozenset(
+    {
+        "toi",
+        "tôi",
+        "ban",
+        "bạn",
+        "khong",
+        "không",
+        "co",
+        "có",
+        "la",
+        "là",
+        "va",
+        "và",
+        "duoc",
+        "được",
+        "nay",
+        "này",
+        "cho",
+        "cua",
+        "của",
+        "voi",
+        "với",
+        "nhung",
+        "nhưng",
+        "cam",
+        "cảm",
+        "on",
+        "ơn",
+    }
+)
+
+
+def is_vietnamese_text(text: str) -> bool:
+    """Nhận diện câu tiếng Việt (có dấu hoặc từ phổ biến)."""
+    t = text.strip()
+    if not t:
+        return False
+    if _VI_DIACRITIC.search(t):
+        return True
+    if re.search(r"[\u3040-\u30ff\u4e00-\u9fff]", t):
+        return False
+    words = re.findall(
+        r"[a-zA-ZàáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđÀ-ỹ]+",
+        t.lower(),
+    )
+    if len(words) >= 2 and sum(1 for w in words if w in _VI_WORD_MARKERS) >= 2:
+        return True
+    return False
+
+
+def should_skip_meeting_translation(
+    text: str, source_lang: str, target_lang: str
+) -> bool:
+    """Đích là tiếng Việt và nghe được tiếng Việt → chỉ hiện transcript, không dịch."""
+    if (target_lang or "").strip().lower() != "vi":
+        return False
+    return is_vietnamese_text(text)
+
+
+def sanitize_stt_output(text: str, language: str) -> str:
+    """Lọc Hàn/ASCII ảo giác chen vào câu Nhật."""
+    if not text:
+        return text
+    t = text.strip()
+    lang = (language or "ja").strip().lower()
+    has_ja = bool(re.search(r"[\u3040-\u30ff\u4e00-\u9fff]", t))
+    if lang != "ja" and not has_ja:
+        return t
+
+    t = _HANGUL.sub("", t)
+    if has_ja or lang == "ja":
+        t = _LATIN_RUN.sub("", t)
+
+    t = re.sub(r"\s{2,}", " ", t)
+    t = re.sub(r"\s+([、。．！？,.!?])", r"\1", t)
+    t = re.sub(r"([、。．！？,.!?])\s+", r"\1", t)
+    t = re.sub(r"[,、]{2,}", "、", t)
+    t = re.sub(r"\s*,\s*", "", t)
+    return t.strip()
+
 
 def resolve_stt_language(
-    language: str, capture_mode: str | None = None
+    language: str,
+    target_lang: str | None = None,
+    capture_mode: str | None = None,
 ) -> tuple[str | None, str | None]:
     """Chọn mã Whisper + prompt. Không dùng auto — tránh nhận nhầm tiếng Anh."""
     lang = (language or "ja").strip().lower()
+    tgt = (target_lang or "").strip().lower()
     loopback = (capture_mode or "").strip().lower() == "loopback"
-    if lang == "ja":
+
+    if lang == "ja" and tgt == "vi":
+        prompt = JA_VI_STT_PROMPT
+    elif lang == "ja":
         prompt = JA_STT_PROMPT
-        if loopback:
-            prompt = f"{JA_STT_PROMPT} {JA_LOOPBACK_HINT}"
-        return "ja", prompt
-    if lang == "vi":
+    elif lang == "vi":
         prompt = VI_STT_PROMPT
-        if loopback:
-            prompt = f"{VI_STT_PROMPT} {VI_LOOPBACK_HINT}"
-        return "vi", prompt
+    elif lang == "en":
+        return "en", None
+    else:
+        prompt = JA_STT_PROMPT
+
+    if loopback:
+        if lang == "ja":
+            prompt = f"{prompt} {JA_LOOPBACK_HINT}"
+        elif lang == "vi":
+            prompt = f"{prompt} {VI_LOOPBACK_HINT}"
+
     if lang == "en":
         return "en", None
-    return "ja", JA_STT_PROMPT
+    return lang if lang in ("ja", "vi") else "ja", prompt
 
 
 def translation_source_lang(language: str) -> str:
@@ -48,17 +155,26 @@ def translation_source_lang(language: str) -> str:
     return "ja"
 
 
-def filter_stt_hallucination(text: str, language: str) -> str:
+def filter_stt_hallucination(
+    text: str, language: str, target_lang: str | None = None
+) -> str:
     """Bỏ đoạn Latin ngắn khi đang ghi tiếng Nhật (Whisper hay ảo giác tiếng Anh)."""
-    if not text or language != "ja":
+    if not text:
         return text
-    t = text.strip()
+    if is_vietnamese_text(text):
+        return sanitize_stt_output(text, "vi")
+    lang = language or "ja"
+    t = sanitize_stt_output(text, lang)
+    if not t:
+        return ""
+    if lang != "ja":
+        return t
     if re.search(r"[\u3040-\u30ff\u4e00-\u9fff]", t):
-        return text
+        return t
     letters = [c for c in t if c.isalpha()]
     if not letters:
-        return text
+        return t
     ascii_ratio = sum(1 for c in letters if ord(c) < 128) / len(letters)
     if ascii_ratio >= 0.85 and len(t) <= 120:
         return ""
-    return text
+    return t

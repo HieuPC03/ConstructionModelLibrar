@@ -14,7 +14,7 @@ import {
   uploadRecording,
 } from "../api";
 import {
-  applyChunkToSegmentText,
+  dedupeTranscriptDisplay,
   splitCompletedSentences,
 } from "../utils/transcriptText";
 import type { CaptureMode } from "./useAudioCapture";
@@ -51,10 +51,6 @@ function newSegment(index: number): TranscriptSegment {
     translating: false,
     closed: false,
   };
-}
-
-function appendChunkText(prev: string, chunk: string): string {
-  return applyChunkToSegmentText(prev, chunk);
 }
 
 function withSplitSentences(
@@ -98,12 +94,29 @@ export function useRealtimeSession() {
     if (!incoming) return;
     setUtterances((prev) => {
       const last = prev[prev.length - 1];
-      if (last?.original.trim() === incoming) return prev;
+      if (last) {
+        const lastText = last.original.trim();
+        if (lastText === incoming) return prev;
+        if (lastText.endsWith(incoming)) return prev;
+        if (incoming.startsWith(lastText)) {
+          return [
+            ...prev.slice(0, -1),
+            {
+              ...last,
+              id: u.id,
+              timestamp: u.timestamp,
+              original: incoming,
+              translation: u.translation || last.translation,
+            },
+          ];
+        }
+      }
       return [...prev, u];
     });
   }, []);
 
-  const appendTranscriptChunk = useCallback((text: string) => {
+  const syncTranscriptCaption = useCallback((fullText: string) => {
+    const original = dedupeTranscriptDisplay(fullText.trim());
     setTranscriptSegments((prev) => {
       let list = prev;
       let openId = openSegmentIdRef.current;
@@ -127,7 +140,6 @@ export function useRealtimeSession() {
       }
       return list.map((s) => {
         if (s.id !== openId) return s;
-        const original = appendChunkText(s.original, text);
         return { ...s, ...withSplitSentences(original) };
       });
     });
@@ -246,10 +258,12 @@ export function useRealtimeSession() {
           if (sessionModeRef.current === MODE_REALTIME) {
             setLiveDraft(String(data.original));
           }
+        } else if (data.type === "caption_sync") {
+          if (sessionModeRef.current === MODE_TRANSCRIPT && data.original) {
+            syncTranscriptCaption(String(data.original));
+          }
         } else if (data.type === "utterance" && data.original) {
-          if (sessionModeRef.current === MODE_TRANSCRIPT) {
-            appendTranscriptChunk(data.original);
-          } else if (sessionModeRef.current === MODE_REALTIME) {
+          if (sessionModeRef.current === MODE_REALTIME) {
             setLiveDraft("");
             appendRealtimeUtterance({
               id: data.id,
@@ -275,7 +289,7 @@ export function useRealtimeSession() {
       };
 
     },
-    [appendRealtimeUtterance, appendTranscriptChunk, resetTranscript, startLiveAudioRecording]
+    [appendRealtimeUtterance, syncTranscriptCaption, resetTranscript, startLiveAudioRecording]
   );
 
   const beginNextSegmentAfterTranslate = useCallback((segmentId: string) => {

@@ -24,12 +24,18 @@ def merge_stt_fragments(previous: str, new: str) -> str:
         return nxt
     if prev.startswith(nxt):
         return prev
-    # Trùng đuôi/đầu (Whisper hay lặp)
+    # Trùng đuôi/đầu (Whisper hay lặp) — kiểm tra từ 1 ký tự (CJK 2 ký tự)
     max_ov = min(len(prev), len(nxt), 80)
-    for size in range(max_ov, 3, -1):
+    for size in range(max_ov, 0, -1):
         if prev[-size:] == nxt[:size]:
             return prev + nxt[size:]
-    if not prev.endswith(" ") and not nxt.startswith((",", ".", "?", "!", ":", ";", "、")):
+    last, first = prev[-1], nxt[0]
+    cjk = r"[\u3040-\u30ff\u4e00-\u9fff]"
+    if re.search(cjk, last) and re.search(cjk, first):
+        return prev + nxt
+    if not prev.endswith(" ") and not nxt.startswith(
+        (",", ".", "?", "!", ":", ";", "、", "。")
+    ):
         return f"{prev} {nxt}"
     return prev + nxt
 
