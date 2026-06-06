@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AudioDeviceOption } from "../types";
 import {
   listLoopbackDeviceOptions,
-  pickBestLoopbackDevice,
+  orderedLoopbackDevices,
   SYSTEM_AUDIO_AUTO_ID,
 } from "../utils/audioDevices";
 import {
@@ -26,12 +26,9 @@ async function listAudioInputs(): Promise<AudioDeviceOption[]> {
     }));
 }
 
-/**
- * Âm thanh hệ thống qua chia sẻ màn hình Windows (không cần Stereo Mix).
- * Video track dừng ngay — chỉ giữ audio.
- */
+/** Fallback: chia sẻ âm thanh hệ thống Windows (khi VB-Cable chưa cấu hình). */
 async function captureSystemAudioViaDisplay(): Promise<MediaStream> {
-  const display = await navigator.mediaDevices.getDisplayMedia({
+  const base = {
     video: {
       width: { ideal: 64, max: 320 },
       height: { ideal: 64, max: 180 },
@@ -41,8 +38,19 @@ async function captureSystemAudioViaDisplay(): Promise<MediaStream> {
       echoCancellation: false,
       noiseSuppression: false,
       autoGainControl: false,
+      suppressLocalAudioPlayback: false,
     },
-  });
+  };
+
+  let display: MediaStream;
+  try {
+    display = await navigator.mediaDevices.getDisplayMedia({
+      ...base,
+      systemAudio: "include",
+    } as MediaStreamConstraints);
+  } catch {
+    display = await navigator.mediaDevices.getDisplayMedia(base);
+  }
 
   display.getVideoTracks().forEach((t) => t.stop());
 
@@ -50,7 +58,7 @@ async function captureSystemAudioViaDisplay(): Promise<MediaStream> {
   if (!audioTracks.length) {
     display.getTracks().forEach((t) => t.stop());
     throw new Error(
-      "Không bắt được âm thanh hệ thống. Trong hộp thoại Windows: chọn màn hình hoặc cửa sổ và bật «Chia sẻ âm thanh hệ thống» (Share system audio)."
+      "Không bắt được âm thanh hệ thống. Trong hộp thoại Windows: chọn «Toàn màn hình» và bật «Chia sẻ âm thanh hệ thống»."
     );
   }
 
@@ -58,14 +66,38 @@ async function captureSystemAudioViaDisplay(): Promise<MediaStream> {
 }
 
 async function openLoopbackDevice(deviceId: string): Promise<MediaStream> {
-  return navigator.mediaDevices.getUserMedia({
-    audio: {
-      deviceId: { exact: deviceId },
-      echoCancellation: false,
-      noiseSuppression: false,
-      autoGainControl: false,
-    },
-  });
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId: { exact: deviceId },
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+    });
+  } catch {
+    return navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId: { ideal: deviceId },
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+    });
+  }
+}
+
+async function tryOpenLoopbackCandidates(
+  candidates: AudioDeviceOption[]
+): Promise<MediaStream | null> {
+  for (const dev of candidates) {
+    try {
+      return await openLoopbackDevice(dev.deviceId);
+    } catch {
+      continue;
+    }
+  }
+  return null;
 }
 
 export function useAudioCapture() {
@@ -141,45 +173,44 @@ export function useAudioCapture() {
       let loopbackRawForMonitor: MediaStream | null = null;
 
       try {
-        const mixMic = includeMic;
         if (mode === "loopback") {
           const inputs = await listAudioInputs();
-          const explicitId =
-            loopbackDeviceId && loopbackDeviceId !== SYSTEM_AUDIO_AUTO_ID
-              ? loopbackDeviceId
-              : undefined;
-          const autoPick = explicitId
-            ? undefined
-            : pickBestLoopbackDevice(inputs);
+          const ordered = orderedLoopbackDevices(inputs);
 
-          if (explicitId) {
-            const loop = await openLoopbackDevice(explicitId);
-            loopbackRawForMonitor = loop;
-            audioStreams.push(loop);
-          } else if (autoPick) {
-            try {
-              const loop = await openLoopbackDevice(autoPick.deviceId);
-              loopbackRawForMonitor = loop;
-              audioStreams.push(loop);
-            } catch {
-              /* thiết bị loopback lỗi → thử chia sẻ hệ thống */
+          if (loopbackDeviceId && loopbackDeviceId !== SYSTEM_AUDIO_AUTO_ID) {
+            loopbackRawForMonitor = await tryOpenLoopbackCandidates(
+              ordered.filter((d) => d.deviceId === loopbackDeviceId)
+            );
+            if (!loopbackRawForMonitor) {
+              loopbackRawForMonitor = await openLoopbackDevice(loopbackDeviceId);
             }
+          } else if (ordered.length > 0) {
+            loopbackRawForMonitor = await tryOpenLoopbackCandidates(ordered);
           }
 
-          if (audioStreams.length === 0) {
+          if (loopbackRawForMonitor) {
+            audioStreams.push(loopbackRawForMonitor);
+          } else {
             const sys = await captureSystemAudioViaDisplay();
             systemAudioViaDisplayRef.current = true;
             audioStreams.push(sys);
           }
         }
 
-        if (mixMic) {
-          const mic = await navigator.mediaDevices.getUserMedia({
-            audio: micDeviceId
-              ? { deviceId: { exact: micDeviceId } }
-              : true,
-          });
-          audioStreams.push(mic);
+        if (includeMic) {
+          try {
+            const mic = await navigator.mediaDevices.getUserMedia({
+              audio: micDeviceId
+                ? { deviceId: { ideal: micDeviceId } }
+                : true,
+            });
+            audioStreams.push(mic);
+          } catch (micErr) {
+            if (audioStreams.length === 0) throw micErr;
+            setError(
+              "Không mở được micro — chỉ ghi âm thanh hệ thống. Kiểm tra quyền micro Windows."
+            );
+          }
         }
 
         if (mode === "mic" && audioStreams.length === 0) {
@@ -189,12 +220,26 @@ export function useAudioCapture() {
 
         if (audioStreams.length === 0) {
           throw new Error(
-            "Không có nguồn âm thanh. Thử «Âm thanh hệ thống» hoặc «Chỉ micro»."
+            "Không có nguồn âm thanh. Cài VB-Cable, chọn CABLE Output, hoặc dùng «Chỉ micro»."
           );
         }
 
         streamsRef.current = audioStreams;
-        const recordable = await pickRecordableAudioStream(audioStreams);
+
+        let recordable: MediaStream;
+        try {
+          recordable = await pickRecordableAudioStream(audioStreams);
+        } catch (mixErr) {
+          if (audioStreams.length > 1 && loopbackRawForMonitor) {
+            recordable = await pickRecordableAudioStream([loopbackRawForMonitor]);
+            setError(
+              "Chỉ ghi được âm hệ thống (micro không trộn được). Tắt «Thêm micro» nếu không cần giọng bạn."
+            );
+          } else {
+            throw mixErr;
+          }
+        }
+
         mixedRef.current = recordable;
 
         if (

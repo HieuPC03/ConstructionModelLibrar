@@ -1,10 +1,11 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.7.4
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.7.5
 ============================================
 
 https://github.com/HieuPC03/ConstructionModelLibrar/releases/latest
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.7.4/Meeting-Translator-Setup-1.7.4.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.7.5/Meeting-Translator-Setup-1.7.5.exe
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.7.4
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.7.5
 
+v1.7.5 — Sửa ghi âm VB-Cable (ưu tiên CABLE Output, trộn micro ổn định hơn)
 v1.7.4 — Grok API, VB-Cable cài kèm, bỏ Gemini

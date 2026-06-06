@@ -2,6 +2,7 @@ const AUDIO_MIME_CANDIDATES = [
   "audio/webm;codecs=opus",
   "audio/webm",
   "audio/ogg;codecs=opus",
+  "audio/mp4",
   "",
 ];
 
@@ -18,6 +19,7 @@ export {
   isLoopbackDeviceLabel,
   isStereoMixLabel,
   isVirtualLoopbackLabel,
+  isCableOutputLabel,
 } from "./audioDevices";
 
 export function canUseMediaRecorder(
@@ -33,14 +35,15 @@ export function canUseMediaRecorder(
       const recorder = mime
         ? new MediaRecorder(stream, { mimeType: mime })
         : new MediaRecorder(stream);
-      if (recorder.state === "recording") recorder.stop();
+      recorder.stop();
       return true;
     } catch {
       continue;
     }
   }
   try {
-    new MediaRecorder(stream);
+    const recorder = new MediaRecorder(stream);
+    recorder.stop();
     return true;
   } catch {
     return false;
@@ -53,44 +56,62 @@ async function resumeContext(ctx: AudioContext): Promise<void> {
   }
 }
 
-/** Đảm bảo AudioContext (khi trộn loopback + micro) không bị im lặng. */
 export async function resumeStreamAudioContext(stream: MediaStream): Promise<void> {
   const ctx = streamContextMap.get(stream);
   if (ctx) await resumeContext(ctx);
 }
 
-/** Chọn luồng âm thanh ghi được (tránh AudioContext không tương thích Windows/Electron). */
+async function mixAudioStreams(streams: MediaStream[]): Promise<MediaStream> {
+  const ctx = new AudioContext({ sampleRate: 48000 });
+  const dest = ctx.createMediaStreamDestination();
+  streams.forEach((s) => {
+    if (s.getAudioTracks().length) {
+      ctx.createMediaStreamSource(s).connect(dest);
+    }
+  });
+  await resumeContext(ctx);
+  streamContextMap.set(dest.stream, ctx);
+  return dest.stream;
+}
+
+/** Chọn luồng ghi được — ưu tiên VB-Cable đơn, trộn micro khi cần. */
 export async function pickRecordableAudioStream(
   streams: MediaStream[]
 ): Promise<MediaStream> {
   const withAudio = streams.filter((s) => s.getAudioTracks().length > 0);
   if (!withAudio.length) {
     throw new Error(
-      "Không có âm thanh. Khi quay màn hình, bật «Chia sẻ âm thanh» trong hộp thoại Windows."
+      "Không có âm thanh. Chọn thiết bị «CABLE Output (VB-Audio)» trong dropdown, hoặc bật «Chia sẻ âm thanh hệ thống» khi Windows hỏi."
     );
   }
+
   for (const s of withAudio) {
     if (canUseMediaRecorder(s)) return s;
   }
-  if (withAudio.length === 1) return withAudio[0];
 
-  const ctx = new AudioContext();
-  const dest = ctx.createMediaStreamDestination();
-  withAudio.forEach((s) => {
-    ctx.createMediaStreamSource(s).connect(dest);
-  });
-  await resumeContext(ctx);
-  streamContextMap.set(dest.stream, ctx);
-  if (canUseMediaRecorder(dest.stream)) return dest.stream;
+  if (withAudio.length === 1) {
+    return withAudio[0];
+  }
 
-  const fallback = withAudio[0];
-  if (canUseMediaRecorder(fallback)) return fallback;
-  throw new Error(
-    "Không ghi được âm thanh từ nguồn này. Thử «Chỉ micro» hoặc bật Stereo Mix trong Cài đặt âm thanh Windows."
-  );
+  try {
+    const mixed = await mixAudioStreams(withAudio);
+    if (canUseMediaRecorder(mixed)) return mixed;
+  } catch {
+    /* thử từng nguồn */
+  }
+
+  for (const s of withAudio) {
+    try {
+      createMediaRecorder(s);
+      return s;
+    } catch {
+      continue;
+    }
+  }
+
+  return withAudio[0];
 }
 
-/** Tên file gửi Whisper — khớp MIME thực tế của MediaRecorder. */
 export function chunkFilenameForMime(mimeType: string): string {
   const m = mimeType.toLowerCase();
   if (m.includes("ogg")) return "chunk.ogg";
@@ -107,8 +128,8 @@ export function createMediaRecorder(
     if (mime && !MediaRecorder.isTypeSupported(mime)) continue;
     try {
       const recorder = mime
-        ? new MediaRecorder(stream, { mimeType: mime })
-        : new MediaRecorder(stream);
+        ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 128000 })
+        : new MediaRecorder(stream, { audioBitsPerSecond: 128000 });
       return {
         recorder,
         mimeType: recorder.mimeType || mime || "audio/webm",
@@ -122,7 +143,7 @@ export function createMediaRecorder(
     return { recorder, mimeType: recorder.mimeType || "audio/webm" };
   } catch {
     throw new Error(
-      "Không ghi được âm thanh. Thử «Chỉ micro» hoặc chia sẻ màn hình kèm âm thanh."
+      "Không ghi được âm thanh. Chọn «CABLE Output (VB-Audio)» hoặc tắt «Thêm micro» thử lại."
     );
   }
 }
@@ -140,10 +161,15 @@ export function tryCreateVideoRecorder(
 
 export function friendlyMediaError(err: unknown): string {
   const msg = (err as Error)?.message || String(err);
-  if (/not supported/i.test(msg)) {
+  if (/not supported|notsupported/i.test(msg)) {
     return (
-      "Không ghi được âm thanh từ nguồn này. Thử «Chỉ micro», bật Stereo Mix, hoặc quay màn hình kèm «Chia sẻ âm thanh»."
+      "Không ghi được âm thanh từ VB-Cable/loopback. " +
+      "Kiểm tra: (1) Zoom/Teams chọn loa «CABLE Input», (2) trong app chọn «CABLE Output», " +
+      "(3) tắt «Thêm micro» thử lại, hoặc (4) chọn «Tự động» và bật «Chia sẻ âm thanh hệ thống»."
     );
+  }
+  if (/permission|denied|notallowed/i.test(msg)) {
+    return "Cần quyền micro/âm thanh. Vào Cài đặt Windows → Quyền riêng tư → Microphone → bật cho app.";
   }
   return msg;
 }

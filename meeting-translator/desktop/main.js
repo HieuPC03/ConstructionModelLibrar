@@ -1,4 +1,12 @@
-const { app, BrowserWindow, dialog, session, shell, ipcMain } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  desktopCapturer,
+  dialog,
+  session,
+  shell,
+  ipcMain,
+} = require("electron");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -188,11 +196,31 @@ ipcMain.handle("pick-folder", async () => {
   return result.filePaths[0];
 });
 
+function setupDisplayMediaHandler() {
+  session.defaultSession.setDisplayMediaRequestHandler(
+    async (_request, callback) => {
+      try {
+        const sources = await desktopCapturer.getSources({ types: ["screen"] });
+        const screen = sources[0];
+        if (!screen) {
+          callback({});
+          return;
+        }
+        callback({ video: screen, audio: "loopback" });
+      } catch {
+        callback({});
+      }
+    },
+    { useSystemPicker: true }
+  );
+}
+
 app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => {
     cb(true);
   });
   session.defaultSession.setPermissionCheckHandler(() => true);
+  setupDisplayMediaHandler();
 
   startPythonBackend();
   try {
