@@ -25,7 +25,7 @@ const vi = {
   hintTranscript:
     "Trên: chữ đang nghe (cập nhật liên tục). Dưới: từng câu hoàn chỉnh. Chọn «Ngôn ngữ nói» = 日本語 để nhận dạng tiếng Nhật chính xác. Cần OPENAI_API_KEY.",
   listeningNow: "đang nghe",
-  liveStripHint: "Nghe đến đâu hiện đến đó",
+  liveStripHint: "Câu mới ở trên — không cần cuộn xuống",
   waitingSpeech: "Đang chờ giọng nói…",
   completedSentencesLabel: "Câu đã hoàn chỉnh",
   hintRealtime:
@@ -129,7 +129,7 @@ const ja: Record<MessageKey, string> = {
   hintTranscript:
     "上：聞こえたところまで表示。下：完成した文。「話し言葉」= 日本語で精度向上。OPENAI_API_KEY必須。",
   listeningNow: "聴取中",
-  liveStripHint: "聞こえた分をその都度表示",
+  liveStripHint: "新しい文は上に表示",
   waitingSpeech: "音声を待っています…",
   completedSentencesLabel: "完成した文",
   hintRealtime:

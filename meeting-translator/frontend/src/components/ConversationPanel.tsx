@@ -62,10 +62,16 @@ export default function ConversationPanel() {
     audio.refreshDevices();
   }, []);
 
+  /** Giữ vùng xem ở đầu feed (câu mới trên cùng) — không kéo xuống đáy. */
   useEffect(() => {
     const el = feedRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el || !session.isLive) return;
+    const nearTop = el.scrollTop < 96;
+    if (nearTop) {
+      el.scrollTop = 0;
+    }
   }, [
+    session.isLive,
     session.utterances,
     session.transcriptSegments,
     session.liveDraft,
