@@ -6,7 +6,7 @@ import re
 
 SENTENCE_END = ".?!。．？！…"
 MAX_PENDING_CHARS = 600
-# Chờ im lặng 1 chunk trước khi chốt phần dở (Live Caption ~1.5s, realtime ~1.2s)
+# Chờ im lặng 1 chunk trước khi chốt phần dở (~1.5s/chunk)
 SILENCE_CHUNKS_TO_FLUSH = 1
 SILENCE_ONE_CHUNK_MIN_CHARS = 6
 REALTIME_MIN_CHARS = 4

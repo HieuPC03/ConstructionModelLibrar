@@ -30,8 +30,8 @@ const MODE_REALTIME: SessionMode = "translate_realtime";
 
 /** Live Caption — độ trễ ~1.5s/chunk (chính xác hơn). */
 const CHUNK_MS_TRANSCRIPT = 1500;
-/** Dịch realtime — độ trễ ~1.2s/chunk. */
-const CHUNK_MS_REALTIME = 1200;
+/** Dịch realtime — độ trễ ~1.5s/chunk (chính xác hơn). */
+const CHUNK_MS_REALTIME = 1500;
 
 function chunkMsForMode(mode: SessionMode): number {
   return mode === MODE_REALTIME ? CHUNK_MS_REALTIME : CHUNK_MS_TRANSCRIPT;
