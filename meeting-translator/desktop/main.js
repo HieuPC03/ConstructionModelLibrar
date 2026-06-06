@@ -3,6 +3,7 @@ const {
   BrowserWindow,
   desktopCapturer,
   dialog,
+  screen,
   session,
   shell,
   ipcMain,
@@ -159,10 +160,20 @@ function startPythonBackend() {
   });
 }
 
+function defaultWindowBounds() {
+  const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
+  const margin = 40;
+  return {
+    width: Math.min(1280, Math.max(900, sw - margin)),
+    height: Math.min(900, Math.max(600, sh - margin)),
+  };
+}
+
 function createWindow() {
+  const { width, height } = defaultWindowBounds();
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    width,
+    height,
     minWidth: 900,
     minHeight: 600,
     title: "Meeting Translator",
@@ -174,6 +185,7 @@ function createWindow() {
     },
   });
 
+  mainWindow.center();
   mainWindow.loadURL(`http://127.0.0.1:${PORT}/`);
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

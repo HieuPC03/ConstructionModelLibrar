@@ -30,8 +30,14 @@
   padding: 0;
 }
 
+html,
 body {
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  min-height: 100%;
   background-color: var(--bg);
   background-image:
     radial-gradient(ellipse 80% 50% at 50% -20%, var(--accent-glow), transparent 55%),
@@ -41,7 +47,9 @@ body {
 }
 
 #root {
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .error-boundary {
@@ -67,8 +75,23 @@ body {
 
 .app-shell {
   position: relative;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   isolation: isolate;
+}
+
+.app-top-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: var(--header-blur);
+  -webkit-backdrop-filter: var(--header-blur);
 }
 
 .app-bg-watermark {
@@ -175,11 +198,9 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.85rem 1.35rem;
+  padding: 0.55rem 1rem;
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: var(--header-blur);
-  -webkit-backdrop-filter: var(--header-blur);
   box-shadow: 0 1px 0 var(--accent-glow);
 }
 
@@ -246,9 +267,11 @@ textarea {
 .split-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  min-height: calc(100vh - 52px);
+  flex: 1;
+  min-height: 0;
   position: relative;
   isolation: isolate;
+  overflow: hidden;
 }
 
 .split-layout > .panel {
@@ -277,6 +300,7 @@ textarea {
 .panel {
   display: flex;
   flex-direction: column;
+  min-height: 0;
   border-right: 1px solid var(--border);
   overflow: hidden;
   background: color-mix(in srgb, var(--surface) 55%, transparent);
@@ -296,6 +320,12 @@ textarea {
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
+  flex-shrink: 0;
+}
+
+.panel-header-compact {
+  padding: 0.4rem 0.75rem;
+  gap: 0.35rem;
 }
 
 .panel-header h2 {
@@ -310,8 +340,12 @@ textarea {
 .controls-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.35rem 0.5rem;
   align-items: center;
+}
+
+.panel-header-compact .controls-row label {
+  font-size: 0.72rem;
 }
 
 .controls-row label {
@@ -324,9 +358,10 @@ textarea {
 
 .conversation-feed {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-anchor: none;
-  padding: 1rem;
+  padding: 0.65rem 0.75rem;
   display: flex;
   flex-direction: column-reverse;
   justify-content: flex-start;
@@ -423,10 +458,12 @@ textarea {
 
 .text-translate-body {
   flex: 1;
-  padding: 1rem;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.65rem 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .lang-swap {
@@ -454,11 +491,12 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.5rem 1rem;
-  font-size: 0.8rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.72rem;
   color: var(--muted);
   border-top: 1px solid var(--border);
   background: var(--surface);
+  flex-shrink: 0;
 }
 
 .status-bar-main {
@@ -501,13 +539,28 @@ textarea {
 .settings-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 0.75rem;
+  gap: 0.3rem 0.5rem;
   align-items: center;
-  padding: 0.55rem 1.1rem;
+  padding: 0.35rem 0.75rem;
   background: color-mix(in srgb, var(--surface) 90%, transparent);
-  backdrop-filter: var(--header-blur);
   border-bottom: 1px solid var(--border);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
+}
+
+.settings-bar select,
+.settings-bar input[type="text"] {
+  padding: 0.28rem 0.45rem;
+  font-size: 0.72rem;
+  max-width: 11rem;
+}
+
+.settings-bar .settings-hotwords input {
+  max-width: 14rem;
+}
+
+.settings-bar button {
+  padding: 0.32rem 0.65rem;
+  font-size: 0.72rem;
 }
 
 .settings-title {
@@ -576,8 +629,8 @@ textarea {
 }
 
 .live-caption-strip {
-  margin: 0 1rem 0.75rem;
-  padding: 0.95rem 1.1rem;
+  margin: 0 0.75rem 0.5rem;
+  padding: 0.55rem 0.75rem;
   border-radius: var(--radius);
   border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
   background: linear-gradient(
@@ -604,7 +657,7 @@ textarea {
 
 .live-caption-stream {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1rem;
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
@@ -742,6 +795,11 @@ textarea {
   padding: 0.45rem 1rem;
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface-2) 50%, transparent);
+  flex-shrink: 0;
+}
+
+.mode-switch-compact {
+  padding: 0.3rem 0.75rem;
 }
 
 .mode-btn {
@@ -769,6 +827,21 @@ textarea {
   color: var(--text);
   border-color: var(--border);
   background: var(--surface-2);
+}
+
+.mode-switch-compact .mode-btn {
+  padding: 0.38rem 0.55rem;
+  font-size: 0.74rem;
+}
+
+.panel-header-compact select {
+  padding: 0.28rem 0.45rem;
+  font-size: 0.72rem;
+}
+
+.panel-header-compact button {
+  padding: 0.38rem 0.7rem;
+  font-size: 0.74rem;
 }
 
 [data-theme="light"] {
@@ -842,9 +915,14 @@ textarea {
     drop-shadow(0 0 32px rgba(56, 189, 248, 0.28));
 }
 
+[data-theme="jasty"] .app-top-chrome {
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.35);
+}
+
 [data-theme="jasty"] .app-header {
   background: color-mix(in srgb, var(--surface) 75%, transparent);
-  box-shadow: 0 1px 0 rgba(217, 30, 42, 0.2), 0 4px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 0 rgba(217, 30, 42, 0.2);
 }
 
 [data-theme="jasty"] .panel {

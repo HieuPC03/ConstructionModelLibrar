@@ -29,31 +29,33 @@ function AppInner() {
       <div className="app-bg-watermark" aria-hidden="true">
         <img src={jastyLogo} alt="" className="app-bg-logo" draggable={false} />
       </div>
-      <header className="app-header">
-        <div className="app-header-brand">
-          {theme === "jasty" ? (
-            <img
-              src={jastyLogo}
-              alt="JASTY"
-              className="app-header-logo"
-              draggable={false}
-            />
-          ) : (
-            <span className="brand-accent" aria-hidden />
-          )}
-          <h1>{tr("appTitle")}</h1>
-        </div>
-        <span className="badge header-status">
-          {window.desktopApp?.isDesktop
-            ? tr("desktop")
-            : backendOk === false
-              ? tr("offline")
-              : backendOk
-                ? `API · ${provider}`
-                : tr("connecting")}
-        </span>
-      </header>
-      <SettingsBar />
+      <div className="app-top-chrome">
+        <header className="app-header">
+          <div className="app-header-brand">
+            {theme === "jasty" ? (
+              <img
+                src={jastyLogo}
+                alt="JASTY"
+                className="app-header-logo"
+                draggable={false}
+              />
+            ) : (
+              <span className="brand-accent" aria-hidden />
+            )}
+            <h1>{tr("appTitle")}</h1>
+          </div>
+          <span className="badge header-status">
+            {window.desktopApp?.isDesktop
+              ? tr("desktop")
+              : backendOk === false
+                ? tr("offline")
+                : backendOk
+                  ? `API · ${provider}`
+                  : tr("connecting")}
+          </span>
+        </header>
+        <SettingsBar />
+      </div>
       {configWarning && (
         <div
           className="status-bar error"

@@ -242,12 +242,12 @@ export default function ConversationPanel() {
 
   return (
     <section className="panel">
-      <div className="panel-header">
+      <div className="panel-header panel-header-compact">
         <h2>{tr("meeting")}</h2>
         {session.isLive && <span className="badge live">{tr("live")}</span>}
       </div>
 
-      <div className="mode-switch">
+      <div className="mode-switch mode-switch-compact">
         <button
           type="button"
           className={!isTranslate ? "mode-btn active" : "mode-btn secondary"}
@@ -266,15 +266,7 @@ export default function ConversationPanel() {
         </button>
       </div>
 
-      <div className="hint-box">
-        {captureMode === "loopback"
-          ? tr("hintLoopback")
-          : isTranslate
-            ? tr("hintRealtime")
-            : tr("hintTranscript")}
-      </div>
-
-      <div className="panel-header">
+      <div className="panel-header panel-header-compact">
         <div className="controls-row">
           <label>
             {tr("source")}
