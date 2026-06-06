@@ -28,8 +28,7 @@
        Start Menu > Cai VB-Cable (can Admin + khoi dong lai)$\r$\n\
     2. Loa Windows mac dinh = CABLE Input (ghi YouTube/Facebook/hop)$\r$\n\
     3. API trong %APPDATA%\meeting-translator-desktop\.env:$\r$\n\
-       XAI_API_KEY (Grok) — https://console.x.ai$\r$\n\
-       OPENAI_API_KEY (Whisper STT + fallback dich)$\r$\n$\r$\n\
+       OPENAI_API_KEY (Whisper STT + dich ChatGPT)$\r$\n$\r$\n\
     Xem HUONG_DAN_AM_THANH.txt trong thu muc cai dat." \
     /SD IDOK
 !macroend

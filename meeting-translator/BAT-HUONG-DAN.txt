@@ -28,7 +28,7 @@ install.bat            (Dev) Cai dependencies source
 
 API KEY / OFFLINE
 -----------------
-Live Caption: OpenAI Whisper STT — can OPENAI_API_KEY. Dich: Grok (XAI_API_KEY) uu tien
+Live Caption: OpenAI Whisper STT — can OPENAI_API_KEY. Dich: ChatGPT (OPENAI_API_KEY)
   Ban 1.5.3+: model small da trong file cai, khong tai lan dau.
   Can FFmpeg (kem trong ban cai day du).
 

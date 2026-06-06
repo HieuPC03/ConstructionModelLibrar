@@ -14,12 +14,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from services.config import (
-    get_grok_model,
     OPENAI_STT_MODEL,
     OPENAI_TRANSLATE_MODEL,
     PROVIDER_LABELS,
     RECORDINGS_DIR,
-    get_grok_api_key,
     get_openai_api_key,
     get_translator_provider,
 )
@@ -27,7 +25,6 @@ from services.errors import (
     env_file_hint,
     friendly_api_error,
     is_placeholder_key,
-    is_valid_grok_key,
     is_valid_openai_key,
 )
 from services.settings_store import (
@@ -78,7 +75,7 @@ class TextTranslateRequest(BaseModel):
         default=None, pattern="^(translate_realtime|transcript)$"
     )
     provider: str | None = Field(
-        default=None, pattern="^(google|grok|openai)$"
+        default=None, pattern="^(google|openai)$"
     )
     use_openai: bool = False
     meeting: bool = False
@@ -110,26 +107,16 @@ def _provider_health() -> tuple[bool, str, str, str | None]:
     provider = get_translator_provider()
     label = PROVIDER_LABELS.get(provider, provider)
 
-    grok_ok = is_valid_grok_key(get_grok_api_key())
     openai_ok = is_valid_openai_key(get_openai_api_key())
     stt = f"OpenAI STT ({OPENAI_STT_MODEL})"
     hints = [
-        "Dịch văn bản: Google / Grok / ChatGPT.",
-        f"Live Caption: {stt} — cần OPENAI_API_KEY.",
-        "Live meeting: Grok trước → ChatGPT khi hết quota — cần XAI_API_KEY và/hoặc OPENAI_API_KEY.",
+        "Dịch văn bản: Google / ChatGPT.",
+        f"Live Caption + dịch meeting: {stt} — cần OPENAI_API_KEY.",
     ]
-    ok = openai_ok or grok_ok
-    msg = None
-    if not openai_ok:
-        msg = f"Thêm OPENAI_API_KEY (Whisper STT) trong {config_path}"
-    if not grok_ok:
-        extra = f"Thêm XAI_API_KEY (Grok dịch) tại https://console.x.ai — {config_path}"
-        msg = f"{msg} · {extra}" if msg else extra
+    msg = None if openai_ok else f"Thêm OPENAI_API_KEY trong {config_path}"
     if provider == "google":
-        return openai_ok or grok_ok, label, stt, " ".join(hints) if not ok else None
-    if provider == "grok":
-        return grok_ok or openai_ok, "Grok (xAI)", get_grok_model(), msg
-    return ok, label, stt, msg
+        return openai_ok, label, stt, " ".join(hints) if not openai_ok else None
+    return openai_ok, label, OPENAI_TRANSLATE_MODEL, msg
 
 
 @app.get("/api/health", response_model=HealthResponse)
@@ -154,7 +141,7 @@ class SettingsUpdate(BaseModel):
     default_target_lang: str | None = Field(default=None, pattern="^(vi|ja|en)$")
     meeting_pair: str | None = Field(default=None, pattern="^(vi-ja|ja-vi)$")
     translator_provider: str | None = Field(
-        default=None, pattern="^(openai|grok|google)$"
+        default=None, pattern="^(openai|google)$"
     )
     session_mode: str | None = Field(
         default=None, pattern="^(translate_realtime|transcript)$"
@@ -270,14 +257,10 @@ async def test_provider_config() -> dict[str, Any]:
                 "message": f"Google Translate OK (ví dụ: xin chào → {outcome.text})",
             }
         if mode == SESSION_TRANSLATE:
-            if not is_valid_grok_key(get_grok_api_key()) and not is_valid_openai_key(
-                get_openai_api_key()
-            ):
+            if not is_valid_openai_key(get_openai_api_key()):
                 raise HTTPException(
                     status_code=400,
-                    detail=(
-                        f"Cần XAI_API_KEY (Grok) hoặc OPENAI_API_KEY trong {env_file_hint()}"
-                    ),
+                    detail=f"Cần OPENAI_API_KEY trong {env_file_hint()}",
                 )
             outcome = await translate_meeting_text("xin chào", "vi", "ja")
             msg = f"Dịch meeting OK ({outcome.provider}: {outcome.text})"
@@ -346,7 +329,7 @@ async def export_text(body: ExportRequest) -> dict[str, str]:
 @app.post("/api/translate/text", response_model=TextTranslateResponse)
 async def translate_text_endpoint(body: TextTranslateRequest) -> TextTranslateResponse:
     if body.meeting:
-        via = "grok"
+        via = "openai"
         try:
             outcome = await translate_meeting_text(
                 body.text,

@@ -8,7 +8,7 @@
 |--------|------------------|
 | Dịch khi vẫn đeo tai nghe, không cần micro cuộc họp | Bắt **âm thanh hệ thống (loopback)**: Stereo Mix (Windows), Monitor of … (Linux), hoặc chia sẻ tab Zoom/Teams trên trình duyệt |
 | Nửa màn hình hội thoại + ghi âm | Cột trái: dòng thoại gốc + bản dịch; **Record** gộp âm cuộc họp + micro của bạn (tùy chọn) |
-| Grok / ChatGPT / Google | `XAI_API_KEY`, `OPENAI_API_KEY` trong `backend/.env` |
+| ChatGPT / Google | `OPENAI_API_KEY` trong `backend/.env` |
 | Gõ văn bản Việt ↔ Nhật | Cột phải: nhập text, nút Việt→Nhật / Nhật→Việt |
 
 **STT (nhận dạng giọng nói):** OpenAI Whisper (cần `OPENAI_API_KEY`).
@@ -50,7 +50,7 @@ Tạo lại gói zip: `./pack-release.sh` hoặc `.\pack-release.ps1`.
 ```bash
 cd meeting-translator
 cp backend/.env.example backend/.env
-# Sửa backend/.env: XAI_API_KEY (Grok) và OPENAI_API_KEY (Whisper STT)
+# Sửa backend/.env: OPENAI_API_KEY (Whisper STT + dịch ChatGPT)
 
 chmod +x start.sh install.sh
 ./install.sh
@@ -78,13 +78,12 @@ npm install && npm run dev
 `backend/.env`:
 
 ```env
-TRANSLATOR_PROVIDER=grok
-XAI_API_KEY=xai-...
+TRANSLATOR_PROVIDER=openai
 OPENAI_API_KEY=sk-...
 ```
 
-- **OpenAI:** Whisper STT + GPT dịch (`gpt-4o-mini` mặc định).
-- **Grok:** ưu tiên dịch live meeting; hết quota → ChatGPT.
+- **OpenAI:** Whisper STT + ChatGPT dịch (`gpt-4o-mini` mặc định).
+- **Google:** dịch văn bản miễn phí (không cần API key).
 
 ## Bắt âm thanh khi đeo tai nghe
 
@@ -119,7 +118,7 @@ Khi bấm **Dừng & lưu**:
 ```
 Browser (React)
   ├─ Loopback / Display capture → MediaRecorder chunks (3s)
-  ├─ WebSocket /ws/session → Whisper STT → Grok/ChatGPT dịch
+  ├─ WebSocket /ws/session → Whisper STT → ChatGPT dịch
   └─ REST /api/translate/text → dịch văn bản Việt↔Nhật
 
 FastAPI backend

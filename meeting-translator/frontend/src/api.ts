@@ -58,7 +58,7 @@ export async function testApiKey(): Promise<string> {
   return (data as { message?: string }).message ?? "OK";
 }
 
-export type TranslatorProvider = "openai" | "grok" | "google";
+export type TranslatorProvider = "openai" | "google";
 
 export type SessionMode = "translate_realtime" | "transcript";
 
@@ -130,7 +130,7 @@ export type TextTranslateResult = {
   notice: string | null;
 };
 
-export type TextTranslateProvider = "google" | "grok" | "openai";
+export type TextTranslateProvider = "google" | "openai";
 
 export async function translateText(
   text: string,
@@ -267,7 +267,7 @@ export async function exportVideoToFolder(
   return (data as { message: string }).message;
 }
 
-/** Dịch đoạn Live Caption — Grok trước, ChatGPT khi hết quota. */
+/** Dịch đoạn Live Caption + realtime — ChatGPT (OpenAI). */
 export async function translateCaptionMeeting(
   text: string,
   sourceLang: LangCode,

@@ -12,7 +12,7 @@ _DEFAULT: dict[str, Any] = {
     "default_source_lang": "auto",
     "default_target_lang": "vi",
     "meeting_pair": "vi-ja",
-    "translator_provider": "grok",
+    "translator_provider": "openai",
     "session_mode": "transcript",
     "theme": "dark",
     "whisper_offline_model": "small",
@@ -34,6 +34,8 @@ def load_settings() -> dict[str, Any]:
         data = json.loads(path.read_text(encoding="utf-8"))
         merged = dict(_DEFAULT)
         merged.update(data)
+        if merged.get("translator_provider") == "grok":
+            merged["translator_provider"] = "openai"
         return merged
     except (json.JSONDecodeError, OSError):
         return dict(_DEFAULT)
