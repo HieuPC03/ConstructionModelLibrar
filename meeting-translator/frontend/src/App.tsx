@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import jastyLogo from "./assets/jasty-logo.png";
 import ConversationPanel from "./components/ConversationPanel";
+import ErrorBoundary from "./components/ErrorBoundary";
 import SettingsBar from "./components/SettingsBar";
 import TextTranslatePanel from "./components/TextTranslatePanel";
 import { AppSettingsProvider, useAppSettings } from "./AppSettingsContext";
@@ -70,10 +71,12 @@ function AppInner() {
 
 export default function App() {
   return (
-    <AppSettingsProvider>
-      <SessionModeProvider>
-        <AppInner />
-      </SessionModeProvider>
-    </AppSettingsProvider>
+    <ErrorBoundary>
+      <AppSettingsProvider>
+        <SessionModeProvider>
+          <AppInner />
+        </SessionModeProvider>
+      </AppSettingsProvider>
+    </ErrorBoundary>
   );
 }

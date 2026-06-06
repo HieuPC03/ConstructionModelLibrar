@@ -79,6 +79,7 @@ export function useRealtimeSession() {
     speechContinuous: false,
     level: 0,
   });
+  const stoppingRef = useRef(false);
 
   const resetTranscript = useCallback(() => {
     const first = newSegment(1);
@@ -147,8 +148,16 @@ export function useRealtimeSession() {
     vadMetaRef.current = vad;
   }, []);
 
+  const detachWebSocket = useCallback((ws: WebSocket | null) => {
+    if (!ws) return;
+    ws.onmessage = null;
+    ws.onerror = null;
+    ws.onclose = null;
+  }, []);
+
   const sendAudioChunk = useCallback(
     (blob: Blob, meta: Record<string, string>) => {
+      if (stoppingRef.current) return;
       const ws = wsRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
       const vad = vadMetaRef.current;
@@ -207,6 +216,7 @@ export function useRealtimeSession() {
       if (chunkPumpIntervalRef.current) return;
       recordChunksRef.current = [];
       const pump = () => {
+        if (stoppingRef.current) return;
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
         const vad = vadMetaRef.current;
         const chunkMs = adaptiveChunkMs(
@@ -222,10 +232,9 @@ export function useRealtimeSession() {
             if (e.data.size > 0) slices.push(e.data);
           };
           rec.onstop = () => {
-            if (!slices.length) return;
+            if (stoppingRef.current || !slices.length) return;
             const blob = new Blob(slices, { type: mimeType });
             if (blob.size < MIN_CHUNK_BYTES) return;
-            recordChunksRef.current.push(blob);
             sendAudioChunk(blob, {
               ...meta,
               filename: chunkFilenameForMime(mimeType),
@@ -258,6 +267,7 @@ export function useRealtimeSession() {
       remoteSpeaker: Speaker,
       captureMode: CaptureMode = "loopback"
     ) => {
+      stoppingRef.current = false;
       sessionModeRef.current = sessionMode;
       setUtterances([]);
       setLiveDraft("");
@@ -372,12 +382,16 @@ export function useRealtimeSession() {
   }, []);
 
   const abortSession = useCallback(() => {
+    stoppingRef.current = true;
     clearChunkPump();
-    wsRef.current?.close();
+    const ws = wsRef.current;
+    detachWebSocket(ws);
+    ws?.close();
     wsRef.current = null;
     recordChunksRef.current = [];
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    chunkStreamRef.current = null;
     setSessionId(null);
     setIsLive(false);
     setUtterances([]);
@@ -385,35 +399,50 @@ export function useRealtimeSession() {
     setTranscriptSegments([]);
     setActiveSegmentId(null);
     openSegmentIdRef.current = null;
-    chunkStreamRef.current = null;
     setStatus("idle");
-  }, [clearChunkPump]);
+  }, [clearChunkPump, detachWebSocket]);
 
   const stopSession = useCallback(async (exportDir?: string) => {
+      stoppingRef.current = true;
       clearChunkPump();
+      recordChunksRef.current = [];
+
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      chunkStreamRef.current = null;
+      setIsLive(false);
+
       const ws = wsRef.current;
+      detachWebSocket(ws);
       if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "end_session" }));
+        try {
+          ws.send(JSON.stringify({ type: "end_session" }));
+        } catch {
+          /* ignore */
+        }
         await new Promise((r) => setTimeout(r, 500));
-        ws.close();
+        try {
+          ws.close();
+        } catch {
+          /* ignore */
+        }
       }
       wsRef.current = null;
 
       const sid = sessionId;
-      const audioBlob =
-        recordChunksRef.current.length > 0
-          ? new Blob(recordChunksRef.current, { type: audioMimeRef.current })
-          : null;
+      const mode = sessionModeRef.current;
+      const segmentsSnapshot = transcriptSegments;
+      const utterancesSnapshot = utterances;
       const transcriptJson =
-        sessionModeRef.current === MODE_TRANSCRIPT
-          ? JSON.stringify({ segments: transcriptSegments }, null, 2)
-          : JSON.stringify(utterances, null, 2);
+        mode === MODE_TRANSCRIPT
+          ? JSON.stringify({ segments: segmentsSnapshot }, null, 2)
+          : JSON.stringify(utterancesSnapshot, null, 2);
 
-      if (sid && audioBlob?.size) {
+      if (sid) {
         try {
-          await uploadRecording(sid, audioBlob, transcriptJson, null);
+          await uploadRecording(sid, null, transcriptJson, null);
         } catch {
-          /* ignore */
+          /* backend đã lưu qua end_session */
         }
       }
 
@@ -421,18 +450,18 @@ export function useRealtimeSession() {
       try {
         if (exportDir) {
           if (
-            sessionModeRef.current === MODE_TRANSCRIPT &&
-            transcriptSegments.some((s) => s.original.trim())
+            mode === MODE_TRANSCRIPT &&
+            segmentsSnapshot.some((s) => s.original.trim())
           ) {
             const msg = await exportTranscriptSegments(
-              transcriptSegments,
+              segmentsSnapshot,
               exportDir,
               `transcript-${sid?.slice(0, 8) || Date.now()}.txt`
             );
             parts.push(msg);
-          } else if (utterances.length > 0) {
+          } else if (utterancesSnapshot.length > 0) {
             const msg = await exportTranscript(
-              utterances,
+              utterancesSnapshot,
               exportDir,
               `transcript-${sid?.slice(0, 8) || Date.now()}.txt`
             );
@@ -443,12 +472,8 @@ export function useRealtimeSession() {
       } catch {
         setStatus("saveFailed");
       }
-
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-      setIsLive(false);
     },
-    [sessionId, utterances, transcriptSegments, clearChunkPump]
+    [sessionId, utterances, transcriptSegments, clearChunkPump, detachWebSocket]
   );
 
   const activeSegment =

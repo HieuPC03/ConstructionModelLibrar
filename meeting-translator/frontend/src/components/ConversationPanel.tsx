@@ -121,9 +121,14 @@ export default function ConversationPanel() {
   };
 
   const handleStop = async () => {
-    await session.stopSession(exportBaseDir);
-    audio.stopAll();
-    setCaptureStream(null);
+    try {
+      await session.stopSession(exportBaseDir);
+    } catch (e) {
+      session.setStatus(`error:${friendlyMediaError(e)}`);
+    } finally {
+      audio.stopAll();
+      setCaptureStream(null);
+    }
   };
 
   const handleRefreshReset = async () => {
