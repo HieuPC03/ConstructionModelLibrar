@@ -16,6 +16,34 @@ export function isCableInputLabel(label: string): boolean {
   return /cable input/i.test(label) && !isCableOutputLabel(label);
 }
 
+/** Loa phát ảo VB-Cable — không dùng làm tai nghe nghe lại. */
+export function isVirtualPlaybackLabel(label: string): boolean {
+  return (
+    isCableInputLabel(label) ||
+    /vb-audio|vb audio|voicemeeter|virtual cable|blackhole/i.test(label)
+  );
+}
+
+export function isHeadphoneOutputLabel(label: string): boolean {
+  const l = label.toLowerCase();
+  if (isVirtualPlaybackLabel(label)) return false;
+  return /headphone|headset|earphone|tai nghe|イヤホン|ヘッドホン/i.test(l);
+}
+
+/** Chọn loa tai nghe thật để nghe lại khi Windows mặc định là CABLE Input. */
+export function pickHeadphoneOutputDevice(
+  devices: MediaDeviceInfo[]
+): MediaDeviceInfo | undefined {
+  const outputs = devices.filter((d) => d.kind === "audiooutput");
+  if (!outputs.length) return undefined;
+
+  const headphones = outputs.filter((d) => isHeadphoneOutputLabel(d.label));
+  if (headphones.length) return headphones[0];
+
+  const physical = outputs.filter((d) => !isVirtualPlaybackLabel(d.label));
+  return physical[0] ?? outputs[0];
+}
+
 /** VB-Cable, Voicemeeter, BlackHole… */
 export function isVirtualLoopbackLabel(label: string): boolean {
   if (isCableInputLabel(label)) return false;
@@ -36,8 +64,8 @@ export function isLikelyMicrophoneLabel(label: string): boolean {
 
 function loopbackRank(d: AudioDeviceOption): number {
   if (isCableOutputLabel(d.label)) return 0;
-  if (isVirtualLoopbackLabel(d.label) && !isStereoMixLabel(d.label)) return 1;
-  if (isStereoMixLabel(d.label)) return 2;
+  if (isStereoMixLabel(d.label)) return 1;
+  if (isVirtualLoopbackLabel(d.label)) return 2;
   return 3;
 }
 

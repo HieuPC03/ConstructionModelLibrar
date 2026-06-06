@@ -1,12 +1,39 @@
+import { pickHeadphoneOutputDevice } from "./audioDevices";
+
 /**
- * Phát lại luồng VB-Cable / loopback ra thiết bị nghe mặc định (tai nghe)
- * trong khi app vẫn ghi âm cho STT.
+ * Phát lại luồng VB-Cable / loopback ra tai nghe thật trong khi app ghi STT.
+ * Dùng setSinkId để không phụ thuộc loa mặc định Windows (có thể là CABLE Input).
  */
 let monitorCtx: AudioContext | null = null;
 let monitorNodes: {
   source: MediaStreamAudioSourceNode;
   gain: GainNode;
 } | null = null;
+
+type SinkCapableContext = AudioContext & {
+  setSinkId?: (sinkId: string) => Promise<void>;
+};
+
+async function resolveHeadphoneSinkId(): Promise<string | undefined> {
+  if (!navigator.mediaDevices?.enumerateDevices) return undefined;
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    return pickHeadphoneOutputDevice(devices)?.deviceId || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function routeContextToHeadphones(ctx: SinkCapableContext): Promise<void> {
+  if (typeof ctx.setSinkId !== "function") return;
+  const sinkId = await resolveHeadphoneSinkId();
+  if (!sinkId || sinkId === "default") return;
+  try {
+    await ctx.setSinkId(sinkId);
+  } catch {
+    /* dùng loa mặc định */
+  }
+}
 
 export async function startLoopbackMonitor(
   stream: MediaStream,
@@ -15,7 +42,8 @@ export async function startLoopbackMonitor(
   stopLoopbackMonitor();
   if (!stream.getAudioTracks().length) return;
 
-  const ctx = new AudioContext();
+  const ctx = new AudioContext() as SinkCapableContext;
+  await routeContextToHeadphones(ctx);
   if (ctx.state === "suspended") {
     await ctx.resume();
   }

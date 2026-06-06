@@ -163,9 +163,9 @@ export function friendlyMediaError(err: unknown): string {
   const msg = (err as Error)?.message || String(err);
   if (/not supported|notsupported/i.test(msg)) {
     return (
-      "Không ghi được âm thanh từ VB-Cable/loopback. " +
-      "Kiểm tra: (1) Zoom/Teams chọn loa «CABLE Input», (2) trong app chọn «CABLE Output», " +
-      "(3) tắt «Thêm micro» thử lại, hoặc (4) chọn «Tự động» và bật «Chia sẻ âm thanh hệ thống»."
+      "Không ghi được âm thanh hệ thống. " +
+      "Khuyến nghị: Windows loa mặc định = «CABLE Input», app chọn «CABLE Output», bật «Nghe lại qua tai nghe». " +
+      "Hoặc bật Stereo Mix (mmsys.cpl → Ghi), hoặc tắt «Thêm micro» thử lại."
     );
   }
   if (/permission|denied|notallowed/i.test(msg)) {

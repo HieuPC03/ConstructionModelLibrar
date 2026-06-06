@@ -17,7 +17,7 @@
 !macro customFinish
   MessageBox MB_ICONINFORMATION|MB_OK \
     "Cai dat Meeting Translator hoan tat.$\r$\n$\r$\n\
-    1. VB-Cable (card am thanh ao) da duoc cai — xem HUONG_DAN_AM_THANH.txt$\r$\n\
+    1. VB-Cable: dat loa Windows mac dinh = CABLE Input de ghi YouTube/Facebook/hop — xem HUONG_DAN_AM_THANH.txt$\r$\n\
     2. Dien API trong %APPDATA%\meeting-translator-desktop\.env:$\r$\n\
        XAI_API_KEY (Grok) — https://console.x.ai$\r$\n\
        OPENAI_API_KEY (Whisper STT + fallback dich)$\r$\n$\r$\n\

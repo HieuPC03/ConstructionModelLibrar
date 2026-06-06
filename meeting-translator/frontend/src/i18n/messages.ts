@@ -36,12 +36,12 @@ const vi = {
   sourceLoopback: "Âm thanh hệ thống",
   systemAudioAuto: "Tự động (Windows / VB-Cable…)",
   hintLoopback:
-    "App đã cài VB-Cable (card âm thanh ảo). Cài đặt Windows: Loa mặc định = Tai nghe; trong app họp chọn loa = CABLE Input. Trong Meeting Translator: nguồn «CABLE Output», bật «Nghe lại qua tai nghe» + «Thêm micro» để vừa ghi tiếng hệ thống vừa nghe qua tai nghe và thu giọng bạn.",
+    "Ghi mọi âm thanh hệ thống (YouTube, Facebook, Zoom, Teams…): Win+R → mmsys.cpl → Loa mặc định = «CABLE Input». Trong app: «CABLE Output» (hoặc Tự động), bật «Nghe lại qua tai nghe» (nghe qua tai nghe thật) + «Thêm micro». Không cần cấu hình từng app — mọi tiếng phát ra loa đều được dịch.",
   hintVbCableInstalled:
     "VB-Cable đã được cài kèm. Xem HUONG_DAN_AM_THANH.txt trong thư mục cài đặt.",
   hearLoopback: "Nghe lại qua tai nghe",
   hearLoopbackHint:
-    "Phát âm từ VB-Cable ra tai nghe khi đang ghi (loa mặc định phải là tai nghe, không phải CABLE Input)",
+    "Bắt buộc khi loa Windows = CABLE Input: app phát lại ra tai nghe thật để bạn vẫn nghe YouTube/họp khi đang ghi",
   sourceMic: "Chỉ micro",
   device: "Thiết bị",
   addMic: "Thêm micro",
@@ -144,11 +144,12 @@ const ja: Record<MessageKey, string> = {
   sourceLoopback: "システム音声",
   systemAudioAuto: "自動（Windows共有 / VB-Cable…）",
   hintLoopback:
-    "VB-Cable同梱。Windows: 既定出力=ヘッドホン、会議アプリ=CABLE Input。アプリでCABLE Output＋「ヘッドホンで聞く」＋マイク追加。",
+    "YouTube/Facebook/会議など全システム音声: Windows既定出力=CABLE Input。アプリでCABLE Output＋「ヘッドホンで聞く」＋マイク追加。",
   hintVbCableInstalled:
     "VB-Cableは同梱済み。HUONG_DAN_AM_THANH.txtを参照。",
   hearLoopback: "ヘッドホンで聞く",
-  hearLoopbackHint: "VB-Cableの音をヘッドホンに再生しながら記録",
+  hearLoopbackHint:
+    "Windows出力がCABLE Inputのとき必須。実ヘッドホンへ再生して聞きながら記録",
   sourceMic: "マイクのみ",
   device: "デバイス",
   addMic: "マイクを追加",

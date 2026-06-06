@@ -220,7 +220,7 @@ export function useAudioCapture() {
 
         if (audioStreams.length === 0) {
           throw new Error(
-            "Không có nguồn âm thanh. Cài VB-Cable, chọn CABLE Output, hoặc dùng «Chỉ micro»."
+            "Không có nguồn âm thanh. Đặt Windows loa mặc định = CABLE Input (YouTube/Facebook/họp đều ghi được), hoặc dùng «Chỉ micro»."
           );
         }
 
