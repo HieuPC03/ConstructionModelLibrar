@@ -191,6 +191,14 @@ textarea {
   box-shadow: 0 0 12px var(--accent-glow);
 }
 
+.app-header-logo {
+  height: 1.75rem;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 6px rgba(217, 30, 42, 0.35));
+}
+
 .app-header h1 {
   font-size: 1.05rem;
   font-weight: 700;

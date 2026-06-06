@@ -9,7 +9,7 @@ import { SessionModeProvider } from "./SessionModeContext";
 import { checkHealth } from "./api";
 
 function AppInner() {
-  const { tr } = useAppSettings();
+  const { tr, theme } = useAppSettings();
   const [provider, setProvider] = useState("…");
   const [backendOk, setBackendOk] = useState<boolean | null>(null);
   const [configWarning, setConfigWarning] = useState<string | null>(null);
@@ -31,7 +31,16 @@ function AppInner() {
       </div>
       <header className="app-header">
         <div className="app-header-brand">
-          <span className="brand-accent" aria-hidden />
+          {theme === "jasty" ? (
+            <img
+              src={jastyLogo}
+              alt="JASTY"
+              className="app-header-logo"
+              draggable={false}
+            />
+          ) : (
+            <span className="brand-accent" aria-hidden />
+          )}
           <h1>{tr("appTitle")}</h1>
         </div>
         <span className="badge header-status">
