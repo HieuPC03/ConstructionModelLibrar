@@ -37,9 +37,40 @@ export function splitCompletedSentences(text: string): {
   return { completedSentences: completed, liveTail: buffer.trim() };
 }
 
-export function applyChunkToSegmentText(prev: string, chunk: string): string {
+function normalizeOverlapKey(text: string): string {
+  return text.replace(/[\s\u3000、。．！？,.!?…]+/g, "");
+}
+
+/** Bỏ phần đầu chunk trùng đuôi prev (Whisper hay echo). */
+export function stripRedundantOverlap(prev: string, chunk: string): string {
+  const p = prev.trim();
   const c = chunk.trim();
-  if (!c) return prev;
+  if (!c) return "";
+  if (!p) return c;
+  if (c.startsWith(p)) return c.slice(p.length).trim();
+  if (p.endsWith(c)) return "";
+
+  const maxOv = Math.min(p.length, c.length, 120);
+  for (let size = maxOv; size >= 3; size--) {
+    if (p.slice(-size) === c.slice(0, size)) {
+      return c.slice(size).trim();
+    }
+  }
+
+  const np = normalizeOverlapKey(p);
+  const nc = normalizeOverlapKey(c);
+  const maxN = Math.min(np.length, nc.length, 120);
+  for (let size = maxN; size >= 3; size--) {
+    if (np.slice(-size) === nc.slice(0, size)) {
+      return c.slice(size).trim();
+    }
+  }
+  return c;
+}
+
+export function applyChunkToSegmentText(prev: string, chunk: string): string {
+  const c = stripRedundantOverlap(prev, chunk);
+  if (!c) return prev.trimEnd();
   const p = prev.trimEnd();
   if (!p) return c;
 

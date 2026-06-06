@@ -57,6 +57,38 @@ def _split_sentences(text: str) -> list[str]:
     return sentences if sentences else ([text.strip()] if text.strip() else [])
 
 
+def _normalize_overlap_key(text: str) -> str:
+    return re.sub(r"[\s\u3000、。．！？,.!?…]+", "", text.strip())
+
+
+def strip_redundant_overlap(accumulated: str, fragment: str) -> str:
+    """Bỏ phần đầu của fragment đã có ở cuối accumulated (Whisper echo)."""
+    a = accumulated.strip()
+    f = fragment.strip()
+    if not f:
+        return ""
+    if not a:
+        return f
+    if f.startswith(a):
+        return f[len(a) :].strip()
+    if a.endswith(f):
+        return ""
+
+    max_ov = min(len(a), len(f), 120)
+    for size in range(max_ov, 3, -1):
+        if a[-size:] == f[:size]:
+            return f[size:].strip()
+
+    na, nf = _normalize_overlap_key(a), _normalize_overlap_key(f)
+    if nf.startswith(na):
+        return f[len(a) :].strip() if len(f) > len(a) else ""
+    max_n = min(len(na), len(nf), 120)
+    for size in range(max_n, 3, -1):
+        if na[-size:] == nf[:size]:
+            return f[size:].strip()
+    return f
+
+
 def dedupe_sentence_loops(text: str) -> str:
     """Bỏ khối câu lặp vòng (A.B.C.A.B.C → A.B.C)."""
     sentences = _split_sentences(text)
@@ -91,6 +123,9 @@ def extract_incremental_stt(
     """
     prev = accumulated.strip()
     inc = polish_stt_text(incoming, language)
+    if not inc:
+        return "", prev
+    inc = strip_redundant_overlap(prev, inc)
     if not inc:
         return "", prev
 
@@ -147,11 +182,35 @@ def dedupe_stt_repetition(text: str) -> str:
     t = dedupe_sentence_loops(text.strip())
     if not t:
         return t
-    half = len(t) // 2
-    for size in range(min(half, 80), 8, -1):
-        if t[:size] == t[size : size * 2]:
-            return t[:size] + t[size * 2 :].strip()
-    return t
+
+    changed = True
+    while changed and len(t) >= 16:
+        changed = False
+        half = len(t) // 2
+        for size in range(min(half, 120), 6, -1):
+            if t[:size] == t[size : size * 2]:
+                t = (t[:size] + t[size * 2 :]).strip()
+                changed = True
+                break
+
+    parts = re.split(r"(\s+)", t)
+    if len(parts) >= 4:
+        deduped: list[str] = []
+        i = 0
+        while i < len(parts):
+            deduped.append(parts[i])
+            if (
+                i + 2 < len(parts)
+                and parts[i].strip()
+                and parts[i] == parts[i + 2]
+                and not parts[i + 1].strip()
+            ):
+                i += 2
+            else:
+                i += 1
+        t = "".join(deduped).strip()
+
+    return dedupe_sentence_loops(t)
 
 
 def is_hallucination_only(text: str) -> bool:

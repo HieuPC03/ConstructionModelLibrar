@@ -49,6 +49,7 @@ from services.realtime_buffer import (
 from services.stt import transcribe_audio
 from services.stt_lang import should_skip_meeting_translation, translation_source_lang
 from services.stt_postprocess import (
+    dedupe_sentence_loops,
     dedupe_stt_repetition,
     extract_incremental_stt,
     polish_stt_text,
@@ -445,6 +446,8 @@ async def session_websocket(websocket: WebSocket) -> None:
         polished = polish_stt_text(text, last_source_lang)
         if not polished:
             return
+        if polished == rt_prior_original:
+            return
         src = translation_source_lang(last_source_lang)
         entry_id = str(uuid.uuid4())
         entry = {
@@ -580,7 +583,9 @@ async def session_websocket(websocket: WebSocket) -> None:
                             _, pending_rt_text = extract_incremental_stt(
                                 pending_rt_text, chunk, source_lang
                             )
-                            pending_rt_text = dedupe_stt_repetition(pending_rt_text)
+                            pending_rt_text = dedupe_stt_repetition(
+                                dedupe_sentence_loops(pending_rt_text)
+                            )
                         if pending_rt_text.strip():
                             await websocket.send_json(
                                 {
@@ -594,17 +599,20 @@ async def session_websocket(websocket: WebSocket) -> None:
                         ):
                             await flush_realtime_remainder()
                     elif text and text.strip():
-                        delta, pending_caption_text = extract_incremental_stt(
+                        _, pending_caption_text = extract_incremental_stt(
                             pending_caption_text,
                             text.strip(),
                             source_lang,
                         )
-                        if delta:
-                            await emit_utterance(
-                                delta,
-                                "",
-                                speaker,
-                                session_mode,
+                        pending_caption_text = dedupe_stt_repetition(
+                            dedupe_sentence_loops(pending_caption_text)
+                        )
+                        if pending_caption_text.strip():
+                            await websocket.send_json(
+                                {
+                                    "type": "caption_sync",
+                                    "original": pending_caption_text.strip(),
+                                }
                             )
                             stt_context_tail_text = stt_context_tail(
                                 pending_caption_text
