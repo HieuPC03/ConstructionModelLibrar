@@ -40,7 +40,10 @@ async def translate_meeting_text(
         return TranslateResult(text, "ChatGPT (OpenAI)", None)
 
     prompt = (
-        f"Translate the following from {_lang_name(source_lang)} to {_lang_name(target_lang)}:\n\n{text}"
+        f"You are a professional meeting interpreter. "
+        f"Translate from {_lang_name(source_lang)} to {_lang_name(target_lang)}.\n"
+        f"Fix STT errors if any. Use natural grammar and appropriate politeness.\n"
+        f"Output ONLY the translation.\n\n{text}"
     )
     translated = await _translate_openai(prompt)
     return TranslateResult(translated, "ChatGPT (OpenAI)", None)

@@ -46,6 +46,13 @@ from services.realtime_buffer import (
     merge_stt_fragments,
     should_flush_buffer,
 )
+from services.chatgpt_live import (
+    CHATGPT_PROVIDER,
+    merge_caption_chatgpt,
+    stt_model_label,
+    transcribe_chunk_chatgpt,
+    translate_sentence_chatgpt,
+)
 from services.stt import transcribe_audio
 from services.stt_lang import translation_source_lang
 from services.translate import translate_meeting_text, translate_text
@@ -405,38 +412,21 @@ async def session_websocket(websocket: WebSocket) -> None:
 
     pending_meta: dict[str, Any] = {}
     pending_rt_text = ""
+    pending_caption_text = ""
     rt_silence_streak = 0
     last_source_lang = "ja"
     last_target_lang = "vi"
     last_speaker = "remote"
     last_session_mode = SESSION_TRANSCRIPT
 
-    async def emit_utterance(
-        original: str,
-        translation: str,
-        speaker: str,
-        session_mode: str,
-    ) -> None:
-        if not original.strip():
-            return
-        entry = {
-            "id": str(uuid.uuid4()),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "speaker": speaker,
-            "original": original.strip(),
-            "translation": translation,
-            "session_mode": session_mode,
-        }
-        transcript_log.append(entry)
-        await websocket.send_json({"type": "utterance", **entry})
-
     stt_seq = 0
     stt_next = 0
     stt_pending: dict[int, str] = {}
     stt_order_lock = asyncio.Lock()
-    stt_sem = asyncio.Semaphore(2)
+    stt_sem = asyncio.Semaphore(1)
 
     async def flush_realtime_buffer() -> None:
+        """ChatGPT: STT đã gom → dịch ChatGPT → đẩy câu + bản dịch cùng lúc."""
         nonlocal pending_rt_text, rt_silence_streak
         text = pending_rt_text.strip()
         if not text:
@@ -444,39 +434,24 @@ async def session_websocket(websocket: WebSocket) -> None:
         pending_rt_text = ""
         rt_silence_streak = 0
         src = translation_source_lang(last_source_lang)
+        translation = await translate_sentence_chatgpt(
+            text, src, last_target_lang
+        )
         entry_id = str(uuid.uuid4())
         entry = {
             "id": entry_id,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "speaker": last_speaker,
             "original": text,
-            "translation": "",
+            "translation": translation,
             "session_mode": SESSION_TRANSLATE,
+            "provider": CHATGPT_PROVIDER,
         }
         transcript_log.append(entry)
         await websocket.send_json({"type": "utterance", **entry})
 
-        async def translate_background() -> None:
-            try:
-                tr = await translate_meeting_text(text, src, last_target_lang)
-                for logged in transcript_log:
-                    if logged.get("id") == entry_id:
-                        logged["translation"] = tr.text
-                        break
-                await websocket.send_json(
-                    {
-                        "type": "utterance_translation",
-                        "id": entry_id,
-                        "translation": tr.text,
-                    }
-                )
-            except Exception:
-                pass
-
-        asyncio.create_task(translate_background())
-
     async def handle_stt_text(text: str, session_mode: str, speaker: str) -> None:
-        nonlocal pending_rt_text, rt_silence_streak
+        nonlocal pending_rt_text, pending_caption_text, rt_silence_streak
         if session_mode == SESSION_TRANSLATE:
             chunk = (text or "").strip()
             if not chunk:
@@ -489,17 +464,23 @@ async def session_websocket(websocket: WebSocket) -> None:
                     {
                         "type": "partial",
                         "original": pending_rt_text.strip(),
+                        "provider": CHATGPT_PROVIDER,
                     }
                 )
             if should_flush_buffer(pending_rt_text, rt_silence_streak):
                 await flush_realtime_buffer()
         elif text and text.strip():
-            await emit_utterance(
-                text.strip(),
-                "",
-                speaker,
-                session_mode,
+            pending_caption_text = merge_caption_chatgpt(
+                pending_caption_text, text.strip()
             )
+            if pending_caption_text:
+                await websocket.send_json(
+                    {
+                        "type": "caption_sync",
+                        "original": pending_caption_text,
+                        "provider": CHATGPT_PROVIDER,
+                    }
+                )
 
     async def deliver_stt_result(seq: int, text: str, meta: dict[str, Any]) -> None:
         nonlocal stt_next
@@ -517,11 +498,10 @@ async def session_websocket(websocket: WebSocket) -> None:
     async def run_stt_job(seq: int, data: bytes, meta: dict[str, Any]) -> None:
         async with stt_sem:
             try:
-                text = await transcribe_audio(
+                text = await transcribe_chunk_chatgpt(
                     data,
                     meta.get("filename", "chunk.webm"),
                     meta["source_lang"],
-                    engine=meta["stt_engine"],
                     capture_mode=meta.get("capture_mode"),
                 )
                 await deliver_stt_result(seq, text, meta)
@@ -535,7 +515,12 @@ async def session_websocket(websocket: WebSocket) -> None:
             {
                 "type": "ready",
                 "session_id": session_id,
-                "message": "Kết nối phiên dịch. Gửi audio chunk hoặc lệnh.",
+                "message": (
+                    f"Kết nối phiên dịch — {stt_model_label()}. "
+                    "Live Caption & dịch realtime qua ChatGPT."
+                ),
+                "live_provider": CHATGPT_PROVIDER,
+                "live_stt": stt_model_label(),
             }
         )
 
@@ -554,6 +539,20 @@ async def session_websocket(websocket: WebSocket) -> None:
                 if msg_type == "end_session":
                     if last_session_mode == SESSION_TRANSLATE:
                         await flush_realtime_buffer()
+                    elif pending_caption_text.strip():
+                        transcript_log.append(
+                            {
+                                "id": str(uuid.uuid4()),
+                                "timestamp": datetime.now(
+                                    timezone.utc
+                                ).isoformat(),
+                                "speaker": last_speaker,
+                                "original": pending_caption_text.strip(),
+                                "translation": "",
+                                "session_mode": SESSION_TRANSCRIPT,
+                                "provider": CHATGPT_PROVIDER,
+                            }
+                        )
                     await _save_session(session_id, transcript_log, payload)
                     await websocket.send_json(
                         {"type": "session_saved", "session_id": session_id}

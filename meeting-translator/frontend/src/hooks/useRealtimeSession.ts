@@ -120,7 +120,8 @@ export function useRealtimeSession() {
     });
   }, []);
 
-  const appendTranscriptChunk = useCallback((text: string) => {
+  const syncTranscriptCaption = useCallback((fullText: string) => {
+    const original = fullText.trim();
     setTranscriptSegments((prev) => {
       let list = prev;
       let openId = openSegmentIdRef.current;
@@ -144,7 +145,6 @@ export function useRealtimeSession() {
       }
       return list.map((s) => {
         if (s.id !== openId) return s;
-        const original = appendChunkText(s.original, text);
         return { ...s, ...withSplitSentences(original) };
       });
     });
@@ -263,10 +263,12 @@ export function useRealtimeSession() {
           if (sessionModeRef.current === MODE_REALTIME) {
             setLiveDraft(String(data.original));
           }
-        } else if (data.type === "utterance" && data.original) {
+        } else if (data.type === "caption_sync" && data.original) {
           if (sessionModeRef.current === MODE_TRANSCRIPT) {
-            appendTranscriptChunk(data.original);
-          } else if (sessionModeRef.current === MODE_REALTIME) {
+            syncTranscriptCaption(String(data.original));
+          }
+        } else if (data.type === "utterance" && data.original) {
+          if (sessionModeRef.current === MODE_REALTIME) {
             setLiveDraft("");
             appendRealtimeUtterance({
               id: data.id,
@@ -292,7 +294,7 @@ export function useRealtimeSession() {
       };
 
     },
-    [appendRealtimeUtterance, appendTranscriptChunk, resetTranscript, startLiveAudioRecording]
+    [appendRealtimeUtterance, syncTranscriptCaption, resetTranscript, startLiveAudioRecording]
   );
 
   const beginNextSegmentAfterTranslate = useCallback((segmentId: string) => {

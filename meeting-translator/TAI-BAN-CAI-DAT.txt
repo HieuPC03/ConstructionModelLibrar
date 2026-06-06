@@ -1,10 +1,11 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.53 (nền v1.8.5)
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.54 (nền v1.8.53)
 ==========================================================
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.53
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.54
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.53/Meeting-Translator-Setup-1.8.53.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.54/Meeting-Translator-Setup-1.8.54.exe
 
+v1.8.54 — Pipeline ChatGPT: Live Caption caption_sync; realtime câu+dịch đồng bộ
 v1.8.53 — STT âm hệ thống chính xác hơn; Live Caption 1s, realtime 0.8s/chunk
 v1.8.52 — Logo JASTY nền vùng transcript/dịch (opacity ~50%)
 v1.8.51 — Dựa trên v1.8.5 + 3 cải tiến:

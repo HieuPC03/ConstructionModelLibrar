@@ -49,7 +49,8 @@ async def _transcribe_openai(
     api_key = get_openai_api_key()
     if not is_valid_openai_key(api_key):
         raise ValueError(
-            "OPENAI_API_KEY không hợp lệ hoặc hết quota. Live Caption cần OpenAI Whisper."
+            "OPENAI_API_KEY không hợp lệ hoặc hết quota. "
+            "Live Caption & dịch realtime cần ChatGPT (OpenAI STT)."
         )
 
     from openai import AsyncOpenAI
