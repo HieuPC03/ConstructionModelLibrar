@@ -28,6 +28,17 @@ const MIN_CHUNK_BYTES = 200;
 const MODE_TRANSCRIPT: SessionMode = "transcript";
 const MODE_REALTIME: SessionMode = "translate_realtime";
 
+type WsMessage = {
+  type?: string;
+  session_id?: string;
+  original?: string;
+  id?: string;
+  timestamp?: string;
+  speaker?: Speaker;
+  translation?: string;
+  message?: string;
+};
+
 function newSegment(index: number): TranscriptSegment {
   return {
     id: crypto.randomUUID(),
@@ -69,6 +80,7 @@ export function useRealtimeSession() {
   const openSegmentIdRef = useRef<string | null>(null);
   const chunkMetaRef = useRef<Record<string, string>>({});
   const chunkStreamRef = useRef<MediaStream | null>(null);
+  const sessionStartingRef = useRef(false);
 
   const resetTranscript = useCallback(() => {
     const first = newSegment(1);
@@ -201,6 +213,10 @@ export function useRealtimeSession() {
       sessionMode: SessionMode,
       remoteSpeaker: Speaker
     ) => {
+      if (sessionStartingRef.current || wsRef.current?.readyState === WebSocket.OPEN) {
+        return;
+      }
+      sessionStartingRef.current = true;
       sessionModeRef.current = sessionMode;
       setUtterances([]);
       setLiveDraft("");
@@ -223,10 +239,31 @@ export function useRealtimeSession() {
       const ws = await openSessionWebSocket();
       wsRef.current = ws;
 
+      ws.onclose = () => {
+        clearChunkPump();
+        sessionStartingRef.current = false;
+        if (wsRef.current === ws) {
+          wsRef.current = null;
+          setIsLive(false);
+          setStatus("error:Mất kết nối WebSocket");
+        }
+      };
+
+      ws.onerror = () => {
+        sessionStartingRef.current = false;
+        setStatus("error:WebSocket lỗi");
+      };
+
       ws.onmessage = (ev) => {
-        const data = JSON.parse(ev.data as string);
+        let data: WsMessage;
+        try {
+          data = JSON.parse(ev.data as string) as WsMessage;
+        } catch {
+          return;
+        }
         if (data.type === "ready") {
-          setSessionId(data.session_id);
+          sessionStartingRef.current = false;
+          setSessionId(data.session_id ?? null);
           setIsLive(true);
           setStatus(
             sessionMode === "translate_realtime" ? "liveRealtime" : "liveTranscript"
@@ -251,9 +288,9 @@ export function useRealtimeSession() {
           if (sessionModeRef.current === MODE_REALTIME) {
             setLiveDraft("");
             appendRealtimeUtterance({
-              id: data.id,
-              timestamp: data.timestamp,
-              speaker: data.speaker,
+              id: data.id ?? crypto.randomUUID(),
+              timestamp: data.timestamp ?? new Date().toISOString(),
+              speaker: data.speaker ?? "remote",
               original: data.original,
               translation: data.translation || "",
             });
@@ -267,14 +304,20 @@ export function useRealtimeSession() {
             )
           );
         } else if (data.type === "error") {
-          setStatus(`error:${data.message}`);
+          setStatus(`error:${data.message ?? "Lỗi phiên"}`);
         } else if (data.type === "session_saved") {
           setStatus("saved");
         }
       };
 
     },
-    [appendRealtimeUtterance, syncTranscriptCaption, resetTranscript, startLiveAudioRecording]
+    [
+      appendRealtimeUtterance,
+      syncTranscriptCaption,
+      resetTranscript,
+      startLiveAudioRecording,
+      clearChunkPump,
+    ]
   );
 
   const beginNextSegmentAfterTranslate = useCallback((segmentId: string) => {
@@ -314,6 +357,7 @@ export function useRealtimeSession() {
   }, []);
 
   const abortSession = useCallback(() => {
+    sessionStartingRef.current = false;
     clearChunkPump();
     wsRef.current?.close();
     wsRef.current = null;

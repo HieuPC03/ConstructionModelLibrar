@@ -30,7 +30,7 @@ def merge_stt_fragments(previous: str, new: str) -> str:
         return prev
     # Trùng đuôi/đầu (Whisper hay lặp)
     max_ov = min(len(prev), len(nxt), 80)
-    for size in range(max_ov, 3, -1):
+    for size in range(max_ov, 1, -1):
         if prev[-size:] == nxt[:size]:
             return prev + nxt[size:]
     last, first = prev[-1], nxt[0]

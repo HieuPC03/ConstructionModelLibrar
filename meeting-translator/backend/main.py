@@ -421,24 +421,32 @@ async def session_websocket(websocket: WebSocket) -> None:
     last_speaker = "remote"
     last_session_mode = SESSION_TRANSCRIPT
 
-    async def emit_utterance(
-        original: str,
-        translation: str,
-        speaker: str,
-        session_mode: str,
-    ) -> None:
-        if not original.strip():
+    def append_caption_log(text: str) -> None:
+        """Ghi snapshot Live Caption để lưu session server-side."""
+        body = text.strip()
+        if not body:
             return
-        entry = {
-            "id": str(uuid.uuid4()),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "speaker": speaker,
-            "original": original.strip(),
-            "translation": translation,
-            "session_mode": session_mode,
-        }
-        transcript_log.append(entry)
-        await websocket.send_json({"type": "utterance", **entry})
+        if (
+            transcript_log
+            and transcript_log[-1].get("session_mode") == SESSION_TRANSCRIPT
+            and transcript_log[-1].get("_rolling_caption")
+        ):
+            transcript_log[-1]["original"] = body
+            transcript_log[-1]["timestamp"] = datetime.now(
+                timezone.utc
+            ).isoformat()
+            return
+        transcript_log.append(
+            {
+                "id": str(uuid.uuid4()),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "speaker": last_speaker,
+                "original": body,
+                "translation": "",
+                "session_mode": SESSION_TRANSCRIPT,
+                "_rolling_caption": True,
+            }
+        )
 
     async def push_realtime_sentence(text: str) -> None:
         """Đẩy 1 câu xuống ngay; dịch ChatGPT chạy nền (nhanh hơn)."""
@@ -608,6 +616,7 @@ async def session_websocket(websocket: WebSocket) -> None:
                             dedupe_sentence_loops(pending_caption_text)
                         )
                         if pending_caption_text.strip():
+                            append_caption_log(pending_caption_text)
                             await websocket.send_json(
                                 {
                                     "type": "caption_sync",

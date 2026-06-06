@@ -330,7 +330,7 @@ export default function ConversationPanel() {
             <button
               className="play-btn"
               onClick={() => void handlePlay()}
-              disabled={starting}
+              disabled={starting || session.status === "connecting"}
             >
               {starting ? tr("starting") : tr("play")}
             </button>

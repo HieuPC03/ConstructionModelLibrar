@@ -51,7 +51,7 @@ export function stripRedundantOverlap(prev: string, chunk: string): string {
   if (p.endsWith(c)) return "";
 
   const maxOv = Math.min(p.length, c.length, 120);
-  for (let size = maxOv; size >= 3; size--) {
+  for (let size = maxOv; size >= 2; size--) {
     if (p.slice(-size) === c.slice(0, size)) {
       return c.slice(size).trim();
     }
@@ -60,7 +60,7 @@ export function stripRedundantOverlap(prev: string, chunk: string): string {
   const np = normalizeOverlapKey(p);
   const nc = normalizeOverlapKey(c);
   const maxN = Math.min(np.length, nc.length, 120);
-  for (let size = maxN; size >= 3; size--) {
+  for (let size = maxN; size >= 2; size--) {
     if (np.slice(-size) === nc.slice(0, size)) {
       return c.slice(size).trim();
     }

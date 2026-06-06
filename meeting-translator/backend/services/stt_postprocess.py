@@ -75,15 +75,15 @@ def strip_redundant_overlap(accumulated: str, fragment: str) -> str:
         return ""
 
     max_ov = min(len(a), len(f), 120)
-    for size in range(max_ov, 3, -1):
+    for size in range(max_ov, 1, -1):
         if a[-size:] == f[:size]:
             return f[size:].strip()
 
     na, nf = _normalize_overlap_key(a), _normalize_overlap_key(f)
-    if nf.startswith(na):
+    if nf.startswith(na) and len(nf) > len(na):
         return f[len(a) :].strip() if len(f) > len(a) else ""
     max_n = min(len(na), len(nf), 120)
-    for size in range(max_n, 3, -1):
+    for size in range(max_n, 1, -1):
         if na[-size:] == nf[:size]:
             return f[size:].strip()
     return f
@@ -161,7 +161,7 @@ def extract_incremental_stt(
         return merged[len(prev) :].strip(), merged
 
     # Không khớp prefix — thử chỉ ghép phần không trùng
-    for size in range(min(len(prev), len(inc), 120), 4, -1):
+    for size in range(min(len(prev), len(inc), 120), 1, -1):
         tail = prev[-size:]
         if inc.startswith(tail):
             suffix = inc[size:].strip()
