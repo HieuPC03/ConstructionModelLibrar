@@ -6,37 +6,44 @@ Mục tiêu:
 - Vẫn NGHE qua tai nghe bình thường
 - Micro tai nghe vẫn thu được giọng bạn nói
 
-── CÁCH KHUYẾN NGHỊ (mọi nguồn âm thanh, không cần cấu hình từng app) ──
+── BƯỚC 1 — CÀI VB-CABLE (bắt buộc) ──
 
-Bước 1 — Cài VB-Cable (tự chạy khi cài app, hoặc chạy lại):
-  Thư mục cài đặt\resources\runtime\vbcable\VBCABLE_Setup_x64.exe
-  (Cần quyền Administrator)
+Nếu mmsys.cpl KHÔNG thấy «CABLE Input» và «CABLE Output»:
 
-Bước 2 — Windows Sound (Win + R → mmsys.cpl):
+  Cách A — Từ Start Menu:
+    Start Menu → Meeting Translator → «Cài VB-Cable»
+    (hoặc chạy file Install-VB-Cable.bat trong thư mục cài đặt)
+
+  Cách B — Thủ công:
+    Thư mục cài đặt\resources\runtime\vbcable\VBCABLE_Setup_x64.exe
+    Chuột phải → «Run as administrator» / «Chạy với tư cách quản trị viên»
+
+  Trong cửa sổ VB-Cable Setup:
+    - Bấm «Install Driver» / «Cài đặt»
+    - Khi Windows hỏi cài driver → chọn «Install» / «Cài đặt»
+
+  SAU KHI CÀI: KHỞI ĐỘNG LẠI máy (bắt buộc)
+  Kiểm tra: Win+R → mmsys.cpl → tab Phát có «CABLE Input», tab Ghi có «CABLE Output»
+
+  Nếu vẫn không có: tải tại https://vb-audio.com/Cable/
+
+── BƯỚC 2 — CẤU HÌNH WINDOWS ──
 
   TAB «Phát» (Playback):
     - Đặt «CABLE Input (VB-Audio Virtual Cable)» làm THIẾT BỊ MẶC ĐỊNH
-      → Mọi app (Chrome, YouTube, Facebook, Zoom…) phát âm qua VB-Cable
-      → Bạn KHÔNG nghe trực tiếp từ Windows — xem bước 4
+      → Mọi app phát âm qua VB-Cable để app ghi được
 
   TAB «Ghi» (Recording):
     - Có «CABLE Output (VB-Audio Virtual Cable)»
 
-Bước 3 — Trong Meeting Translator:
+── BƯỚC 3 — TRONG MEETING TRANSLATOR ──
+
     - Nguồn: «Âm thanh hệ thống»
     - Thiết bị: «CABLE Output» hoặc «Tự động»
     - BẬT «Nghe lại qua tai nghe» — app phát tiếng ra tai nghe thật
-    - BẬT «Thêm micro» — thu giọng bạn qua mic tai nghe
-
-── CÁCH THAY THẾ (chỉ một số app, loa mặc định vẫn là Tai nghe) ──
-
-  TAB «Phát»: Tai nghe = mặc định (nghe bình thường)
-  Từng app (Zoom, Chrome…): chọn loa = «CABLE Input»
-  Hoặc bật «Stereo Mix» trong tab Ghi (nếu máy có) — ghi trực tiếp tiếng loa
-
-  Trong app: CABLE Output + «Nghe lại qua tai nghe» + «Thêm micro»
+    - BẬT «Thêm micro» — thu giọng bạn
 
 Lưu ý:
-- YouTube/Facebook qua trình duyệt: dùng CÁCH KHUYẾN NGHỊ (loa mặc định = CABLE Input)
-- Nếu không nghe được khi ghi: bật «Nghe lại qua tai nghe» trong app
-- Micro độc lập với VB-Cable — «Thêm micro» vẫn hoạt động bình thường
+- VB-Cable là driver ảo — cần quyền Admin và khởi động lại Windows
+- «Nghe lại qua tai nghe» bắt buộc khi loa mặc định = CABLE Input
+- Micro hoạt động độc lập — «Thêm micro» vẫn bật bình thường

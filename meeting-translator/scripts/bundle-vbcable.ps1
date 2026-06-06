@@ -37,5 +37,11 @@ if (-not $found) {
 }
 
 Copy-Item $found.FullName -Destination $SetupExe -Force
+
+$sizeMb = [math]::Round((Get-Item $SetupExe).Length / 1MB, 2)
+if ((Get-Item $SetupExe).Length -lt 500KB) {
+    throw "VBCABLE_Setup_x64.exe qua nho ($sizeMb MB) — tai VB-Cable that bai"
+}
+
 Set-Content -Path $Marker -Value "ok"
-Write-Host "VB-Cable: $SetupExe ($([math]::Round((Get-Item $SetupExe).Length / 1MB, 2)) MB)"
+Write-Host "VB-Cable: $SetupExe ($sizeMb MB)"

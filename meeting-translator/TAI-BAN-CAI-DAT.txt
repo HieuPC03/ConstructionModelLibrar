@@ -1,12 +1,12 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.7.7
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.7.8
 ============================================
 
 https://github.com/HieuPC03/ConstructionModelLibrar/releases/latest
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.7.7/Meeting-Translator-Setup-1.7.7.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.7.8/Meeting-Translator-Setup-1.7.8.exe
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.7.7
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.7.8
 
-v1.7.7 — Sửa Grok: model mặc định grok-4.3 (grok-2-latest đã ngừng)
-v1.7.6 — Ghi mọi âm thanh hệ thống (YouTube, Facebook, họp…), nghe lại qua tai nghe + micro
-v1.7.5 — Sửa ghi âm VB-Cable
+v1.7.8 — Sửa cài VB-Cable: hỏi cài kèm (Admin), shortcut Start Menu, CAI-VB-CABLE.bat
+v1.7.7 — Sửa Grok model grok-4.3
+v1.7.6 — Ghi mọi âm thanh hệ thống + nghe lại tai nghe

@@ -1,6 +1,6 @@
 {
   "name": "meeting-translator-desktop",
-  "version": "1.7.7",
+  "version": "1.7.8",
   "description": "Meeting Translator — ứng dụng desktop offline (cửa sổ riêng)",
   "main": "main.js",
   "author": "Meeting Translator",
@@ -53,6 +53,10 @@
         "from": "../runtime/vbcable",
         "to": "runtime/vbcable",
         "filter": ["**/*"]
+      },
+      {
+        "from": "../CAI-VB-CABLE.bat",
+        "to": "runtime/vbcable/Install-VB-Cable.bat"
       },
       {
         "from": "../HUONG_DAN_AM_THANH.txt",

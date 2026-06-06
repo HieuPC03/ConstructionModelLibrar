@@ -5,7 +5,7 @@ const BACKEND_ORIGIN = `http://127.0.0.1:${BACKEND_PORT}`;
 
 contextBridge.exposeInMainWorld("desktopApp", {
   isDesktop: true,
-  version: "1.7.7",
+  version: "1.7.8",
   backendPort: BACKEND_PORT,
   backendOrigin: BACKEND_ORIGIN,
   openConfigFolder: () => ipcRenderer.invoke("open-config-folder"),

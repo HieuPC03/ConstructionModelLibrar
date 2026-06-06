@@ -33,6 +33,10 @@ if (-not $SkipPythonBundle -and -not $SkipRuntimeBundle) {
     & "$Root\scripts\bundle-vbcable.ps1" -Root $Root
 } elseif ($SkipRuntimeBundle) {
     Write-Host "[1/6] Bo qua bundle runtime (da chay o buoc CI truoc)" -ForegroundColor DarkYellow
+    $vbSetup = Join-Path $Root "runtime\vbcable\VBCABLE_Setup_x64.exe"
+    if (-not (Test-Path $vbSetup)) {
+        throw "Thieu $vbSetup — chay scripts\bundle-vbcable.ps1 truoc khi build"
+    }
 } else {
     Write-Host "[1/6] Bo qua bundle Python (dev)" -ForegroundColor DarkYellow
 }

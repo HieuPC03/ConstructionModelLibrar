@@ -38,7 +38,7 @@ const vi = {
   hintLoopback:
     "Ghi mọi âm thanh hệ thống (YouTube, Facebook, Zoom, Teams…): Win+R → mmsys.cpl → Loa mặc định = «CABLE Input». Trong app: «CABLE Output» (hoặc Tự động), bật «Nghe lại qua tai nghe» (nghe qua tai nghe thật) + «Thêm micro». Không cần cấu hình từng app — mọi tiếng phát ra loa đều được dịch.",
   hintVbCableInstalled:
-    "VB-Cable đã được cài kèm. Xem HUONG_DAN_AM_THANH.txt trong thư mục cài đặt.",
+    "Chưa thấy CABLE Input/Output? Start Menu → «Cài VB-Cable» (cần Admin + khởi động lại máy). Xem HUONG_DAN_AM_THANH.txt.",
   hearLoopback: "Nghe lại qua tai nghe",
   hearLoopbackHint:
     "Bắt buộc khi loa Windows = CABLE Input: app phát lại ra tai nghe thật để bạn vẫn nghe YouTube/họp khi đang ghi",
