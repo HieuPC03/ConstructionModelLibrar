@@ -21,8 +21,8 @@ import {
   resumeStreamAudioContext,
 } from "../utils/mediaRecorder";
 
-/** Chunk 1s — cân bằng độ trễ và ngữ cảnh STT. */
-const CHUNK_MS = 1000;
+/** Chunk 1.2s — cân bằng độ trễ và ngữ cảnh STT. */
+const CHUNK_MS = 1200;
 /** Chunk nhỏ hơn vẫn gửi STT (micro / loopback). */
 const MIN_CHUNK_BYTES = 200;
 const MODE_TRANSCRIPT: SessionMode = "transcript";

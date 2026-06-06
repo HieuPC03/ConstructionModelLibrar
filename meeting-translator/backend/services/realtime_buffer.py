@@ -6,7 +6,7 @@ import re
 
 SENTENCE_END = ".?!。．？！…"
 MAX_PENDING_CHARS = 600
-# Số chunk im lặng liên tiếp trước khi chốt (chunk ~1s)
+# Số chunk im lặng liên tiếp trước khi chốt (chunk ~1.2s)
 SILENCE_CHUNKS_TO_FLUSH = 3
 # Tối thiểu ký tự để coi là câu có nghĩa
 MIN_MEANINGFUL_CHARS = 8
