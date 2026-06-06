@@ -212,6 +212,34 @@ textarea {
   display: grid;
   grid-template-columns: 1fr 1fr;
   min-height: calc(100vh - 52px);
+  position: relative;
+  isolation: isolate;
+}
+
+.split-bg-watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.split-bg-logo {
+  width: min(78vw, 620px);
+  height: auto;
+  transform: rotate(-22deg);
+  opacity: 0.5;
+  filter: drop-shadow(0 0 56px rgba(217, 30, 42, 0.38))
+    drop-shadow(0 0 24px rgba(56, 189, 248, 0.18));
+  user-select: none;
+}
+
+.split-layout > .panel {
+  position: relative;
+  z-index: 1;
 }
 
 .main-single {
@@ -798,6 +826,12 @@ textarea {
   opacity: 0.34;
   filter: drop-shadow(0 0 72px rgba(217, 30, 42, 0.45))
     drop-shadow(0 0 28px rgba(56, 189, 248, 0.22));
+}
+
+[data-theme="jasty"] .split-bg-logo {
+  opacity: 0.5;
+  filter: drop-shadow(0 0 72px rgba(217, 30, 42, 0.5))
+    drop-shadow(0 0 32px rgba(56, 189, 248, 0.28));
 }
 
 [data-theme="jasty"] .app-header {

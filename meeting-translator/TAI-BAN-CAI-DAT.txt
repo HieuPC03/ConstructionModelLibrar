@@ -1,10 +1,11 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.51 (nền v1.8.5)
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.52 (nền v1.8.5)
 ==========================================================
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.51
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.52
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.51/Meeting-Translator-Setup-1.8.51.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.52/Meeting-Translator-Setup-1.8.52.exe
 
+v1.8.52 — Logo JASTY nền vùng transcript/dịch (opacity ~50%)
 v1.8.51 — Dựa trên v1.8.5 + 3 cải tiến:
   • Logo nền JASTY rõ hơn
   • Live Caption: 1 đoạn văn liên tục (không tách từng câu)
