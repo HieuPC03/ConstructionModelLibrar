@@ -1,6 +1,6 @@
 {
   "name": "meeting-translator-desktop",
-  "version": "1.8.61",
+  "version": "1.8.62",
   "description": "Meeting Translator — ứng dụng desktop offline (cửa sổ riêng)",
   "main": "main.js",
   "author": "Meeting Translator",
@@ -79,12 +79,14 @@
       "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
+      "displayLanguageSelector": false,
       "installerLanguages": ["vi_VN", "en_US"],
       "language": "1066",
       "shortcutName": "Meeting Translator",
       "artifactName": "Meeting-Translator-Setup-${version}.${ext}",
       "include": "installer.nsh",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
     }
   }
 }

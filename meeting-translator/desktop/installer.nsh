@@ -1,3 +1,23 @@
+!macro customInit
+  ; Đóng app nếu đang chạy — tránh lỗi ghi đè file khi nâng cấp
+  nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq Meeting Translator.exe" 2>nul | find /I "Meeting Translator.exe"'
+  Pop $0
+  Pop $1
+  StrCmp $1 "" skip_kill 0
+    MessageBox MB_OKCANCEL|MB_ICONINFORMATION \
+      "Cập nhật Meeting Translator.$\r$\n$\r$\n\
+      Ứng dụng đang chạy sẽ được đóng tự động.$\r$\n\
+      Bấm Hủy nếu muốn tự đóng app trước (khay hệ thống / Task Manager)." \
+      /SD IDOK IDOK do_kill IDCANCEL user_abort
+    user_abort:
+      Abort "Hãy đóng Meeting Translator rồi chạy lại file cài."
+    do_kill:
+      nsExec::Exec 'taskkill /F /IM "Meeting Translator.exe" /T'
+      Pop $0
+      Sleep 2000
+  skip_kill:
+!macroend
+
 !macro customInstall
   CreateDirectory "$SMPROGRAMS\Meeting Translator"
   IfFileExists "$INSTDIR\resources\runtime\vbcable\Install-VB-Cable.bat" 0 vb_no_shortcut

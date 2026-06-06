@@ -9,6 +9,9 @@ if not defined SETUP (
   pause
   exit /b 1
 )
+echo Dang dong Meeting Translator neu dang chay...
+taskkill /F /IM "Meeting Translator.exe" /T >nul 2>&1
+timeout /t 2 /nobreak >nul
 echo Dang chay: %SETUP%
 start /wait "" "%SETUP%"
 echo.
