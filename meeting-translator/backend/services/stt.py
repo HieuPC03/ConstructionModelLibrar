@@ -29,6 +29,7 @@ async def transcribe_audio(
     filename: str = "chunk.webm",
     language: str = "ja",
     engine: str | None = None,
+    target_lang: str | None = None,
 ) -> str:
     if len(audio_bytes) < MIN_AUDIO_BYTES:
         return ""
@@ -51,7 +52,7 @@ async def _transcribe_openai(
     from openai import AsyncOpenAI
 
     client = AsyncOpenAI(api_key=api_key)
-    lang, prompt = resolve_stt_language(language)
+    lang, prompt = resolve_stt_language(language, target_lang)
 
     suffix = _audio_suffix_from_bytes(audio_bytes, filename)
 
@@ -67,7 +68,7 @@ async def _transcribe_openai(
             text = await _run_openai_transcription(
                 client, tmp_path, "whisper-1", lang, prompt
             )
-        return filter_stt_hallucination(text, lang or "ja")
+        return filter_stt_hallucination(text, lang or "ja", target_lang)
     finally:
         try:
             os.unlink(tmp_path)

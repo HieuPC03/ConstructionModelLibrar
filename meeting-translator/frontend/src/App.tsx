@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import jastyLogo from "./assets/jasty-logo.png";
 import ConversationPanel from "./components/ConversationPanel";
 import SettingsBar from "./components/SettingsBar";
 import TextTranslatePanel from "./components/TextTranslatePanel";
@@ -25,7 +26,7 @@ function AppInner() {
   return (
     <div className="app-shell">
       <div className="app-bg-watermark" aria-hidden="true">
-        <img src="/jasty-logo.png" alt="" className="app-bg-logo" />
+        <img src={jastyLogo} alt="" className="app-bg-logo" draggable={false} />
       </div>
       <header className="app-header">
         <div className="app-header-brand">

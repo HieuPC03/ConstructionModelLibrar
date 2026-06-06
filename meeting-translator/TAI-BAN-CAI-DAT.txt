@@ -1,12 +1,11 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.5
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.6
 ============================================
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/latest
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.6
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.5/Meeting-Translator-Setup-1.8.5.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.6/Meeting-Translator-Setup-1.8.6.exe
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.5
-
+v1.8.6 — Sửa logo JASTY hiển thị; tiếng Việt nghe được thì ghi ra, bỏ qua dịch
 v1.8.5 — Logo JASTY nền chéo, UI tương lai, nền RGB khi live, credit PTH
 v1.8.4 — Theme JASTY đỏ trắng + UI/UX chuyên nghiệp
 v1.8.3 — Phụ đề: câu mới ở trên

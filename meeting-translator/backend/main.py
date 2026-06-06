@@ -47,7 +47,7 @@ from services.realtime_buffer import (
     should_flush_buffer,
 )
 from services.stt import transcribe_audio
-from services.stt_lang import translation_source_lang
+from services.stt_lang import should_skip_meeting_translation, translation_source_lang
 from services.translate import translate_meeting_text, translate_text
 
 
@@ -473,7 +473,8 @@ async def session_websocket(websocket: WebSocket) -> None:
             except Exception:
                 pass
 
-        asyncio.create_task(translate_background())
+        if not should_skip_meeting_translation(text, src, last_target_lang):
+            asyncio.create_task(translate_background())
 
     async def handle_stt_text(text: str, session_mode: str, speaker: str) -> None:
         nonlocal pending_rt_text, rt_silence_streak
@@ -522,6 +523,7 @@ async def session_websocket(websocket: WebSocket) -> None:
                     meta.get("filename", "chunk.webm"),
                     meta["source_lang"],
                     engine=meta["stt_engine"],
+                    target_lang=meta.get("target_lang"),
                 )
                 await deliver_stt_result(seq, text, meta)
             except Exception as exc:
@@ -754,3 +756,12 @@ if _FRONTEND_DIST.is_dir() and (_FRONTEND_DIST / "index.html").exists():
         StaticFiles(directory=str(_FRONTEND_DIST / "assets")),
         name="frontend_assets",
     )
+
+    @app.get("/jasty-logo.png")
+    async def serve_jasty_logo() -> FileResponse:
+        logo = _FRONTEND_DIST / "jasty-logo.png"
+        if logo.is_file():
+            return FileResponse(logo)
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Logo not found")

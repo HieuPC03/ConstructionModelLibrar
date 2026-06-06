@@ -9,6 +9,7 @@ from services.config import (
     get_translator_provider,
 )
 from services.errors import is_valid_openai_key
+from services.stt_lang import should_skip_meeting_translation
 
 VI_JA_SYSTEM = """You are a professional Vietnamese–Japanese interpreter for business meetings.
 Translate accurately, preserve tone (formal です/ます for Japanese when appropriate), and keep names unchanged.
@@ -37,7 +38,9 @@ async def translate_meeting_text(
     if not text.strip():
         return TranslateResult("", "ChatGPT (OpenAI)", None)
     if source_lang == target_lang:
-        return TranslateResult(text, "ChatGPT (OpenAI)", None)
+        return TranslateResult("", "ChatGPT (OpenAI)", None)
+    if should_skip_meeting_translation(text, source_lang, target_lang):
+        return TranslateResult("", "ChatGPT (OpenAI)", None)
 
     prompt = (
         f"Translate the following from {_lang_name(source_lang)} to {_lang_name(target_lang)}:\n\n{text}"
