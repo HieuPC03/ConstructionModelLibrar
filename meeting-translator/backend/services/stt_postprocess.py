@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import re
 
+from services.realtime_buffer import merge_stt_fragments
 from services.stt_lang import sanitize_stt_output
 
 SENTENCE_END = ".?!。．？！…"
+# Prompt Whisper ngắn — dài quá khiến model lặp lại transcript cũ
+WHISPER_CONTEXT_MAX = 96
 
 # Whisper hay ảo giác khi im lặng / nhiễu
 _HALLUCINATION_PHRASES = (
@@ -33,20 +36,15 @@ _HALLUCINATION_ONLY = re.compile(
 
 
 def build_whisper_prompt(base: str, tail: str | None) -> str:
-    """Ghép ngữ cảnh đuôi transcript vào prompt Whisper (liên tục câu)."""
+    """Ghép ngữ cảnh đuôi transcript vào prompt Whisper (ngắn, tránh echo)."""
     ctx = (tail or "").strip()
     if not ctx:
         return base
-    return f"{base} {ctx[-220:]}"
+    return f"{base} {ctx[-WHISPER_CONTEXT_MAX:]}"
 
 
-def dedupe_stt_repetition(text: str) -> str:
-    """Bỏ câu/cụm lặp liên tiếp do STT chồng chunk."""
-    t = text.strip()
-    if not t:
-        return t
-
-    parts = re.split(r"([。．！？.?!…])", t)
+def _split_sentences(text: str) -> list[str]:
+    parts = re.split(r"([。．！？.?!…])", text.strip())
     sentences: list[str] = []
     buf = ""
     for i, part in enumerate(parts):
@@ -54,18 +52,103 @@ def dedupe_stt_repetition(text: str) -> str:
         if part in SENTENCE_END or i == len(parts) - 1:
             sent = buf.strip()
             buf = ""
-            if not sent:
-                continue
-            if sentences and sentences[-1] == sent:
-                continue
-            sentences.append(sent)
+            if sent:
+                sentences.append(sent)
+    return sentences if sentences else ([text.strip()] if text.strip() else [])
 
-    if sentences:
-        return "".join(sentences) if any(s.endswith("。") or s.endswith(".") for s in sentences) else " ".join(sentences)
 
-    # Không tách được câu — bỏ lặp đuôi/đầu trong cùng chuỗi
+def dedupe_sentence_loops(text: str) -> str:
+    """Bỏ khối câu lặp vòng (A.B.C.A.B.C → A.B.C)."""
+    sentences = _split_sentences(text)
+    if len(sentences) < 2:
+        return text.strip()
+
+    deduped: list[str] = []
+    for s in sentences:
+        if not deduped or s != deduped[-1]:
+            deduped.append(s)
+
+    while len(deduped) >= 2:
+        removed = False
+        max_k = len(deduped) // 2
+        for k in range(max_k, 0, -1):
+            if deduped[-k:] == deduped[-2 * k : -k]:
+                deduped = deduped[:-k]
+                removed = True
+                break
+        if not removed:
+            break
+
+    return "".join(deduped)
+
+
+def extract_incremental_stt(
+    accumulated: str, incoming: str, language: str
+) -> tuple[str, str]:
+    """
+    Trả về (phần_mới, accumulated_sau_merge).
+    Whisper + prompt hay trả lại cả đoạn cũ — chỉ lấy phần tăng thêm.
+    """
+    prev = accumulated.strip()
+    inc = polish_stt_text(incoming, language)
+    if not inc:
+        return "", prev
+
+    if not prev:
+        cleaned = dedupe_sentence_loops(inc)
+        return cleaned, cleaned
+
+    if inc.startswith(prev):
+        suffix = inc[len(prev) :].strip()
+        if not suffix:
+            return "", prev
+        merged = dedupe_stt_repetition(merge_stt_fragments(prev, suffix))
+        return suffix, merged
+
+    if prev in inc:
+        # incoming chứa nguyên accumulated → chỉ lấy suffix
+        idx = inc.find(prev)
+        if idx >= 0:
+            suffix = inc[idx + len(prev) :].strip()
+            if suffix:
+                merged = polish_stt_text(merge_stt_fragments(prev, suffix), language)
+                merged = dedupe_sentence_loops(merged)
+                delta = merged[len(prev) :].strip() if merged.startswith(prev) else suffix
+                return delta, merged
+            return "", prev
+
+    merged = polish_stt_text(merge_stt_fragments(prev, inc), language)
+    merged = dedupe_sentence_loops(merged)
+
+    if merged == prev:
+        return "", prev
+    if merged.startswith(prev):
+        return merged[len(prev) :].strip(), merged
+
+    # Không khớp prefix — thử chỉ ghép phần không trùng
+    for size in range(min(len(prev), len(inc), 120), 4, -1):
+        tail = prev[-size:]
+        if inc.startswith(tail):
+            suffix = inc[size:].strip()
+            if suffix:
+                merged2 = dedupe_sentence_loops(
+                    polish_stt_text(merge_stt_fragments(prev, suffix), language)
+                )
+                if len(merged2) > len(prev):
+                    return merged2[len(prev) :].strip(), merged2
+
+    if len(merged) > len(prev):
+        return merged[len(prev) :].strip(), merged
+    return "", prev
+
+
+def dedupe_stt_repetition(text: str) -> str:
+    """Bỏ câu/cụm lặp liên tiếp do STT chồng chunk."""
+    t = dedupe_sentence_loops(text.strip())
+    if not t:
+        return t
     half = len(t) // 2
-    for size in range(min(half, 60), 6, -1):
+    for size in range(min(half, 80), 8, -1):
         if t[:size] == t[size : size * 2]:
             return t[:size] + t[size * 2 :].strip()
     return t
@@ -104,7 +187,7 @@ def polish_stt_text(text: str, language: str) -> str:
     return t.strip()
 
 
-def stt_context_tail(text: str, max_len: int = 240) -> str:
+def stt_context_tail(text: str, max_len: int = WHISPER_CONTEXT_MAX) -> str:
     """Đuôi transcript làm ngữ cảnh cho chunk STT tiếp theo."""
     t = text.strip()
     if not t:

@@ -48,7 +48,12 @@ from services.realtime_buffer import (
 )
 from services.stt import transcribe_audio
 from services.stt_lang import should_skip_meeting_translation, translation_source_lang
-from services.stt_postprocess import polish_stt_text, stt_context_tail
+from services.stt_postprocess import (
+    dedupe_stt_repetition,
+    extract_incremental_stt,
+    polish_stt_text,
+    stt_context_tail,
+)
 from services.translate import translate_meeting_text, translate_text
 
 
@@ -406,6 +411,7 @@ async def session_websocket(websocket: WebSocket) -> None:
 
     pending_meta: dict[str, Any] = {}
     pending_rt_text = ""
+    pending_caption_text = ""
     rt_silence_streak = 0
     stt_context_tail_text = ""
     rt_prior_original = ""
@@ -511,10 +517,13 @@ async def session_websocket(websocket: WebSocket) -> None:
                     last_speaker = speaker
                     last_session_mode = session_mode
 
-                    whisper_ctx = stt_context_tail_text
-                    if pending_rt_text.strip():
+                    if session_mode == SESSION_TRANSLATE:
                         whisper_ctx = stt_context_tail(
-                            f"{stt_context_tail_text} {pending_rt_text}".strip()
+                            pending_rt_text or stt_context_tail_text
+                        )
+                    else:
+                        whisper_ctx = stt_context_tail(
+                            pending_caption_text or stt_context_tail_text
                         )
 
                     text = await transcribe_audio(
@@ -532,12 +541,10 @@ async def session_websocket(websocket: WebSocket) -> None:
                             rt_silence_streak += 1
                         else:
                             rt_silence_streak = 0
-                            pending_rt_text = merge_stt_fragments(
-                                pending_rt_text, chunk
+                            _, pending_rt_text = extract_incremental_stt(
+                                pending_rt_text, chunk, source_lang
                             )
-                            pending_rt_text = polish_stt_text(
-                                pending_rt_text, source_lang
-                            )
+                            pending_rt_text = dedupe_stt_repetition(pending_rt_text)
                         if pending_rt_text.strip():
                             await websocket.send_json(
                                 {
@@ -548,16 +555,20 @@ async def session_websocket(websocket: WebSocket) -> None:
                         if should_flush_buffer(pending_rt_text, rt_silence_streak):
                             await flush_realtime_buffer()
                     elif text and text.strip():
-                        polished = polish_stt_text(text.strip(), source_lang)
-                        if polished:
+                        delta, pending_caption_text = extract_incremental_stt(
+                            pending_caption_text,
+                            text.strip(),
+                            source_lang,
+                        )
+                        if delta:
                             await emit_utterance(
-                                polished,
+                                delta,
                                 "",
                                 speaker,
                                 session_mode,
                             )
                             stt_context_tail_text = stt_context_tail(
-                                stt_context_tail_text + polished
+                                pending_caption_text
                             )
                 except Exception as exc:
                     await websocket.send_json(
