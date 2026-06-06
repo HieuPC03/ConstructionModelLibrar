@@ -1,11 +1,11 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.0
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.2
 ============================================
 
 https://github.com/HieuPC03/ConstructionModelLibrar/releases/latest
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.0/Meeting-Translator-Setup-1.8.0.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.2/Meeting-Translator-Setup-1.8.2.exe
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.0
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.2
 
-v1.8.0 — Cải thiện nhận dạng tiếng Nhật (Live Caption + dịch realtime)
-v1.7.9 — Bỏ Grok API; chỉ ChatGPT + Google
+v1.8.2 — Giảm độ trễ Live Caption + dịch realtime (chunk 0.75s, STT song song)
+v1.8.1 — Cải thiện nhận dạng tiếng Nhật

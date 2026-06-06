@@ -29,7 +29,7 @@ const vi = {
   waitingSpeech: "Đang chờ giọng nói…",
   completedSentencesLabel: "Câu đã hoàn chỉnh",
   hintRealtime:
-    "Trên: đang nghe (chưa dịch). Dưới: câu + bản dịch ChatGPT. «Ngôn ngữ nói» = 日本語 cho họp tiếng Nhật. Cần OPENAI_API_KEY.",
+    "Trên: đang nghe (chưa dịch). Dưới: câu gốc hiện ngay, bản dịch ChatGPT theo sau (~0.75s/chunk). «Ngôn ngữ nói» = 日本語.",
   source: "Nguồn",
   sourceScreen: "Quay màn hình (loa + micro)",
   sourceDisplay: "Chia sẻ tab / màn hình",

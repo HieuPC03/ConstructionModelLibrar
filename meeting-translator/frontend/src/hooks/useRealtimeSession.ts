@@ -24,10 +24,10 @@ import {
   resumeStreamAudioContext,
 } from "../utils/mediaRecorder";
 
-/** Chunk ngắn → STT và chữ live nhanh hơn (~1.2s, tốn API hơn một chút). */
-const CHUNK_MS = 1200;
+/** Chunk ngắn → STT và chữ live nhanh hơn (~0.75s). */
+const CHUNK_MS = 750;
 /** Chunk nhỏ hơn vẫn gửi STT (micro / loopback). */
-const MIN_CHUNK_BYTES = 200;
+const MIN_CHUNK_BYTES = 120;
 const MODE_TRANSCRIPT: SessionMode = "transcript";
 const MODE_REALTIME: SessionMode = "translate_realtime";
 
@@ -158,7 +158,7 @@ export function useRealtimeSession() {
     }
   }, []);
 
-  /** Một recorder mỗi lần, gộp blob hoàn chỉnh rồi mới gửi Whisper (tránh slice timeslice lỗi 400). */
+  /** Gộp blob hoàn chỉnh mỗi chunk (~0.75s) — Whisper cần file webm hợp lệ. */
   const startLiveAudioRecording = useCallback(
     (stream: MediaStream, meta: Record<string, string>) => {
       if (chunkPumpIntervalRef.current) return;
@@ -264,6 +264,14 @@ export function useRealtimeSession() {
               translation: data.translation || "",
             });
           }
+        } else if (data.type === "utterance_translation" && data.id) {
+          setUtterances((prev) =>
+            prev.map((u) =>
+              u.id === data.id
+                ? { ...u, translation: String(data.translation || "") }
+                : u
+            )
+          );
         } else if (data.type === "error") {
           setStatus(`error:${data.message}`);
         } else if (data.type === "session_saved") {

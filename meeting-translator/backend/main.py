@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from datetime import datetime, timezone
@@ -429,6 +430,12 @@ async def session_websocket(websocket: WebSocket) -> None:
         transcript_log.append(entry)
         await websocket.send_json({"type": "utterance", **entry})
 
+    stt_seq = 0
+    stt_next = 0
+    stt_pending: dict[int, str] = {}
+    stt_order_lock = asyncio.Lock()
+    stt_sem = asyncio.Semaphore(2)
+
     async def flush_realtime_buffer() -> None:
         nonlocal pending_rt_text, rt_silence_streak
         text = pending_rt_text.strip()
@@ -437,13 +444,90 @@ async def session_websocket(websocket: WebSocket) -> None:
         pending_rt_text = ""
         rt_silence_streak = 0
         src = translation_source_lang(last_source_lang)
-        tr = await translate_meeting_text(text, src, last_target_lang)
-        await emit_utterance(
-            text,
-            tr.text,
-            last_speaker,
-            SESSION_TRANSLATE,
-        )
+        entry_id = str(uuid.uuid4())
+        entry = {
+            "id": entry_id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "speaker": last_speaker,
+            "original": text,
+            "translation": "",
+            "session_mode": SESSION_TRANSLATE,
+        }
+        transcript_log.append(entry)
+        await websocket.send_json({"type": "utterance", **entry})
+
+        async def translate_background() -> None:
+            try:
+                tr = await translate_meeting_text(text, src, last_target_lang)
+                for logged in transcript_log:
+                    if logged.get("id") == entry_id:
+                        logged["translation"] = tr.text
+                        break
+                await websocket.send_json(
+                    {
+                        "type": "utterance_translation",
+                        "id": entry_id,
+                        "translation": tr.text,
+                    }
+                )
+            except Exception:
+                pass
+
+        asyncio.create_task(translate_background())
+
+    async def handle_stt_text(text: str, session_mode: str, speaker: str) -> None:
+        nonlocal pending_rt_text, rt_silence_streak
+        if session_mode == SESSION_TRANSLATE:
+            chunk = (text or "").strip()
+            if not chunk:
+                rt_silence_streak += 1
+            else:
+                rt_silence_streak = 0
+                pending_rt_text = merge_stt_fragments(pending_rt_text, chunk)
+            if pending_rt_text.strip():
+                await websocket.send_json(
+                    {
+                        "type": "partial",
+                        "original": pending_rt_text.strip(),
+                    }
+                )
+            if should_flush_buffer(pending_rt_text, rt_silence_streak):
+                await flush_realtime_buffer()
+        elif text and text.strip():
+            await emit_utterance(
+                text.strip(),
+                "",
+                speaker,
+                session_mode,
+            )
+
+    async def deliver_stt_result(seq: int, text: str, meta: dict[str, Any]) -> None:
+        nonlocal stt_next
+        async with stt_order_lock:
+            stt_pending[seq] = text
+            while stt_next in stt_pending:
+                chunk_text = stt_pending.pop(stt_next)
+                await handle_stt_text(
+                    chunk_text,
+                    meta["session_mode"],
+                    meta["speaker"],
+                )
+                stt_next += 1
+
+    async def run_stt_job(seq: int, data: bytes, meta: dict[str, Any]) -> None:
+        async with stt_sem:
+            try:
+                text = await transcribe_audio(
+                    data,
+                    meta.get("filename", "chunk.webm"),
+                    meta["source_lang"],
+                    engine=meta["stt_engine"],
+                )
+                await deliver_stt_result(seq, text, meta)
+            except Exception as exc:
+                await websocket.send_json(
+                    {"type": "error", "message": friendly_api_error(exc)}
+                )
 
     try:
         await websocket.send_json(
@@ -488,48 +572,22 @@ async def session_websocket(websocket: WebSocket) -> None:
                 session_mode = get_session_mode(meta.get("session_mode"))
                 stt_engine = stt_engine_for_mode(session_mode)
 
-                try:
-                    last_source_lang = source_lang
-                    last_target_lang = target_lang
-                    last_speaker = speaker
-                    last_session_mode = session_mode
+                last_source_lang = source_lang
+                last_target_lang = target_lang
+                last_speaker = speaker
+                last_session_mode = session_mode
 
-                    text = await transcribe_audio(
-                        data,
-                        meta.get("filename", "chunk.webm"),
-                        source_lang,
-                        engine=stt_engine,
-                    )
-
-                    if session_mode == SESSION_TRANSLATE:
-                        chunk = (text or "").strip()
-                        if not chunk:
-                            rt_silence_streak += 1
-                        else:
-                            rt_silence_streak = 0
-                            pending_rt_text = merge_stt_fragments(
-                                pending_rt_text, chunk
-                            )
-                        if pending_rt_text.strip():
-                            await websocket.send_json(
-                                {
-                                    "type": "partial",
-                                    "original": pending_rt_text.strip(),
-                                }
-                            )
-                        if should_flush_buffer(pending_rt_text, rt_silence_streak):
-                            await flush_realtime_buffer()
-                    elif text and text.strip():
-                        await emit_utterance(
-                            text.strip(),
-                            "",
-                            speaker,
-                            session_mode,
-                        )
-                except Exception as exc:
-                    await websocket.send_json(
-                        {"type": "error", "message": friendly_api_error(exc)}
-                    )
+                job_meta = {
+                    **meta,
+                    "source_lang": source_lang,
+                    "target_lang": target_lang,
+                    "speaker": speaker,
+                    "session_mode": session_mode,
+                    "stt_engine": stt_engine,
+                }
+                seq = stt_seq
+                stt_seq += 1
+                asyncio.create_task(run_stt_job(seq, data, job_meta))
                 continue
 
     except WebSocketDisconnect:

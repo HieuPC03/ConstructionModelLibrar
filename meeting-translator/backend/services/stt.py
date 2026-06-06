@@ -7,7 +7,7 @@ from services.config import OPENAI_STT_MODEL, get_openai_api_key
 from services.errors import is_valid_openai_key
 from services.stt_lang import filter_stt_hallucination, resolve_stt_language
 
-MIN_AUDIO_BYTES = 200
+MIN_AUDIO_BYTES = 100
 
 
 def _audio_suffix_from_bytes(data: bytes, filename: str) -> str:

@@ -217,7 +217,7 @@ export async function openSessionWebSocket(): Promise<WebSocket> {
     } catch (e) {
       lastMsg = (e as Error).message;
       if (attempt < 3) {
-        await new Promise((r) => setTimeout(r, 600 * attempt));
+        await new Promise((r) => setTimeout(r, 300 * attempt));
       }
     }
   }

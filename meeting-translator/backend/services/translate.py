@@ -90,6 +90,7 @@ async def _translate_openai(prompt: str) -> str:
             {"role": "user", "content": prompt},
         ],
         temperature=0.2,
+        max_tokens=800,
     )
     return (response.choices[0].message.content or "").strip()
 
