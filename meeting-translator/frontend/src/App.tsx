@@ -23,7 +23,10 @@ function AppInner() {
   }, []);
 
   return (
-    <>
+    <div className="app-shell">
+      <div className="app-bg-watermark" aria-hidden="true">
+        <img src="/jasty-logo.png" alt="" className="app-bg-logo" />
+      </div>
       <header className="app-header">
         <div className="app-header-brand">
           <span className="brand-accent" aria-hidden />
@@ -52,7 +55,7 @@ function AppInner() {
         <ConversationPanel />
         <TextTranslatePanel />
       </main>
-    </>
+    </div>
   );
 }
 

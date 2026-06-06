@@ -423,7 +423,10 @@ export default function ConversationPanel() {
         </div>
       )}
 
-      <div className="conversation-feed" ref={feedRef}>
+      <div
+        className={`conversation-feed${session.isLive ? " is-live" : ""}`}
+        ref={feedRef}
+      >
         {!isTranslate ? (
           session.transcriptSegments.length === 0 ? (
             <p className="empty-hint">{tr("emptyTranscript")}</p>
@@ -518,12 +521,15 @@ export default function ConversationPanel() {
       <div
         className={`status-bar ${session.status.startsWith("error:") || audio.error ? "error" : ""}`}
       >
-        {statusLabel(session.status, tr)}
-        {session.sessionId && ` · ${session.sessionId.slice(0, 8)}`}
-        {audio.error &&
-          !session.status.startsWith("error:") &&
-          ` · ${audio.error}`}
-        {copyMsg && ` · ${copyMsg}`}
+        <span className="status-bar-main">
+          {statusLabel(session.status, tr)}
+          {session.sessionId && ` · ${session.sessionId.slice(0, 8)}`}
+          {audio.error &&
+            !session.status.startsWith("error:") &&
+            ` · ${audio.error}`}
+          {copyMsg && ` · ${copyMsg}`}
+        </span>
+        <span className="dev-credit">Developed by PTH</span>
       </div>
     </section>
   );

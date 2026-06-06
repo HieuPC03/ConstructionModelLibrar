@@ -44,6 +44,37 @@ body {
   min-height: 100vh;
 }
 
+.app-shell {
+  position: relative;
+  min-height: 100vh;
+  isolation: isolate;
+}
+
+.app-bg-watermark {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.app-bg-logo {
+  width: min(58vw, 520px);
+  height: auto;
+  transform: rotate(-22deg);
+  opacity: 0.07;
+  filter: drop-shadow(0 0 48px rgba(59, 158, 255, 0.15));
+  user-select: none;
+}
+
+.app-shell > :not(.app-bg-watermark) {
+  position: relative;
+  z-index: 1;
+}
+
 button {
   font: inherit;
   cursor: pointer;
@@ -206,7 +237,9 @@ textarea {
   flex-direction: column;
   border-right: 1px solid var(--border);
   overflow: hidden;
-  background: color-mix(in srgb, var(--surface) 40%, transparent);
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .panel:last-child {
@@ -256,6 +289,55 @@ textarea {
   flex-direction: column-reverse;
   justify-content: flex-start;
   gap: 0.75rem;
+  position: relative;
+  transition: box-shadow 0.35s ease;
+}
+
+.conversation-feed.is-live {
+  background: linear-gradient(
+    120deg,
+    #ff0040,
+    #ff6a00,
+    #ffd500,
+    #00e676,
+    #00b0ff,
+    #7c4dff,
+    #e040fb,
+    #ff0040
+  );
+  background-size: 400% 400%;
+  animation: rgb-feed-bg 6s ease infinite;
+  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.12);
+}
+
+.conversation-feed.is-live::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface) 72%, transparent) 0%,
+    color-mix(in srgb, var(--surface) 58%, transparent) 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.conversation-feed.is-live > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes rgb-feed-bg {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .utterance {
@@ -326,11 +408,32 @@ textarea {
 }
 
 .status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   padding: 0.5rem 1rem;
   font-size: 0.8rem;
   color: var(--muted);
   border-top: 1px solid var(--border);
   background: var(--surface);
+}
+
+.status-bar-main {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dev-credit {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent) 70%, var(--muted));
+  opacity: 0.9;
 }
 
 .status-bar.error {
@@ -654,47 +757,101 @@ textarea {
   --local: #fcd34d;
 }
 
-/* JASTY — đỏ trắng theo logo jasty-bim.com */
+/* JASTY — đỏ trắng + nền tương lai theo jasty-bim.com */
 [data-theme="jasty"] {
-  --bg: #f8f8fa;
-  --surface: #ffffff;
-  --surface-2: #fff6f6;
-  --panel: #ffffff;
-  --border: #e6e6ec;
-  --text: #111114;
-  --muted: #5c5c68;
+  --bg: #05070d;
+  --surface: rgba(14, 18, 32, 0.82);
+  --surface-2: rgba(20, 28, 48, 0.88);
+  --panel: rgba(12, 16, 28, 0.9);
+  --border: rgba(148, 163, 184, 0.16);
+  --text: #f2f4f8;
+  --muted: #94a3b8;
   --accent: #d91e2a;
   --accent-dim: #b81620;
-  --accent-glow: rgba(217, 30, 42, 0.22);
-  --grid-line: rgba(217, 30, 42, 0.05);
-  --remote: #d91e2a;
-  --local: #1f1f26;
-  --danger: #c41e3a;
-  --success: #0f766e;
-  --shadow-panel: 0 4px 24px rgba(17, 17, 20, 0.07);
-  --header-blur: blur(10px);
+  --accent-glow: rgba(217, 30, 42, 0.35);
+  --grid-line: rgba(96, 165, 250, 0.04);
+  --remote: #ff4d5a;
+  --local: #fbbf24;
+  --danger: #f87171;
+  --success: #34d399;
+  --shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --header-blur: blur(16px);
+}
+
+[data-theme="jasty"] body {
+  background-color: #030508;
+  background-image:
+    radial-gradient(ellipse 90% 55% at 50% 100%, rgba(56, 189, 248, 0.28), transparent 58%),
+    radial-gradient(ellipse 70% 40% at 85% 95%, rgba(168, 85, 247, 0.12), transparent 50%),
+    linear-gradient(180deg, #000000 0%, #0a1020 42%, #0f1a35 72%, #123a5c 100%),
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+}
+
+[data-theme="jasty"] .app-bg-logo {
+  opacity: 0.11;
+  filter: drop-shadow(0 0 60px rgba(217, 30, 42, 0.25));
+}
+
+[data-theme="jasty"] .app-header {
+  background: color-mix(in srgb, var(--surface) 75%, transparent);
+  box-shadow: 0 1px 0 rgba(217, 30, 42, 0.2), 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="jasty"] .panel {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  border-right-color: rgba(148, 163, 184, 0.12);
+}
+
+[data-theme="jasty"] .panel-header,
+[data-theme="jasty"] .settings-bar {
+  background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+}
+
+[data-theme="jasty"] .hint-box {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
+  border-left-color: var(--accent);
 }
 
 [data-theme="jasty"] .badge.live {
-  background: color-mix(in srgb, var(--accent) 14%, #fff);
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: #ff8a94;
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 [data-theme="jasty"] .utterance .translation,
 [data-theme="jasty"] .segment-translation {
-  color: var(--accent-dim);
+  color: #7dd3fc;
 }
 
 [data-theme="jasty"] .play-btn {
   background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+  box-shadow: 0 4px 18px var(--accent-glow);
 }
 
-[data-theme="jasty"] body {
-  background-image:
-    radial-gradient(ellipse 70% 45% at 50% -15%, var(--accent-glow), transparent 50%),
-    linear-gradient(var(--grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+[data-theme="jasty"] .conversation-feed.is-live::before {
+  background: linear-gradient(
+    180deg,
+    rgba(8, 12, 24, 0.55) 0%,
+    rgba(10, 16, 30, 0.42) 100%
+  );
+}
+
+[data-theme="jasty"] .transcript-segment,
+[data-theme="jasty"] .utterance {
+  background: rgba(12, 18, 32, 0.78);
+  border-color: rgba(148, 163, 184, 0.14);
+  backdrop-filter: blur(8px);
+}
+
+[data-theme="jasty"] .empty-hint {
+  color: rgba(226, 232, 240, 0.72);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="jasty"] .dev-credit {
+  color: color-mix(in srgb, #38bdf8 55%, var(--muted));
 }
 
 .live-caption-bar {
