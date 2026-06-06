@@ -1,10 +1,11 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.9
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.10
 ============================================
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.9
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.10
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.9/Meeting-Translator-Setup-1.8.9.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.10/Meeting-Translator-Setup-1.8.10.exe
 
+v1.8.10 — Sửa lỗi target_lang is not defined (STT)
 v1.8.9 — Logo JASTY nền rõ hơn
 v1.8.8 — Chunk 1.2s, STT tuần tự, chốt câu chậm, chờ ChatGPT xong mới hiện câu
 v1.8.7 — Live Caption: ghi liên tục thành 1 đoạn văn, ngắt câu đúng nghĩa

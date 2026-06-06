@@ -37,11 +37,16 @@ async def transcribe_audio(
         from services.stt_offline import transcribe_offline
 
         return await transcribe_offline(audio_bytes, filename, language)
-    return await _transcribe_openai(audio_bytes, filename, language)
+    return await _transcribe_openai(
+        audio_bytes, filename, language, target_lang=target_lang
+    )
 
 
 async def _transcribe_openai(
-    audio_bytes: bytes, filename: str, language: str
+    audio_bytes: bytes,
+    filename: str,
+    language: str,
+    target_lang: str | None = None,
 ) -> str:
     api_key = get_openai_api_key()
     if not is_valid_openai_key(api_key):
