@@ -65,8 +65,8 @@ body {
   width: min(72vw, 640px);
   height: auto;
   transform: rotate(-22deg);
-  opacity: 0.14;
-  filter: drop-shadow(0 0 40px rgba(217, 30, 42, 0.2));
+  opacity: 0.2;
+  filter: drop-shadow(0 0 40px rgba(217, 30, 42, 0.28));
   user-select: none;
 }
 
@@ -795,9 +795,9 @@ textarea {
 }
 
 [data-theme="jasty"] .app-bg-logo {
-  opacity: 0.22;
-  filter: drop-shadow(0 0 72px rgba(217, 30, 42, 0.35))
-    drop-shadow(0 0 24px rgba(56, 189, 248, 0.15));
+  opacity: 0.34;
+  filter: drop-shadow(0 0 72px rgba(217, 30, 42, 0.45))
+    drop-shadow(0 0 28px rgba(56, 189, 248, 0.22));
 }
 
 [data-theme="jasty"] .app-header {
