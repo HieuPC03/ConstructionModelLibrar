@@ -52,6 +52,7 @@ from services.stt_postprocess import (
     polish_stt_text,
     stt_context_tail,
 )
+from services.dictionary import lookup_word, tokenize_for_display
 from services.translate import translate_meeting_text, translate_text
 
 
@@ -330,6 +331,60 @@ async def export_text(body: ExportRequest) -> dict[str, str]:
     out_path = out_dir / safe_name
     out_path.write_text(content, encoding="utf-8")
     return {"path": str(out_path), "message": "Đã lưu văn bản"}
+
+
+class DictionaryLookupRequest(BaseModel):
+    word: str
+    source_lang: str = Field(default="ja", pattern="^(vi|ja|en)$")
+    target_lang: str = Field(default="vi", pattern="^(vi|ja|en)$")
+    context: str | None = None
+
+
+@app.post("/api/dictionary/lookup")
+async def dictionary_lookup(body: DictionaryLookupRequest) -> dict[str, Any]:
+    """Tra từ — hán tự, cách đọc, nghĩa (Janome + glossary)."""
+    from fastapi import HTTPException
+
+    word = (body.word or "").strip()
+    if not word:
+        raise HTTPException(status_code=400, detail="Từ tra cứu trống")
+    if len(word) > 120:
+        raise HTTPException(status_code=400, detail="Từ tra cứu quá dài")
+    try:
+        result = await lookup_word(
+            word,
+            body.source_lang,
+            body.target_lang,
+            context=body.context,
+        )
+        return {
+            "query": result.query,
+            "word": result.word,
+            "reading": result.reading,
+            "kanji": result.kanji,
+            "pos": result.pos,
+            "meanings": result.meanings,
+            "source": result.source,
+            "tokens": [
+                {
+                    "surface": t.surface,
+                    "reading": t.reading,
+                    "base_form": t.base_form,
+                    "pos": t.pos,
+                    "meanings": t.meanings,
+                }
+                for t in result.tokens
+            ],
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=friendly_api_error(exc)) from exc
+
+
+@app.post("/api/dictionary/tokenize")
+async def dictionary_tokenize(body: dict[str, str]) -> dict[str, Any]:
+    """Token hóa câu tiếng Nhật (Janome) — dùng cho highlight."""
+    text = (body.get("text") or "").strip()
+    return {"tokens": tokenize_for_display(text)}
 
 
 @app.post("/api/translate/text", response_model=TextTranslateResponse)

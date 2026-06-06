@@ -316,6 +316,46 @@ export async function exportTranscriptSegments(
   return (data as { message: string }).message;
 }
 
+export type DictionaryToken = {
+  surface: string;
+  reading: string;
+  base_form: string;
+  pos: string;
+  meanings: string[];
+};
+
+export type DictionaryLookupResult = {
+  query: string;
+  word: string;
+  reading: string;
+  kanji: string;
+  pos: string;
+  meanings: string[];
+  source: string;
+  tokens: DictionaryToken[];
+};
+
+export async function lookupDictionary(
+  word: string,
+  sourceLang: LangCode,
+  targetLang: LangCode,
+  context?: string
+): Promise<DictionaryLookupResult> {
+  const res = await fetch(`${apiBase()}/api/dictionary/lookup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      word,
+      source_lang: sourceLang,
+      target_lang: targetLang,
+      context: context || undefined,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(parseApiError(data, "Tra từ thất bại"));
+  return data as DictionaryLookupResult;
+}
+
 export async function exportTranscript(
   utterances: Utterance[],
   saveDir: string,

@@ -101,6 +101,13 @@ const vi = {
   recordingNow: "đang ghi",
   segmentRecording: "Nội dung đang được ghi vào đây…",
   filledFromCaption: "Đã đưa script vào ô dịch văn bản",
+  wordLookupHint: "Bôi đen từ/cụm để xem nghĩa",
+  wordReading: "Cách đọc",
+  wordMeanings: "Nghĩa",
+  wordPos: "Từ loại",
+  wordLookupLoading: "Đang tra từ…",
+  wordLookupEmpty: "Không tìm thấy nghĩa",
+  wordLookupClose: "Đóng",
 };
 
 export type MessageKey = keyof typeof vi;
@@ -205,6 +212,13 @@ const ja: Record<MessageKey, string> = {
   recordingNow: "録音中",
   segmentRecording: "ここに続けて記録されます…",
   filledFromCaption: "字幕をテキスト翻訳欄に入れました",
+  wordLookupHint: "単語を選択して意味を表示",
+  wordReading: "読み",
+  wordMeanings: "意味",
+  wordPos: "品詞",
+  wordLookupLoading: "辞書検索中…",
+  wordLookupEmpty: "意味が見つかりません",
+  wordLookupClose: "閉じる",
 };
 
 export const messages = { vi, ja };

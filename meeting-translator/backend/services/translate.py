@@ -9,6 +9,7 @@ from services.config import (
     get_translator_provider,
 )
 from services.errors import is_valid_openai_key
+from services.dictionary import build_translation_glossary_hints
 from services.stt_lang import should_skip_meeting_translation
 
 VI_JA_SYSTEM = """You are a professional Japanese–Vietnamese interpreter for live business meetings.
@@ -55,11 +56,14 @@ async def translate_meeting_text(
             "Previous utterance (for discourse context only, do not re-translate):\n"
             f"{prior_context.strip()[-400:]}\n\n"
         )
+    glossary_block = build_translation_glossary_hints(text, source_lang, target_lang)
     prompt = (
         f"{ctx_block}"
+        f"{glossary_block}"
         f"Translate this complete utterance from {_lang_name(source_lang)} "
         f"to {_lang_name(target_lang)}.\n"
         f"- Fix STT errors and infer the speaker's intended meaning.\n"
+        f"- Use the term glossary readings/meanings when provided.\n"
         f"- Use natural grammar and appropriate politeness.\n"
         f"- Preserve sentence boundaries — do not merge or split sentences.\n\n"
         f"{text}"

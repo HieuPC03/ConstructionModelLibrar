@@ -938,3 +938,111 @@ textarea {
   padding: 0.2rem 0.5rem;
   font-size: 0.7rem;
 }
+
+.lookupable-text {
+  cursor: text;
+  user-select: text;
+}
+
+.lookupable-text::selection {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.word-lookup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: transparent;
+}
+
+.word-lookup-popover {
+  position: fixed;
+  z-index: 9001;
+  min-width: 220px;
+  max-width: 300px;
+  padding: 0.85rem 1rem 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: var(--surface);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.word-lookup-close {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.45rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.word-lookup-word {
+  margin: 0 0 0.35rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
+  padding-right: 1.2rem;
+}
+
+.word-lookup-reading,
+.word-lookup-kanji,
+.word-lookup-pos {
+  margin: 0.15rem 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.word-lookup-reading span,
+.word-lookup-kanji span {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.word-lookup-meanings {
+  margin-top: 0.45rem;
+}
+
+.word-lookup-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.word-lookup-meanings ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.word-lookup-meanings li {
+  margin: 0.15rem 0;
+  line-height: 1.4;
+}
+
+.word-lookup-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.word-token-chip {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+  border: 1px solid var(--border);
+}
+
+.word-lookup-loading,
+.word-lookup-empty,
+.word-lookup-error {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.word-lookup-error {
+  color: var(--danger, #e55);
+}

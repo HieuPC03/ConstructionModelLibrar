@@ -13,6 +13,7 @@ import {
   translateCaptionMeeting,
 } from "../api";
 import { copyText } from "../utils/clipboard";
+import LookupableText from "./LookupableText";
 import { formatSegmentParagraph } from "../utils/transcriptText";
 import { SYSTEM_AUDIO_AUTO_ID, deviceOptionLabel } from "../utils/audioDevices";
 import { friendlyMediaError } from "../utils/mediaRecorder";
@@ -410,19 +411,40 @@ export default function ConversationPanel() {
             <span className="badge live small">{tr("listeningNow")}</span>
             <span className="live-caption-hint">{tr("liveStripHint")}</span>
           </div>
-          <p className="live-caption-stream">
-            {isTranslate
-              ? session.liveDraft || (
+          {isTranslate ? (
+            session.liveDraft ? (
+              <LookupableText
+                text={session.liveDraft}
+                className="live-caption-stream"
+                sourceLang={sourceLang}
+                targetLang={targetLang}
+              />
+            ) : (
+              <p className="live-caption-stream">
+                <span className="live-waiting">{tr("waitingSpeech")}</span>
+              </p>
+            )
+          ) : (
+            (() => {
+              const liveText = formatSegmentParagraph(
+                session.activeSegment?.original ||
+                  session.activeSegment?.liveTail ||
+                  ""
+              );
+              return liveText ? (
+                <LookupableText
+                  text={liveText}
+                  className="live-caption-stream"
+                  sourceLang={sourceLang}
+                  targetLang={targetLang}
+                />
+              ) : (
+                <p className="live-caption-stream">
                   <span className="live-waiting">{tr("waitingSpeech")}</span>
-                )
-              : formatSegmentParagraph(
-                  session.activeSegment?.original ||
-                    session.activeSegment?.liveTail ||
-                    ""
-                ) || (
-                  <span className="live-waiting">{tr("waitingSpeech")}</span>
-                )}
-          </p>
+                </p>
+              );
+            })()
+          )}
         </div>
       )}
 
@@ -462,16 +484,24 @@ export default function ConversationPanel() {
                   )}
                 </div>
                 {seg.original.trim() ? (
-                  <p className="segment-original segment-paragraph">
-                    {formatSegmentParagraph(seg.original)}
-                  </p>
+                  <LookupableText
+                    text={formatSegmentParagraph(seg.original)}
+                    className="segment-original segment-paragraph"
+                    sourceLang={sourceLang}
+                    targetLang={targetLang}
+                  />
                 ) : (
                   <p className="empty-hint segment-placeholder">
                     {tr("segmentRecording")}
                   </p>
                 )}
                 {seg.translation && (
-                  <p className="segment-translation">{seg.translation}</p>
+                  <LookupableText
+                    text={seg.translation}
+                    className="segment-translation"
+                    sourceLang={targetLang}
+                    targetLang={sourceLang}
+                  />
                 )}
               </article>
             ))
@@ -497,9 +527,21 @@ export default function ConversationPanel() {
                   {tr("copy")}
                 </button>
               </div>
-              {u.original && <p className="original">{u.original}</p>}
+              {u.original && (
+                <LookupableText
+                  text={u.original}
+                  className="original"
+                  sourceLang={sourceLang}
+                  targetLang={targetLang}
+                />
+              )}
               {u.translation && (
-                <p className="translation">{u.translation}</p>
+                <LookupableText
+                  text={u.translation}
+                  className="translation"
+                  sourceLang={targetLang}
+                  targetLang={sourceLang}
+                />
               )}
             </article>
           ))
