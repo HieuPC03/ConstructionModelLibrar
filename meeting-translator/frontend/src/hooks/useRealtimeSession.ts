@@ -18,6 +18,8 @@ import {
   splitCompletedSentences,
 } from "../utils/transcriptText";
 import type { CaptureMode } from "./useAudioCapture";
+import type { VadState } from "./useVadMonitor";
+import { adaptiveChunkMs, CHUNK_BASE_MS } from "../utils/chunkTiming";
 import {
   chunkFilenameForMime,
   createMediaRecorder,
@@ -27,15 +29,6 @@ import {
 
 const MODE_TRANSCRIPT: SessionMode = "transcript";
 const MODE_REALTIME: SessionMode = "translate_realtime";
-
-/** Live Caption — độ trễ ~1.5s/chunk (chính xác hơn). */
-const CHUNK_MS_TRANSCRIPT = 1500;
-/** Dịch realtime — độ trễ ~1.5s/chunk (chính xác hơn). */
-const CHUNK_MS_REALTIME = 1500;
-
-function chunkMsForMode(mode: SessionMode): number {
-  return mode === MODE_REALTIME ? CHUNK_MS_REALTIME : CHUNK_MS_TRANSCRIPT;
-}
 
 /** Chunk nhỏ hơn vẫn gửi STT (micro / loopback). */
 const MIN_CHUNK_BYTES = 160;
@@ -81,6 +74,11 @@ export function useRealtimeSession() {
   const openSegmentIdRef = useRef<string | null>(null);
   const chunkMetaRef = useRef<Record<string, string>>({});
   const chunkStreamRef = useRef<MediaStream | null>(null);
+  const vadMetaRef = useRef<VadState>({
+    hasSpeech: true,
+    speechContinuous: false,
+    level: 0,
+  });
 
   const resetTranscript = useCallback(() => {
     const first = newSegment(1);
@@ -145,14 +143,55 @@ export function useRealtimeSession() {
     });
   }, []);
 
+  const updateVadMeta = useCallback((vad: VadState) => {
+    vadMetaRef.current = vad;
+  }, []);
+
   const sendAudioChunk = useCallback(
     (blob: Blob, meta: Record<string, string>) => {
       const ws = wsRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(JSON.stringify(meta));
+      const vad = vadMetaRef.current;
+      ws.send(
+        JSON.stringify({
+          ...meta,
+          has_speech: vad.hasSpeech,
+          speech_continuous: vad.speechContinuous,
+        })
+      );
       ws.send(blob);
     },
     []
+  );
+
+  const sendLearnCorrection = useCallback((wrong: string, fixed: string) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(
+      JSON.stringify({
+        type: "learn_correction",
+        wrong,
+        fixed,
+      })
+    );
+  }, []);
+
+  const updateSegmentOriginal = useCallback(
+    (segmentId: string, wrong: string, fixed: string) => {
+      const trimmed = fixed.trim();
+      if (!trimmed) return;
+      setTranscriptSegments((prev) =>
+        prev.map((s) =>
+          s.id === segmentId
+            ? { ...s, ...withSplitSentences(trimmed) }
+            : s
+        )
+      );
+      if (wrong.trim() && wrong.trim() !== trimmed) {
+        sendLearnCorrection(wrong.trim(), trimmed);
+      }
+    },
+    [sendLearnCorrection]
   );
 
   const clearChunkPump = useCallback(() => {
@@ -167,10 +206,14 @@ export function useRealtimeSession() {
     (stream: MediaStream, meta: Record<string, string>) => {
       if (chunkPumpIntervalRef.current) return;
       recordChunksRef.current = [];
-      const chunkMs = chunkMsForMode(sessionModeRef.current);
-
       const pump = () => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+        const vad = vadMetaRef.current;
+        const chunkMs = adaptiveChunkMs(
+          vad.hasSpeech,
+          vad.speechContinuous,
+          sessionModeRef.current
+        );
         try {
           const { recorder: rec, mimeType } = createMediaRecorder(stream);
           audioMimeRef.current = mimeType;
@@ -201,7 +244,7 @@ export function useRealtimeSession() {
       };
 
       pump();
-      chunkPumpIntervalRef.current = window.setInterval(pump, chunkMs);
+      chunkPumpIntervalRef.current = window.setInterval(pump, CHUNK_BASE_MS);
     },
     [sendAudioChunk]
   );
@@ -428,5 +471,8 @@ export function useRealtimeSession() {
     beginNextSegmentAfterTranslate,
     setSegmentTranslation,
     setSegmentTranslateError,
+    updateVadMeta,
+    updateSegmentOriginal,
+    sendLearnCorrection,
   };
 }

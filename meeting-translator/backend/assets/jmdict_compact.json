@@ -1,0 +1,345 @@
+{
+  "議長": {
+    "reading": "ぎちょう",
+    "meanings": [
+      "chủ tọa"
+    ],
+    "pos": "danh từ"
+  },
+  "議題": {
+    "reading": "ぎだい",
+    "meanings": [
+      "chủ đề"
+    ],
+    "pos": "danh từ"
+  },
+  "決議": {
+    "reading": "けつぎ",
+    "meanings": [
+      "nghị quyết"
+    ],
+    "pos": "danh từ"
+  },
+  "合意": {
+    "reading": "ごうい",
+    "meanings": [
+      "thống nhất"
+    ],
+    "pos": "danh từ"
+  },
+  "合意形成": {
+    "reading": "ごういけいせい",
+    "meanings": [
+      "hình thành thống nhất"
+    ],
+    "pos": "danh từ"
+  },
+  "合意書": {
+    "reading": "ごういしょ",
+    "meanings": [
+      "biên bản thỏa thuận"
+    ],
+    "pos": "danh từ"
+  },
+  "稟議": {
+    "reading": "りんぎ",
+    "meanings": [
+      "trình duyệt nội bộ"
+    ],
+    "pos": "danh từ"
+  },
+  "稟議書": {
+    "reading": "りんぎしょ",
+    "meanings": [
+      "tờ trình"
+    ],
+    "pos": "danh từ"
+  },
+  "稟議中": {
+    "reading": "りんぎちゅう",
+    "meanings": [
+      "đang trình duyệt"
+    ],
+    "pos": "danh từ"
+  },
+  "社内": {
+    "reading": "しゃない",
+    "meanings": [
+      "nội bộ công ty"
+    ],
+    "pos": "danh từ"
+  },
+  "社外": {
+    "reading": "しゃがい",
+    "meanings": [
+      "bên ngoài công ty"
+    ],
+    "pos": "danh từ"
+  },
+  "社員": {
+    "reading": "しゃいん",
+    "meanings": [
+      "nhân viên"
+    ],
+    "pos": "danh từ"
+  },
+  "人事": {
+    "reading": "じんじ",
+    "meanings": [
+      "nhân sự"
+    ],
+    "pos": "danh từ"
+  },
+  "総務": {
+    "reading": "そうむ",
+    "meanings": [
+      "tổng vụ"
+    ],
+    "pos": "danh từ"
+  },
+  "経理": {
+    "reading": "けいり",
+    "meanings": [
+      "kế toán"
+    ],
+    "pos": "danh từ"
+  },
+  "営業": {
+    "reading": "えいぎょう",
+    "meanings": [
+      "kinh doanh"
+    ],
+    "pos": "danh từ"
+  },
+  "製造": {
+    "reading": "せいぞう",
+    "meanings": [
+      "sản xuất"
+    ],
+    "pos": "danh từ"
+  },
+  "生産": {
+    "reading": "せいさん",
+    "meanings": [
+      "sản xuất"
+    ],
+    "pos": "danh từ"
+  },
+  "出荷": {
+    "reading": "しゅっか",
+    "meanings": [
+      "xuất hàng"
+    ],
+    "pos": "danh từ"
+  },
+  "入荷": {
+    "reading": "にゅうか",
+    "meanings": [
+      "nhập hàng"
+    ],
+    "pos": "danh từ"
+  },
+  "在庫": {
+    "reading": "ざいこ",
+    "meanings": [
+      "tồn kho"
+    ],
+    "pos": "danh từ"
+  },
+  "原価": {
+    "reading": "げんか",
+    "meanings": [
+      "giá vốn"
+    ],
+    "pos": "danh từ"
+  },
+  "利益": {
+    "reading": "りえき",
+    "meanings": [
+      "lợi nhuận"
+    ],
+    "pos": "danh từ"
+  },
+  "損失": {
+    "reading": "そんしつ",
+    "meanings": [
+      "thua lỗ"
+    ],
+    "pos": "danh từ"
+  },
+  "売上": {
+    "reading": "うりあげ",
+    "meanings": [
+      "doanh thu"
+    ],
+    "pos": "danh từ"
+  },
+  "原稿": {
+    "reading": "げんこう",
+    "meanings": [
+      "bản thảo"
+    ],
+    "pos": "danh từ"
+  },
+  "草案": {
+    "reading": "そうあん",
+    "meanings": [
+      "dự thảo"
+    ],
+    "pos": "danh từ"
+  },
+  "最終": {
+    "reading": "さいしゅう",
+    "meanings": [
+      "cuối cùng"
+    ],
+    "pos": "danh từ"
+  },
+  "初版": {
+    "reading": "しょはん",
+    "meanings": [
+      "ấn bản đầu"
+    ],
+    "pos": "danh từ"
+  },
+  "改訂": {
+    "reading": "かいてい",
+    "meanings": [
+      "sửa đổi"
+    ],
+    "pos": "danh từ"
+  },
+  "修正": {
+    "reading": "しゅうせい",
+    "meanings": [
+      "chỉnh sửa"
+    ],
+    "pos": "danh từ"
+  },
+  "校正": {
+    "reading": "こうせい",
+    "meanings": [
+      "hiệu đính"
+    ],
+    "pos": "danh từ"
+  },
+  "校了": {
+    "reading": "こうりょう",
+    "meanings": [
+      "hoàn tất hiệu đính"
+    ],
+    "pos": "danh từ"
+  },
+  "締切": {
+    "reading": "しめきり",
+    "meanings": [
+      "hạn chót"
+    ],
+    "pos": "danh từ"
+  },
+  "締め切り": {
+    "reading": "しめきり",
+    "meanings": [
+      "hạn chót"
+    ],
+    "pos": "danh từ"
+  },
+  "急ぎ": {
+    "reading": "いそぎ",
+    "meanings": [
+      "gấp"
+    ],
+    "pos": "danh từ"
+  },
+  "至急": {
+    "reading": "しきゅう",
+    "meanings": [
+      "khẩn cấp"
+    ],
+    "pos": "danh từ"
+  },
+  "優先": {
+    "reading": "ゆうせん",
+    "meanings": [
+      "ưu tiên"
+    ],
+    "pos": "danh từ"
+  },
+  "後回し": {
+    "reading": "あとまわし",
+    "meanings": [
+      "hoãn lại"
+    ],
+    "pos": "danh từ"
+  },
+  "保留": {
+    "reading": "ほりゅう",
+    "meanings": [
+      "tạm hoãn"
+    ],
+    "pos": "danh từ"
+  },
+  "再開": {
+    "reading": "さいかい",
+    "meanings": [
+      "tái khởi động"
+    ],
+    "pos": "danh từ"
+  },
+  "中断": {
+    "reading": "ちゅうだん",
+    "meanings": [
+      "gián đoạn"
+    ],
+    "pos": "danh từ"
+  },
+  "継続": {
+    "reading": "けいぞく",
+    "meanings": [
+      "tiếp tục"
+    ],
+    "pos": "danh từ"
+  },
+  "引き継ぎ": {
+    "reading": "ひきつぎ",
+    "meanings": [
+      "bàn giao"
+    ],
+    "pos": "danh từ"
+  },
+  "引継ぎ": {
+    "reading": "ひきつぎ",
+    "meanings": [
+      "bàn giao"
+    ],
+    "pos": "danh từ"
+  },
+  "共有フォルダ": {
+    "reading": "きょうゆうふぉるだ",
+    "meanings": [
+      "thư mục chia sẻ"
+    ],
+    "pos": "danh từ"
+  },
+  "議事": {
+    "reading": "ぎじ",
+    "meanings": [
+      "công việc họp"
+    ],
+    "pos": "danh từ"
+  },
+  "決定": {
+    "reading": "けってい",
+    "meanings": [
+      "quyết định"
+    ],
+    "pos": "danh từ"
+  },
+  "方針決定": {
+    "reading": "ほうしんけってい",
+    "meanings": [
+      "quyết định phương châm"
+    ],
+    "pos": "danh từ"
+  }
+}

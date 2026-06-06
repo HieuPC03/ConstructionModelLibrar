@@ -149,10 +149,107 @@ def polish_japanese_stt(text: str) -> str:
     """Chuẩn hóa transcript tiếng Nhật trước hiển thị/dịch."""
     if not text or not has_japanese(text):
         return text
-    t = normalize_japanese_spacing(text)
+    t = normalize_japanese_text(text)
     t = insert_missing_sentence_periods(t)
     t = dedupe_morpheme_loops(t)
     return t.strip()
+
+
+_KANJI_NUM = {
+    "〇": 0,
+    "零": 0,
+    "一": 1,
+    "二": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9,
+}
+_KANJI_UNIT = {"十": 10, "百": 100, "千": 1000, "万": 10000}
+
+
+def _kanji_digits_to_int(s: str) -> int | None:
+    if not s:
+        return None
+    total = 0
+    current = 0
+    num = 0
+    for ch in s:
+        if ch in _KANJI_NUM:
+            num = _KANJI_NUM[ch]
+        elif ch in _KANJI_UNIT:
+            unit = _KANJI_UNIT[ch]
+            if unit == 10000:
+                total = (total + (current or num or 1)) * unit
+                current = 0
+                num = 0
+            else:
+                current += (num or 1) * unit
+                num = 0
+        else:
+            return None
+    return total + current + num
+
+
+def normalize_japanese_numbers(text: str) -> str:
+    """Chuẩn hóa số Kanji → Arabic (三百→300)."""
+    if not has_japanese(text):
+        return text
+
+    def repl(m: re.Match[str]) -> str:
+        val = _kanji_digits_to_int(m.group(0))
+        return str(val) if val is not None else m.group(0)
+
+    t = re.sub(r"[〇零一二三四五六七八九十百千万]+", repl, text)
+    return t
+
+
+_WEEKDAY_MAP = {
+    "月曜日": "Thứ Hai",
+    "火曜日": "Thứ Ba",
+    "水曜日": "Thứ Tư",
+    "木曜日": "Thứ Năm",
+    "金曜日": "Thứ Sáu",
+    "土曜日": "Thứ Bảy",
+    "日曜日": "Chủ nhật",
+}
+
+
+def normalize_japanese_dates(text: str) -> str:
+    """Giữ ngày tháng rõ ràng — 来週の火曜日 giữ nguyên nhưng chuẩn hóa khoảng trắng."""
+    t = text
+    t = re.sub(r"(\d{4})年(\d{1,2})月(\d{1,2})日", r"\1-\2-\3", t)
+    t = re.sub(r"(\d{1,2})月(\d{1,2})日", r"\1/\2", t)
+    return t
+
+
+def normalize_japanese_text(text: str) -> str:
+    """Pipeline chuẩn hóa số, ngày, khoảng trắng."""
+    if not text:
+        return text
+    t = normalize_japanese_spacing(text)
+    t = normalize_japanese_numbers(t)
+    t = normalize_japanese_dates(t)
+    return t
+
+
+def build_morpheme_breakdown(text: str) -> str:
+    """Chuỗi morpheme cho prompt dịch: 会議（かいぎ）/の/進捗（しんちょく）."""
+    tokens = tokenize_japanese(text)
+    if not tokens:
+        return ""
+    parts: list[str] = []
+    for tok in tokens:
+        if not tok.surface.strip():
+            continue
+        if tok.reading and re.search(r"[\u4e00-\u9fff]", tok.surface):
+            parts.append(f"{tok.surface}（{tok.reading}）")
+        else:
+            parts.append(tok.surface)
+    return "/".join(parts)
 
 
 def split_japanese_sentences(text: str) -> list[str]:

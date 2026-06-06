@@ -1046,3 +1046,30 @@ textarea {
 .word-lookup-error {
   color: var(--danger, #e55);
 }
+
+.lookup-token {
+  cursor: pointer;
+  border-bottom: 1px dotted color-mix(in srgb, var(--accent) 55%, transparent);
+  padding: 0 0.05em;
+}
+
+.lookup-token:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.lookupable-edit {
+  width: 100%;
+  min-height: 4.5em;
+  font: inherit;
+  line-height: inherit;
+  color: inherit;
+  background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.65rem;
+  resize: vertical;
+}
+
+.settings-hotwords input {
+  min-width: 220px;
+}

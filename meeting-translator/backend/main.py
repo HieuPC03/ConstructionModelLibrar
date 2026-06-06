@@ -53,6 +53,9 @@ from services.stt_postprocess import (
     stt_context_tail,
 )
 from services.dictionary import lookup_word, tokenize_for_display
+from services.accuracy_mode import should_stt_correct, should_translate_two_pass
+from services.session_glossary import SessionGlossary
+from services.stt_correct import correct_stt_text
 from services.translate import translate_meeting_text, translate_text
 
 
@@ -157,6 +160,12 @@ class SettingsUpdate(BaseModel):
     whisper_offline_model: str | None = Field(
         default=None, pattern="^(tiny|base|small|medium)$"
     )
+    hotwords: str | None = None
+    stt_model: str | None = Field(
+        default=None,
+        pattern="^(gpt-4o-mini-transcribe|gpt-4o-transcribe|whisper-1)$",
+    )
+    accuracy_mode: str | None = Field(default=None, pattern="^(high|balanced|fast)$")
 
 
 @app.get("/api/settings")
@@ -387,6 +396,26 @@ async def dictionary_tokenize(body: dict[str, str]) -> dict[str, Any]:
     return {"tokens": tokenize_for_display(text)}
 
 
+class LearnGlossaryRequest(BaseModel):
+    wrong: str
+    fixed: str
+    session_id: str | None = None
+
+
+@app.post("/api/glossary/learn")
+async def learn_glossary(body: LearnGlossaryRequest) -> dict[str, str]:
+    """Học sửa transcript — lưu vào glossary phiên (client gửi kèm session)."""
+    if not body.wrong.strip() or not body.fixed.strip():
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail="Thiếu nội dung sửa")
+    return {
+        "message": "Đã ghi nhận sửa transcript",
+        "wrong": body.wrong.strip(),
+        "fixed": body.fixed.strip(),
+    }
+
+
 @app.post("/api/translate/text", response_model=TextTranslateResponse)
 async def translate_text_endpoint(body: TextTranslateRequest) -> TextTranslateResponse:
     if body.meeting:
@@ -472,6 +501,9 @@ async def session_websocket(websocket: WebSocket) -> None:
     last_target_lang = "vi"
     last_speaker = "remote"
     last_session_mode = SESSION_TRANSCRIPT
+    session_glossary = SessionGlossary()
+    rt_has_speech = True
+    rt_speech_continuous = False
 
     stt_seq = 0
     stt_next = 0
@@ -507,9 +539,14 @@ async def session_websocket(websocket: WebSocket) -> None:
         )
 
     async def push_realtime_sentence(sentence: str) -> None:
-        """Đẩy 1 câu — dịch riêng từng câu, không gộp đoạn."""
+        """Đẩy 1 câu — sửa STT + dịch 2-pass."""
         nonlocal rt_prior_original, stt_context_tail_text
         polished = polish_stt_text(sentence, last_source_lang)
+        if not polished:
+            return
+        polished = session_glossary.apply_corrections(polished)
+        if should_stt_correct():
+            polished = await correct_stt_text(polished, last_source_lang)
         if not polished:
             return
         if polished == rt_prior_original:
@@ -540,6 +577,8 @@ async def session_websocket(websocket: WebSocket) -> None:
                     src,
                     last_target_lang,
                     prior_context=prior_for_translate,
+                    session_hotwords=session_glossary.hotword_list(),
+                    two_pass=should_translate_two_pass(),
                 )
                 for logged in transcript_log:
                     if logged.get("id") == entry_id:
@@ -572,17 +611,25 @@ async def session_websocket(websocket: WebSocket) -> None:
         for sent in ready:
             await push_realtime_sentence(sent)
 
-    async def handle_stt_text(text: str, session_mode: str, speaker: str) -> None:
+    async def handle_stt_text(
+        text: str,
+        session_mode: str,
+        speaker: str,
+        has_speech: bool = True,
+        speech_continuous: bool = False,
+    ) -> None:
         nonlocal pending_rt_text, pending_caption_text, rt_silence_streak, stt_context_tail_text
         if session_mode == SESSION_TRANSLATE:
             chunk = (text or "").strip()
             if not chunk:
-                rt_silence_streak += 1
+                if not has_speech:
+                    rt_silence_streak += 1
             else:
                 rt_silence_streak = 0
                 _, pending_rt_text = extract_incremental_stt(
                     pending_rt_text, chunk, last_source_lang
                 )
+                pending_rt_text = session_glossary.apply_corrections(pending_rt_text)
                 pending_rt_text = dedupe_stt_repetition(
                     dedupe_sentence_loops(pending_rt_text)
                 )
@@ -595,7 +642,10 @@ async def session_websocket(websocket: WebSocket) -> None:
                 )
             await drain_complete_realtime_sentences()
             if should_flush_realtime_remainder(
-                pending_rt_text, rt_silence_streak
+                pending_rt_text,
+                rt_silence_streak,
+                has_speech=has_speech,
+                speech_continuous=speech_continuous,
             ):
                 await flush_realtime_remainder()
         elif text and text.strip():
@@ -603,6 +653,9 @@ async def session_websocket(websocket: WebSocket) -> None:
                 pending_caption_text,
                 text.strip(),
                 last_source_lang,
+            )
+            pending_caption_text = session_glossary.apply_corrections(
+                pending_caption_text
             )
             pending_caption_text = dedupe_stt_repetition(
                 dedupe_sentence_loops(pending_caption_text)
@@ -627,6 +680,8 @@ async def session_websocket(websocket: WebSocket) -> None:
                     chunk_text,
                     meta["session_mode"],
                     meta["speaker"],
+                    has_speech=meta.get("has_speech", True),
+                    speech_continuous=meta.get("speech_continuous", False),
                 )
                 stt_next += 1
 
@@ -650,6 +705,7 @@ async def session_websocket(websocket: WebSocket) -> None:
                     target_lang=meta.get("target_lang"),
                     context_tail=whisper_ctx,
                     capture_mode=meta.get("capture_mode"),
+                    session_hotwords=session_glossary.hotword_list(),
                 )
                 await deliver_stt_result(seq, text, meta)
             except Exception as exc:
@@ -677,6 +733,19 @@ async def session_websocket(websocket: WebSocket) -> None:
                 msg_type = payload.get("type")
                 if msg_type == "ping":
                     await websocket.send_json({"type": "pong"})
+                    continue
+                if msg_type == "learn_correction":
+                    wrong = (payload.get("wrong") or "").strip()
+                    fixed = (payload.get("fixed") or "").strip()
+                    if wrong and fixed:
+                        session_glossary.learn_correction(wrong, fixed)
+                        await websocket.send_json(
+                            {
+                                "type": "glossary_learned",
+                                "wrong": wrong,
+                                "fixed": fixed,
+                            }
+                        )
                     continue
                 if msg_type == "end_session":
                     if last_session_mode == SESSION_TRANSLATE:
@@ -706,6 +775,19 @@ async def session_websocket(websocket: WebSocket) -> None:
                 last_speaker = speaker
                 last_session_mode = session_mode
 
+                has_speech = meta.get("has_speech", True)
+                if isinstance(has_speech, str):
+                    has_speech = has_speech.lower() in ("1", "true", "yes")
+                speech_continuous = meta.get("speech_continuous", False)
+                if isinstance(speech_continuous, str):
+                    speech_continuous = speech_continuous.lower() in (
+                        "1",
+                        "true",
+                        "yes",
+                    )
+                rt_has_speech = has_speech
+                rt_speech_continuous = speech_continuous
+
                 job_meta = {
                     **meta,
                     "source_lang": source_lang,
@@ -713,6 +795,8 @@ async def session_websocket(websocket: WebSocket) -> None:
                     "speaker": speaker,
                     "session_mode": session_mode,
                     "stt_engine": stt_engine,
+                    "has_speech": has_speech,
+                    "speech_continuous": speech_continuous,
                 }
                 seq = stt_seq
                 stt_seq += 1

@@ -1,10 +1,11 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.58 (nền v1.8.57)
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.59 (Accuracy Plus)
 ==========================================================
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.58
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.59
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.58/Meeting-Translator-Setup-1.8.58.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.59/Meeting-Translator-Setup-1.8.59.exe
 
+v1.8.59 — 12 cải tiến độ chính xác: hotwords, JMdict, VAD, adaptive chunk, STT sửa LLM, dịch 2-pass, click tra từ, sửa transcript học lại
 v1.8.58 — Từ điển JP (hán tự/đọc) + bôi đen từ xem nghĩa
 v1.8.57 — Dịch realtime chunk 1.5s (chính xác hơn)
 v1.8.56 — Độ chính xác STT/dịch cao hơn (Janome, hậu xử lý, caption_sync)

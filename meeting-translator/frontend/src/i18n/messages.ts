@@ -108,6 +108,15 @@ const vi = {
   wordLookupLoading: "Đang tra từ…",
   wordLookupEmpty: "Không tìm thấy nghĩa",
   wordLookupClose: "Đóng",
+  hotwords: "Từ riêng dự án (hotwords)",
+  hotwordsHint: "Tên công ty, dự án — cách nhau bởi dấu phẩy",
+  sttModel: "Model STT",
+  accuracyMode: "Độ chính xác",
+  accuracyHigh: "Cao (chậm hơn)",
+  accuracyBalanced: "Cân bằng",
+  accuracyFast: "Nhanh",
+  editTranscriptHint: "Double-click để sửa transcript",
+  glossaryLearned: "Đã học sửa transcript",
 };
 
 export type MessageKey = keyof typeof vi;
@@ -219,6 +228,15 @@ const ja: Record<MessageKey, string> = {
   wordLookupLoading: "辞書検索中…",
   wordLookupEmpty: "意味が見つかりません",
   wordLookupClose: "閉じる",
+  hotwords: "プロジェクト用語（ホットワード）",
+  hotwordsHint: "会社名・案件名 — カンマ区切り",
+  sttModel: "STTモデル",
+  accuracyMode: "精度モード",
+  accuracyHigh: "高精度（やや遅い）",
+  accuracyBalanced: "バランス",
+  accuracyFast: "高速",
+  editTranscriptHint: "ダブルクリックで編集",
+  glossaryLearned: "修正を学習しました",
 };
 
 export const messages = { vi, ja };

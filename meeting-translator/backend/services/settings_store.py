@@ -16,6 +16,9 @@ _DEFAULT: dict[str, Any] = {
     "session_mode": "transcript",
     "theme": "dark",
     "whisper_offline_model": "small",
+    "hotwords": "",
+    "stt_model": "gpt-4o-mini-transcribe",
+    "accuracy_mode": "high",
 }
 
 
@@ -52,9 +55,11 @@ def reset_settings() -> dict[str, Any]:
 
 def save_settings(data: dict[str, Any]) -> dict[str, Any]:
     merged = load_settings()
-    for key in _DEFAULT:
+    for key, default in _DEFAULT.items():
         if key in data:
             merged[key] = data[key]
+        elif key not in merged:
+            merged[key] = default
     path = _settings_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")

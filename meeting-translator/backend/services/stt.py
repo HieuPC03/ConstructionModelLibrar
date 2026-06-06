@@ -5,8 +5,17 @@ import tempfile
 
 from services.config import OPENAI_STT_MODEL, get_openai_api_key
 from services.errors import is_valid_openai_key
+from services.hotwords import build_hotwords_prompt, get_user_hotwords, merge_hotwords
+from services.settings_store import load_settings
 from services.stt_lang import resolve_stt_language
 from services.stt_postprocess import build_whisper_prompt, polish_stt_text
+
+
+def _resolve_stt_model() -> str:
+    saved = (load_settings().get("stt_model") or "").strip()
+    if saved in ("gpt-4o-mini-transcribe", "gpt-4o-transcribe", "whisper-1"):
+        return saved
+    return OPENAI_STT_MODEL
 
 MIN_AUDIO_BYTES = 100
 
@@ -33,6 +42,7 @@ async def transcribe_audio(
     target_lang: str | None = None,
     context_tail: str | None = None,
     capture_mode: str | None = None,
+    session_hotwords: list[str] | None = None,
 ) -> str:
     if len(audio_bytes) < MIN_AUDIO_BYTES:
         return ""
@@ -47,6 +57,7 @@ async def transcribe_audio(
         target_lang=target_lang,
         context_tail=context_tail,
         capture_mode=capture_mode,
+        session_hotwords=session_hotwords,
     )
 
 
@@ -57,6 +68,7 @@ async def _transcribe_openai(
     target_lang: str | None = None,
     context_tail: str | None = None,
     capture_mode: str | None = None,
+    session_hotwords: list[str] | None = None,
 ) -> str:
     api_key = get_openai_api_key()
     if not is_valid_openai_key(api_key):
@@ -69,7 +81,11 @@ async def _transcribe_openai(
 
     client = AsyncOpenAI(api_key=api_key)
     lang, base_prompt = resolve_stt_language(language, target_lang, capture_mode)
-    prompt = build_whisper_prompt(base_prompt, context_tail)
+    hotwords = merge_hotwords(get_user_hotwords(), session_hotwords or [])
+    hotword_hint = build_hotwords_prompt(hotwords)
+    full_base = f"{base_prompt} {hotword_hint}".strip() if hotword_hint else base_prompt
+    prompt = build_whisper_prompt(full_base, context_tail)
+    model = _resolve_stt_model()
 
     suffix = _audio_suffix_from_bytes(audio_bytes, filename)
 
@@ -78,10 +94,8 @@ async def _transcribe_openai(
         tmp_path = tmp.name
 
     try:
-        text = await _run_openai_transcription(
-            client, tmp_path, OPENAI_STT_MODEL, lang, prompt
-        )
-        if not text and lang == "ja":
+        text = await _run_openai_transcription(client, tmp_path, model, lang, prompt)
+        if not text and lang == "ja" and model != "whisper-1":
             text = await _run_openai_transcription(
                 client, tmp_path, "whisper-1", lang, prompt
             )

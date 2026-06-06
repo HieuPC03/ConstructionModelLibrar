@@ -90,18 +90,44 @@ def pop_complete_sentences(text: str) -> tuple[list[str], str]:
     return complete, remainder
 
 
-def should_flush_realtime_remainder(pending: str, silence_streak: int) -> bool:
-    """Phần chưa có dấu câu — chốt sau 1 chunk im lặng."""
+def should_flush_realtime_remainder(
+    pending: str,
+    silence_streak: int,
+    has_speech: bool = True,
+    speech_continuous: bool = False,
+) -> bool:
+    """Phần còn lại — VAD + im lặng + adaptive."""
     p = pending.strip()
     if not p:
         return False
     if is_sentence_complete(p) and is_meaningful_realtime_sentence(p):
+        if not has_speech:
+            return True
         return silence_streak >= SILENCE_CHUNKS_TO_FLUSH
+    if not has_speech and silence_streak >= 1 and is_meaningful_realtime_sentence(p):
+        return True
     if silence_streak >= SILENCE_CHUNKS_TO_FLUSH and is_meaningful_realtime_sentence(p):
+        return True
+    if speech_continuous and len(p) >= MAX_PENDING_CHARS:
         return True
     if len(p) >= MAX_PENDING_CHARS:
         return True
     return False
+
+
+def adaptive_chunk_ms(
+    base_ms: int,
+    has_speech: bool,
+    speech_continuous: bool,
+    max_ms: int = 2200,
+    overlap_ms: int = 300,
+) -> int:
+    """Chunk dài hơn khi nói liên tục."""
+    if not has_speech:
+        return base_ms
+    if speech_continuous:
+        return min(max_ms, base_ms + overlap_ms)
+    return base_ms
 
 
 def should_flush_buffer(pending: str, silence_streak: int) -> bool:

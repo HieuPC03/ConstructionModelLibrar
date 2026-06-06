@@ -79,6 +79,9 @@ export type AppSettings = {
   theme?: "dark" | "light" | "ocean" | "jasty";
   whisper_offline_model?: string;
   whisper_offline?: Record<string, string>;
+  hotwords?: string;
+  stt_model?: string;
+  accuracy_mode?: string;
 };
 
 export async function fetchSettings(): Promise<AppSettings> {
@@ -319,9 +322,9 @@ export async function exportTranscriptSegments(
 export type DictionaryToken = {
   surface: string;
   reading: string;
-  base_form: string;
+  base_form?: string;
   pos: string;
-  meanings: string[];
+  meanings: string | string[];
 };
 
 export type DictionaryLookupResult = {
@@ -334,6 +337,25 @@ export type DictionaryLookupResult = {
   source: string;
   tokens: DictionaryToken[];
 };
+
+export async function tokenizeDictionary(text: string): Promise<DictionaryToken[]> {
+  const res = await fetch(`${apiBase()}/api/dictionary/tokenize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return [];
+  return (data.tokens as DictionaryToken[]) || [];
+}
+
+export async function learnGlossary(wrong: string, fixed: string): Promise<void> {
+  await fetch(`${apiBase()}/api/glossary/learn`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ wrong, fixed }),
+  });
+}
 
 export async function lookupDictionary(
   word: string,

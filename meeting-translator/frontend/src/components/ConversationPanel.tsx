@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useVadMonitor } from "../hooks/useVadMonitor";
 import type { LangCode, TranscriptSegment, Utterance } from "../types";
 import { useSessionMode } from "../SessionModeContext";
 import { useAppSettings } from "../AppSettingsContext";
@@ -49,10 +50,17 @@ export default function ConversationPanel() {
   const [refreshing, setRefreshing] = useState(false);
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [captureStream, setCaptureStream] = useState<MediaStream | null>(null);
 
   const isTranslate = sessionMode === "translate_realtime";
   const audio = useAudioCapture();
   const session = useRealtimeSession();
+  const vad = useVadMonitor(captureStream, session.isLive);
+
+  const updateVadMeta = session.updateVadMeta;
+  useEffect(() => {
+    updateVadMeta(vad);
+  }, [vad, updateVadMeta]);
 
   const exportBaseDir = exportDir || recordingsDir;
 
@@ -96,6 +104,7 @@ export default function ConversationPanel() {
         undefined,
         captureMode === "loopback" ? hearLoopback : false
       );
+      setCaptureStream(stream);
       await session.startSession(
         stream,
         sourceLang,
@@ -114,6 +123,7 @@ export default function ConversationPanel() {
   const handleStop = async () => {
     await session.stopSession(exportBaseDir);
     audio.stopAll();
+    setCaptureStream(null);
   };
 
   const handleRefreshReset = async () => {
@@ -121,6 +131,7 @@ export default function ConversationPanel() {
       if (!window.confirm(tr("confirmReset"))) return;
       session.abortSession();
       audio.stopAll();
+      setCaptureStream(null);
     }
     setRefreshing(true);
     try {
@@ -489,6 +500,10 @@ export default function ConversationPanel() {
                     className="segment-original segment-paragraph"
                     sourceLang={sourceLang}
                     targetLang={targetLang}
+                    editable={!session.isLive || seg.closed}
+                    onEditCommit={(wrong, fixed) =>
+                      session.updateSegmentOriginal(seg.id, wrong, fixed)
+                    }
                   />
                 ) : (
                   <p className="empty-hint segment-placeholder">

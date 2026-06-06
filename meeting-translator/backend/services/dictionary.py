@@ -7,11 +7,10 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from services.ja_text import has_japanese, tokenize_japanese
+from services.ja_text import build_morpheme_breakdown, has_japanese, tokenize_japanese
+from services.hotwords import merge_hotwords
 
-_GLOSSARY_PATH = (
-    Path(__file__).resolve().parent.parent / "assets" / "jp_vi_glossary.json"
-)
+_ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 _glossary_cache: dict[str, dict] | None = None
 
 _POS_VI = {
@@ -55,11 +54,17 @@ def _load_glossary() -> dict[str, dict]:
     global _glossary_cache
     if _glossary_cache is not None:
         return _glossary_cache
-    if not _GLOSSARY_PATH.is_file():
-        _glossary_cache = {}
-        return _glossary_cache
-    with open(_GLOSSARY_PATH, encoding="utf-8") as f:
-        _glossary_cache = json.load(f)
+    merged: dict[str, dict] = {}
+    if _ASSETS_DIR.is_dir():
+        for path in sorted(_ASSETS_DIR.glob("*.json")):
+            try:
+                with open(path, encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    merged.update(data)
+            except (json.JSONDecodeError, OSError):
+                continue
+    _glossary_cache = merged
     return _glossary_cache
 
 
@@ -107,11 +112,20 @@ async def _translate_word_gloss(
 
 
 def build_translation_glossary_hints(
-    text: str, source_lang: str, target_lang: str, max_terms: int = 10
+    text: str,
+    source_lang: str,
+    target_lang: str,
+    max_terms: int = 12,
+    extra_hotwords: list[str] | None = None,
 ) -> str:
-    """Gợi ý từ điển cho prompt dịch — hán tự + đọc + nghĩa."""
+    """Gợi ý từ điển cho prompt dịch — morpheme + hán tự + đọc + nghĩa."""
     if (source_lang or "").strip().lower() != "ja" or not has_japanese(text):
         return ""
+
+    blocks: list[str] = []
+    breakdown = build_morpheme_breakdown(text)
+    if breakdown:
+        blocks.append(f"Morpheme breakdown: {breakdown}")
 
     tokens = tokenize_japanese(text)
     hints: list[str] = []
@@ -127,7 +141,7 @@ def build_translation_glossary_hints(
 
         entry = _find_glossary_entry(key) or _find_glossary_entry(tok.base_form)
         reading = tok.reading or (entry or {}).get("reading", "")
-        meanings = list((entry or {}).get("meanings", []))
+        meanings = list(tok.meanings) or list((entry or {}).get("meanings", []))
         if reading or meanings:
             meaning_part = ", ".join(meanings[:3]) if meanings else ""
             if reading and meaning_part:
@@ -139,9 +153,16 @@ def build_translation_glossary_hints(
         if len(hints) >= max_terms:
             break
 
-    if not hints:
+    if hints:
+        blocks.append("Term glossary:\n" + "\n".join(hints))
+
+    hw = merge_hotwords(extra_hotwords or [])
+    if hw:
+        blocks.append("Project hotwords: " + "、".join(hw[:16]))
+
+    if not blocks:
         return ""
-    return "Term glossary (use for accurate translation):\n" + "\n".join(hints) + "\n\n"
+    return "\n".join(blocks) + "\n\n"
 
 
 async def lookup_word(
