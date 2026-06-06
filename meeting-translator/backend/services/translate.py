@@ -11,9 +11,14 @@ from services.config import (
 from services.errors import is_valid_openai_key
 from services.stt_lang import should_skip_meeting_translation
 
-VI_JA_SYSTEM = """You are a professional Vietnamese–Japanese interpreter for business meetings.
-Translate accurately, preserve tone (formal です/ます for Japanese when appropriate), and keep names unchanged.
-Output ONLY the translation, no explanations."""
+VI_JA_SYSTEM = """You are a professional Japanese–Vietnamese interpreter for live business meetings.
+
+Rules:
+- Input is speech-to-text and may contain errors or stray Korean/English noise — infer the intended Japanese meaning.
+- Output natural, grammatically correct Vietnamese with appropriate politeness.
+- Translate complete thoughts, not word-by-word fragments.
+- Preserve proper names and technical terms.
+- Output ONLY the translation, no notes or explanations."""
 
 _GOOGLE_LANG = {"vi": "vi", "ja": "ja", "en": "en"}
 
@@ -43,7 +48,8 @@ async def translate_meeting_text(
         return TranslateResult("", "ChatGPT (OpenAI)", None)
 
     prompt = (
-        f"Translate the following from {_lang_name(source_lang)} to {_lang_name(target_lang)}:\n\n{text}"
+        f"Translate this complete utterance from {_lang_name(source_lang)} "
+        f"to {_lang_name(target_lang)}. Fix any obvious STT errors:\n\n{text}"
     )
     translated = await _translate_openai(prompt)
     return TranslateResult(translated, "ChatGPT (OpenAI)", None)

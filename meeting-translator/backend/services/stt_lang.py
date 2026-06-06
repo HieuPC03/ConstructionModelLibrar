@@ -4,6 +4,7 @@ import re
 
 JA_STT_PROMPT = (
     "以下は日本語の会議・オンライン通話の音声です。"
+    "日本語のみ。韓国語・英語は出力しない。"
     "話し言葉をひらがな・カタカナ・漢字で正確に書き起こしてください。"
 )
 
@@ -11,8 +12,13 @@ VI_STT_PROMPT = "Đây là cuộc họp tiếng Việt. Ghi lại chính xác l�
 
 JA_VI_STT_PROMPT = (
     "日本語とベトナム語が混在する会議です。"
-    "話されている言語で正確に書き起こしてください。"
+    "日本語はひらがな・カタカナ・漢字のみ。韓国語・英語は絶対に出力しない。"
+    "ベトナム語はそのまま書き起こす。"
 )
+
+_HANGUL = re.compile(r"[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]+")
+# Latin/ASCII đoạn lạ chen giữa tiếng Nhật (Whisper ảo giác)
+_LATIN_RUN = re.compile(r"[A-Za-z]{2,}")
 
 _VI_DIACRITIC = re.compile(
     r"[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
@@ -76,6 +82,29 @@ def should_skip_meeting_translation(
     return is_vietnamese_text(text)
 
 
+def sanitize_stt_output(text: str, language: str) -> str:
+    """Lọc Hàn/ASCII ảo giác chen vào câu Nhật."""
+    if not text:
+        return text
+    t = text.strip()
+    lang = (language or "ja").strip().lower()
+    has_ja = bool(re.search(r"[\u3040-\u30ff\u4e00-\u9fff]", t))
+    if lang != "ja" and not has_ja:
+        return t
+
+    t = _HANGUL.sub("", t)
+    if has_ja or lang == "ja":
+
+        t = _LATIN_RUN.sub("", t)
+
+    t = re.sub(r"\s{2,}", " ", t)
+    t = re.sub(r"\s+([、。．！？,.!?])", r"\1", t)
+    t = re.sub(r"([、。．！？,.!?])\s+", r"\1", t)
+    t = re.sub(r"[,、]{2,}", "、", t)
+    t = re.sub(r"\s*,\s*", "", t)
+    return t.strip()
+
+
 def resolve_stt_language(
     language: str, target_lang: str | None = None
 ) -> tuple[str | None, str | None]:
@@ -83,7 +112,7 @@ def resolve_stt_language(
     lang = (language or "ja").strip().lower()
     tgt = (target_lang or "").strip().lower()
     if lang == "ja" and tgt == "vi":
-        return None, JA_VI_STT_PROMPT
+        return "ja", JA_VI_STT_PROMPT
     if lang == "ja":
         return "ja", JA_STT_PROMPT
     if lang == "vi":
@@ -107,16 +136,19 @@ def filter_stt_hallucination(
     if not text:
         return text
     if is_vietnamese_text(text):
-        return text
-    if language != "ja":
-        return text
-    t = text.strip()
+        return sanitize_stt_output(text, "vi")
+    lang = language or "ja"
+    t = sanitize_stt_output(text, lang)
+    if not t:
+        return ""
+    if lang != "ja":
+        return t
     if re.search(r"[\u3040-\u30ff\u4e00-\u9fff]", t):
-        return text
+        return t
     letters = [c for c in t if c.isalpha()]
     if not letters:
-        return text
+        return t
     ascii_ratio = sum(1 for c in letters if ord(c) < 128) / len(letters)
     if ascii_ratio >= 0.85 and len(t) <= 120:
         return ""
-    return text
+    return t

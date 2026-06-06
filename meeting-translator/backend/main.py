@@ -47,7 +47,11 @@ from services.realtime_buffer import (
     should_flush_buffer,
 )
 from services.stt import transcribe_audio
-from services.stt_lang import should_skip_meeting_translation, translation_source_lang
+from services.stt_lang import (
+    sanitize_stt_output,
+    should_skip_meeting_translation,
+    translation_source_lang,
+)
 from services.translate import translate_meeting_text, translate_text
 
 
@@ -432,11 +436,14 @@ async def session_websocket(websocket: WebSocket) -> None:
 
     async def flush_realtime_buffer() -> None:
         nonlocal pending_rt_text, rt_silence_streak
-        text = pending_rt_text.strip()
-        if not text:
+        raw = pending_rt_text.strip()
+        if not raw:
             return
         pending_rt_text = ""
         rt_silence_streak = 0
+        text = sanitize_stt_output(raw, last_source_lang)
+        if not text:
+            return
         src = translation_source_lang(last_source_lang)
         translation = ""
         if not should_skip_meeting_translation(text, src, last_target_lang):
@@ -514,6 +521,9 @@ async def session_websocket(websocket: WebSocket) -> None:
                             rt_silence_streak = 0
                             pending_rt_text = merge_stt_fragments(
                                 pending_rt_text, chunk
+                            )
+                            pending_rt_text = sanitize_stt_output(
+                                pending_rt_text, source_lang
                             )
                         if pending_rt_text.strip():
                             await websocket.send_json(

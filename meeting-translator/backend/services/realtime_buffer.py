@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import re
+
 SENTENCE_END = ".?!。．？！…"
 MAX_PENDING_CHARS = 600
-# Số chunk im lặng liên tiếp trước khi chốt câu (chunk ~1.2s)
-SILENCE_CHUNKS_TO_FLUSH = 2
-# Một chunk im + đủ chữ → coi như hết câu (ngưỡng cao hơn = chậm hơn)
-SILENCE_ONE_CHUNK_MIN_CHARS = 14
+# Số chunk im lặng liên tiếp trước khi chốt (chunk ~1s)
+SILENCE_CHUNKS_TO_FLUSH = 3
+# Tối thiểu ký tự để coi là câu có nghĩa
+MIN_MEANINGFUL_CHARS = 6
+# Im lặng lâu nhưng không có dấu kết thúc — cần đủ dài
+MIN_SILENCE_FLUSH_CHARS = 18
 
 
 def merge_stt_fragments(previous: str, new: str) -> str:
@@ -27,7 +31,13 @@ def merge_stt_fragments(previous: str, new: str) -> str:
     for size in range(max_ov, 3, -1):
         if prev[-size:] == nxt[:size]:
             return prev + nxt[size:]
-    if not prev.endswith(" ") and not nxt.startswith((",", ".", "?", "!", ":", ";", "、")):
+    last, first = prev[-1], nxt[0]
+    cjk = r"[\u3040-\u30ff\u4e00-\u9fff]"
+    if re.search(cjk, last) and re.search(cjk, first):
+        return prev + nxt
+    if not prev.endswith(" ") and not nxt.startswith(
+        (",", ".", "?", "!", ":", ";", "、", "。")
+    ):
         return f"{prev} {nxt}"
     return prev + nxt
 
@@ -39,16 +49,15 @@ def is_sentence_complete(text: str) -> bool:
     return t[-1] in SENTENCE_END
 
 
-def should_flush_on_silence(silence_streak: int, pending: str) -> bool:
-    p = pending.strip()
-    if not p:
+def is_meaningful_utterance(text: str) -> bool:
+    """Câu đủ dài / có nội dung thật — tránh đẩy fragment STT."""
+    p = text.strip()
+    if len(p) < MIN_MEANINGFUL_CHARS:
         return False
-    if silence_streak >= SILENCE_CHUNKS_TO_FLUSH:
-        return True
-    # Một chunk im lặng + đoạn đủ dài (ngưỡng cao → chốt chậm hơn)
-    if silence_streak >= 1 and len(p) >= SILENCE_ONE_CHUNK_MIN_CHARS:
-        return True
-    return False
+    if re.search(r"[\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af]", p):
+        return len(re.sub(r"\s", "", p)) >= MIN_MEANINGFUL_CHARS
+    words = [w for w in re.split(r"\s+", p) if w]
+    return len(words) >= 2 or len(p) >= 12
 
 
 def should_flush_buffer(pending: str, silence_streak: int) -> bool:
@@ -56,7 +65,13 @@ def should_flush_buffer(pending: str, silence_streak: int) -> bool:
     if not p:
         return False
     if len(p) >= MAX_PENDING_CHARS:
+        return is_meaningful_utterance(p)
+    if not is_meaningful_utterance(p):
+        return False
+    # Có dấu kết thúc + ít nhất 1 chunk im lặng → người nói đã dừng câu
+    if is_sentence_complete(p) and silence_streak >= 1:
         return True
-    if is_sentence_complete(p):
+    # Im lặng lâu (không có dấu câu) — chỉ chốt đoạn đủ dài
+    if silence_streak >= SILENCE_CHUNKS_TO_FLUSH and len(p) >= MIN_SILENCE_FLUSH_CHARS:
         return True
-    return should_flush_on_silence(silence_streak, p)
+    return False
