@@ -57,9 +57,16 @@ if (-not (Test-Path $GetPip)) {
 
 Write-Host "Cai pip..."
 & $PythonExe $GetPip --no-warn-script-location
+if ($LASTEXITCODE -ne 0) { throw "get-pip that bai (exit $LASTEXITCODE)" }
+
+# Embeddable Python khong co setuptools — can cho goi sdist (vd. jaconv)
+Write-Host "Cai setuptools + wheel..."
+& $PythonExe -m pip install setuptools wheel --no-warn-script-location
+if ($LASTEXITCODE -ne 0) { throw "pip setuptools/wheel that bai (exit $LASTEXITCODE)" }
 
 Write-Host "Cai thu vien backend..."
 & $PythonExe -m pip install -r $ReqFile --no-warn-script-location
+if ($LASTEXITCODE -ne 0) { throw "pip install requirements that bai (exit $LASTEXITCODE)" }
 
 Set-Content -Path (Join-Path $RuntimeDir ".bundle-ok") -Value "ok"
 Write-Host "Xong Python runtime (~$( [math]::Round((Get-ChildItem $RuntimeDir -Recurse | Measure-Object Length -Sum).Sum/1MB, 1) ) MB)"
