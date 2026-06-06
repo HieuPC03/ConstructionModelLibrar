@@ -5,7 +5,8 @@ import tempfile
 
 from services.config import OPENAI_STT_MODEL, get_openai_api_key
 from services.errors import is_valid_openai_key
-from services.stt_lang import filter_stt_hallucination, resolve_stt_language
+from services.stt_lang import resolve_stt_language
+from services.stt_postprocess import build_whisper_prompt, polish_stt_text
 
 MIN_AUDIO_BYTES = 100
 
@@ -30,6 +31,7 @@ async def transcribe_audio(
     language: str = "ja",
     engine: str | None = None,
     target_lang: str | None = None,
+    context_tail: str | None = None,
 ) -> str:
     if len(audio_bytes) < MIN_AUDIO_BYTES:
         return ""
@@ -38,7 +40,11 @@ async def transcribe_audio(
 
         return await transcribe_offline(audio_bytes, filename, language)
     return await _transcribe_openai(
-        audio_bytes, filename, language, target_lang=target_lang
+        audio_bytes,
+        filename,
+        language,
+        target_lang=target_lang,
+        context_tail=context_tail,
     )
 
 
@@ -47,6 +53,7 @@ async def _transcribe_openai(
     filename: str,
     language: str,
     target_lang: str | None = None,
+    context_tail: str | None = None,
 ) -> str:
     api_key = get_openai_api_key()
     if not is_valid_openai_key(api_key):
@@ -57,7 +64,8 @@ async def _transcribe_openai(
     from openai import AsyncOpenAI
 
     client = AsyncOpenAI(api_key=api_key)
-    lang, prompt = resolve_stt_language(language, target_lang)
+    lang, base_prompt = resolve_stt_language(language, target_lang)
+    prompt = build_whisper_prompt(base_prompt, context_tail)
 
     suffix = _audio_suffix_from_bytes(audio_bytes, filename)
 
@@ -73,7 +81,7 @@ async def _transcribe_openai(
             text = await _run_openai_transcription(
                 client, tmp_path, "whisper-1", lang, prompt
             )
-        return filter_stt_hallucination(text, lang or "ja", target_lang)
+        return polish_stt_text(text, lang or language or "ja")
     finally:
         try:
             os.unlink(tmp_path)
@@ -89,7 +97,7 @@ async def _run_openai_transcription(
     prompt: str | None,
 ) -> str:
     with open(path, "rb") as audio_file:
-        kwargs: dict = {"model": model, "file": audio_file}
+        kwargs: dict = {"model": model, "file": audio_file, "temperature": 0}
         if lang:
             kwargs["language"] = lang
         if prompt:

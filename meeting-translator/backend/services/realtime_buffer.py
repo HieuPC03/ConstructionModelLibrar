@@ -9,9 +9,11 @@ MAX_PENDING_CHARS = 600
 # Số chunk im lặng liên tiếp trước khi chốt (chunk ~1s)
 SILENCE_CHUNKS_TO_FLUSH = 3
 # Tối thiểu ký tự để coi là câu có nghĩa
-MIN_MEANINGFUL_CHARS = 6
+MIN_MEANINGFUL_CHARS = 8
 # Im lặng lâu nhưng không có dấu kết thúc — cần đủ dài
-MIN_SILENCE_FLUSH_CHARS = 18
+MIN_SILENCE_FLUSH_CHARS = 22
+# Câu ngắn có dấu kết thúc — cần thêm im lặng
+SHORT_SENTENCE_MAX_CHARS = 16
 
 
 def merge_stt_fragments(previous: str, new: str) -> str:
@@ -68,9 +70,11 @@ def should_flush_buffer(pending: str, silence_streak: int) -> bool:
         return is_meaningful_utterance(p)
     if not is_meaningful_utterance(p):
         return False
-    # Có dấu kết thúc + ít nhất 1 chunk im lặng → người nói đã dừng câu
-    if is_sentence_complete(p) and silence_streak >= 1:
-        return True
+    # Có dấu kết thúc + im lặng → người nói đã dừng câu
+    if is_sentence_complete(p):
+        need_silence = 2 if len(p) <= SHORT_SENTENCE_MAX_CHARS else 1
+        if silence_streak >= need_silence:
+            return True
     # Im lặng lâu (không có dấu câu) — chỉ chốt đoạn đủ dài
     if silence_streak >= SILENCE_CHUNKS_TO_FLUSH and len(p) >= MIN_SILENCE_FLUSH_CHARS:
         return True

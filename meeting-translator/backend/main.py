@@ -47,11 +47,8 @@ from services.realtime_buffer import (
     should_flush_buffer,
 )
 from services.stt import transcribe_audio
-from services.stt_lang import (
-    sanitize_stt_output,
-    should_skip_meeting_translation,
-    translation_source_lang,
-)
+from services.stt_lang import should_skip_meeting_translation, translation_source_lang
+from services.stt_postprocess import polish_stt_text, stt_context_tail
 from services.translate import translate_meeting_text, translate_text
 
 
@@ -410,6 +407,8 @@ async def session_websocket(websocket: WebSocket) -> None:
     pending_meta: dict[str, Any] = {}
     pending_rt_text = ""
     rt_silence_streak = 0
+    stt_context_tail_text = ""
+    rt_prior_original = ""
     last_source_lang = "ja"
     last_target_lang = "vi"
     last_speaker = "remote"
@@ -435,19 +434,24 @@ async def session_websocket(websocket: WebSocket) -> None:
         await websocket.send_json({"type": "utterance", **entry})
 
     async def flush_realtime_buffer() -> None:
-        nonlocal pending_rt_text, rt_silence_streak
+        nonlocal pending_rt_text, rt_silence_streak, stt_context_tail_text, rt_prior_original
         raw = pending_rt_text.strip()
         if not raw:
             return
         pending_rt_text = ""
         rt_silence_streak = 0
-        text = sanitize_stt_output(raw, last_source_lang)
+        text = polish_stt_text(raw, last_source_lang)
         if not text:
             return
         src = translation_source_lang(last_source_lang)
         translation = ""
         if not should_skip_meeting_translation(text, src, last_target_lang):
-            tr = await translate_meeting_text(text, src, last_target_lang)
+            tr = await translate_meeting_text(
+                text,
+                src,
+                last_target_lang,
+                prior_context=rt_prior_original,
+            )
             translation = tr.text
         await emit_utterance(
             text,
@@ -455,6 +459,8 @@ async def session_websocket(websocket: WebSocket) -> None:
             last_speaker,
             SESSION_TRANSLATE,
         )
+        rt_prior_original = text
+        stt_context_tail_text = stt_context_tail(text)
 
     try:
         await websocket.send_json(
@@ -505,12 +511,19 @@ async def session_websocket(websocket: WebSocket) -> None:
                     last_speaker = speaker
                     last_session_mode = session_mode
 
+                    whisper_ctx = stt_context_tail_text
+                    if pending_rt_text.strip():
+                        whisper_ctx = stt_context_tail(
+                            f"{stt_context_tail_text} {pending_rt_text}".strip()
+                        )
+
                     text = await transcribe_audio(
                         data,
                         meta.get("filename", "chunk.webm"),
                         source_lang,
                         engine=stt_engine,
                         target_lang=target_lang,
+                        context_tail=whisper_ctx,
                     )
 
                     if session_mode == SESSION_TRANSLATE:
@@ -522,7 +535,7 @@ async def session_websocket(websocket: WebSocket) -> None:
                             pending_rt_text = merge_stt_fragments(
                                 pending_rt_text, chunk
                             )
-                            pending_rt_text = sanitize_stt_output(
+                            pending_rt_text = polish_stt_text(
                                 pending_rt_text, source_lang
                             )
                         if pending_rt_text.strip():
@@ -535,12 +548,17 @@ async def session_websocket(websocket: WebSocket) -> None:
                         if should_flush_buffer(pending_rt_text, rt_silence_streak):
                             await flush_realtime_buffer()
                     elif text and text.strip():
-                        await emit_utterance(
-                            text.strip(),
-                            "",
-                            speaker,
-                            session_mode,
-                        )
+                        polished = polish_stt_text(text.strip(), source_lang)
+                        if polished:
+                            await emit_utterance(
+                                polished,
+                                "",
+                                speaker,
+                                session_mode,
+                            )
+                            stt_context_tail_text = stt_context_tail(
+                                stt_context_tail_text + polished
+                            )
                 except Exception as exc:
                     await websocket.send_json(
                         {"type": "error", "message": friendly_api_error(exc)}

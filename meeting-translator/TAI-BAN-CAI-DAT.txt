@@ -1,10 +1,11 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.11
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.12
 ============================================
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.11
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.12
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.11/Meeting-Translator-Setup-1.8.11.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.12/Meeting-Translator-Setup-1.8.12.exe
 
+v1.8.12 — STT ngữ cảnh, lọc ảo giác, dịch có context — chính xác hơn
 v1.8.11 — Dịch realtime: chốt câu chậm hơn, lọc tiếng Hàn, dịch chính xác hơn
 v1.8.10 — Sửa lỗi target_lang is not defined (STT)
 v1.8.9 — Logo JASTY nền rõ hơn

@@ -38,6 +38,7 @@ async def translate_meeting_text(
     text: str,
     source_lang: str,
     target_lang: str,
+    prior_context: str | None = None,
 ) -> TranslateResult:
     """Live Caption «Dịch đoạn» + dịch realtime — ChatGPT (OpenAI)."""
     if not text.strip():
@@ -47,9 +48,19 @@ async def translate_meeting_text(
     if should_skip_meeting_translation(text, source_lang, target_lang):
         return TranslateResult("", "ChatGPT (OpenAI)", None)
 
+    ctx_block = ""
+    if prior_context and prior_context.strip():
+        ctx_block = (
+            f"Previous utterance (for discourse context only, do not re-translate):\n"
+            f"{prior_context.strip()[-400:]}\n\n"
+        )
     prompt = (
+        f"{ctx_block}"
         f"Translate this complete utterance from {_lang_name(source_lang)} "
-        f"to {_lang_name(target_lang)}. Fix any obvious STT errors:\n\n{text}"
+        f"to {_lang_name(target_lang)}.\n"
+        f"- Fix STT errors and infer the speaker's intended meaning.\n"
+        f"- Use natural grammar and appropriate politeness.\n\n"
+        f"{text}"
     )
     translated = await _translate_openai(prompt)
     return TranslateResult(translated, "ChatGPT (OpenAI)", None)
@@ -98,7 +109,7 @@ async def _translate_openai(prompt: str) -> str:
             {"role": "system", "content": VI_JA_SYSTEM},
             {"role": "user", "content": prompt},
         ],
-        temperature=0.2,
+        temperature=0.1,
         max_tokens=800,
     )
     return (response.choices[0].message.content or "").strip()
