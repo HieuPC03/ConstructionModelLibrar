@@ -63,6 +63,7 @@ def is_meaningful_utterance(text: str) -> bool:
 
 
 def should_flush_buffer(pending: str, silence_streak: int) -> bool:
+    """Live Caption / buffer cũ — chốt chậm, cần im lặng."""
     p = pending.strip()
     if not p:
         return False
@@ -70,12 +71,60 @@ def should_flush_buffer(pending: str, silence_streak: int) -> bool:
         return is_meaningful_utterance(p)
     if not is_meaningful_utterance(p):
         return False
-    # Có dấu kết thúc + im lặng → người nói đã dừng câu
     if is_sentence_complete(p):
         need_silence = 2 if len(p) <= SHORT_SENTENCE_MAX_CHARS else 1
         if silence_streak >= need_silence:
             return True
-    # Im lặng lâu (không có dấu câu) — chỉ chốt đoạn đủ dài
     if silence_streak >= SILENCE_CHUNKS_TO_FLUSH and len(p) >= MIN_SILENCE_FLUSH_CHARS:
+        return True
+    return False
+
+
+# Dịch realtime — chốt ngay khi có dấu kết thúc câu
+REALTIME_MIN_CHARS = 4
+
+
+def is_meaningful_realtime_sentence(text: str) -> bool:
+    p = text.strip()
+    if len(p) < REALTIME_MIN_CHARS:
+        return False
+    if re.search(r"[\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af]", p):
+        return len(re.sub(r"\s", "", p)) >= REALTIME_MIN_CHARS
+    return len(p) >= 6
+
+
+def pop_complete_sentences(text: str) -> tuple[list[str], str]:
+    """Tách các câu đã hoàn chỉnh ở đầu buffer — đẩy từng câu, giữ phần đang nói dở."""
+    t = text.strip()
+    if not t:
+        return [], ""
+
+    parts = re.split(r"(?<=[。．！？.?!…])", t)
+    complete: list[str] = []
+    remainder_parts: list[str] = []
+
+    for part in parts:
+        p = part.strip()
+        if not p:
+            continue
+        if p[-1] in SENTENCE_END and is_meaningful_realtime_sentence(p):
+            complete.append(p)
+        else:
+            remainder_parts.append(p)
+
+    remainder = "".join(remainder_parts).strip()
+    return complete, remainder
+
+
+def should_flush_realtime_remainder(pending: str, silence_streak: int) -> bool:
+    """Phần còn lại chưa có dấu câu — chỉ chốt khi im lặng ngắn (không chờ đoạn dài)."""
+    p = pending.strip()
+    if not p:
+        return False
+    if is_sentence_complete(p) and is_meaningful_realtime_sentence(p):
+        return True
+    if silence_streak >= 2 and is_meaningful_realtime_sentence(p):
+        return True
+    if len(p) >= MAX_PENDING_CHARS:
         return True
     return False

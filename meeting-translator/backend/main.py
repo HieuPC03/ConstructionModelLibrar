@@ -43,8 +43,8 @@ from services.session_modes import (
     text_translate_provider_for_mode,
 )
 from services.realtime_buffer import (
-    merge_stt_fragments,
-    should_flush_buffer,
+    pop_complete_sentences,
+    should_flush_realtime_remainder,
 )
 from services.stt import transcribe_audio
 from services.stt_lang import should_skip_meeting_translation, translation_source_lang
@@ -439,34 +439,69 @@ async def session_websocket(websocket: WebSocket) -> None:
         transcript_log.append(entry)
         await websocket.send_json({"type": "utterance", **entry})
 
-    async def flush_realtime_buffer() -> None:
-        nonlocal pending_rt_text, rt_silence_streak, stt_context_tail_text, rt_prior_original
+    async def push_realtime_sentence(text: str) -> None:
+        """Đẩy 1 câu xuống ngay; dịch ChatGPT chạy nền (nhanh hơn)."""
+        nonlocal rt_prior_original, stt_context_tail_text
+        polished = polish_stt_text(text, last_source_lang)
+        if not polished:
+            return
+        src = translation_source_lang(last_source_lang)
+        entry_id = str(uuid.uuid4())
+        entry = {
+            "id": entry_id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "speaker": last_speaker,
+            "original": polished,
+            "translation": "",
+            "session_mode": SESSION_TRANSLATE,
+        }
+        transcript_log.append(entry)
+        await websocket.send_json({"type": "utterance", **entry})
+        prior_for_translate = rt_prior_original
+        rt_prior_original = polished
+        stt_context_tail_text = stt_context_tail(polished)
+
+        if should_skip_meeting_translation(polished, src, last_target_lang):
+            return
+
+        async def translate_background() -> None:
+            try:
+                tr = await translate_meeting_text(
+                    polished,
+                    src,
+                    last_target_lang,
+                    prior_context=prior_for_translate,
+                )
+                for logged in transcript_log:
+                    if logged.get("id") == entry_id:
+                        logged["translation"] = tr.text
+                        break
+                await websocket.send_json(
+                    {
+                        "type": "utterance_translation",
+                        "id": entry_id,
+                        "translation": tr.text,
+                    }
+                )
+            except Exception:
+                pass
+
+        asyncio.create_task(translate_background())
+
+    async def flush_realtime_remainder() -> None:
+        nonlocal pending_rt_text, rt_silence_streak
         raw = pending_rt_text.strip()
         if not raw:
             return
         pending_rt_text = ""
         rt_silence_streak = 0
-        text = polish_stt_text(raw, last_source_lang)
-        if not text:
-            return
-        src = translation_source_lang(last_source_lang)
-        translation = ""
-        if not should_skip_meeting_translation(text, src, last_target_lang):
-            tr = await translate_meeting_text(
-                text,
-                src,
-                last_target_lang,
-                prior_context=rt_prior_original,
-            )
-            translation = tr.text
-        await emit_utterance(
-            text,
-            translation,
-            last_speaker,
-            SESSION_TRANSLATE,
-        )
-        rt_prior_original = text
-        stt_context_tail_text = stt_context_tail(text)
+        await push_realtime_sentence(raw)
+
+    async def drain_complete_realtime_sentences() -> None:
+        nonlocal pending_rt_text
+        ready, pending_rt_text = pop_complete_sentences(pending_rt_text)
+        for sent in ready:
+            await push_realtime_sentence(sent)
 
     try:
         await websocket.send_json(
@@ -491,7 +526,8 @@ async def session_websocket(websocket: WebSocket) -> None:
                     continue
                 if msg_type == "end_session":
                     if last_session_mode == SESSION_TRANSLATE:
-                        await flush_realtime_buffer()
+                        await drain_complete_realtime_sentences()
+                        await flush_realtime_remainder()
                     await _save_session(session_id, transcript_log, payload)
                     await websocket.send_json(
                         {"type": "session_saved", "session_id": session_id}
@@ -552,8 +588,11 @@ async def session_websocket(websocket: WebSocket) -> None:
                                     "original": pending_rt_text.strip(),
                                 }
                             )
-                        if should_flush_buffer(pending_rt_text, rt_silence_streak):
-                            await flush_realtime_buffer()
+                        await drain_complete_realtime_sentences()
+                        if should_flush_realtime_remainder(
+                            pending_rt_text, rt_silence_streak
+                        ):
+                            await flush_realtime_remainder()
                     elif text and text.strip():
                         delta, pending_caption_text = extract_incremental_stt(
                             pending_caption_text,
@@ -579,7 +618,8 @@ async def session_websocket(websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         if last_session_mode == SESSION_TRANSLATE and pending_rt_text.strip():
             try:
-                await flush_realtime_buffer()
+                await drain_complete_realtime_sentences()
+                await flush_realtime_remainder()
             except Exception:
                 pass
         if transcript_log:
