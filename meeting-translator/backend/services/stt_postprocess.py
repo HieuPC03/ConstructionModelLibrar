@@ -9,7 +9,10 @@ from services.stt_lang import sanitize_stt_output
 
 SENTENCE_END = ".?!。．？！…"
 # Prompt Whisper ngắn — dài quá khiến model lặp lại transcript cũ
-WHISPER_CONTEXT_MAX = 96
+WHISPER_CONTEXT_MAX = 64
+# Cụm tối thiểu coi là echo/lặp (ký tự CJK)
+MIN_ECHO_SPAN = 10
+MAX_ECHO_SPAN = 280
 
 # Whisper hay ảo giác khi im lặng / nhiễu
 _HALLUCINATION_PHRASES = (
@@ -74,7 +77,7 @@ def strip_redundant_overlap(accumulated: str, fragment: str) -> str:
     if a.endswith(f):
         return ""
 
-    max_ov = min(len(a), len(f), 120)
+    max_ov = min(len(a), len(f), MAX_ECHO_SPAN)
     for size in range(max_ov, 1, -1):
         if a[-size:] == f[:size]:
             return f[size:].strip()
@@ -82,11 +85,107 @@ def strip_redundant_overlap(accumulated: str, fragment: str) -> str:
     na, nf = _normalize_overlap_key(a), _normalize_overlap_key(f)
     if nf.startswith(na) and len(nf) > len(na):
         return f[len(a) :].strip() if len(f) > len(a) else ""
-    max_n = min(len(na), len(nf), 120)
+    max_n = min(len(na), len(nf), MAX_ECHO_SPAN)
     for size in range(max_n, 1, -1):
         if na[-size:] == nf[:size]:
             return f[size:].strip()
     return f
+
+
+def strip_echo_already_in_accumulated(accumulated: str, fragment: str) -> str:
+    """
+    Whisper hay trả lại cụm đã nói ở giữa transcript (không chỉ đuôi).
+    Bỏ prefix của fragment nếu đã xuất hiện trong accumulated.
+    """
+    a = accumulated.strip()
+    f = fragment.strip()
+    if not f:
+        return ""
+    if not a:
+        return f
+    if f in a:
+        return ""
+
+    na, nf = _normalize_overlap_key(a), _normalize_overlap_key(f)
+    if nf and nf in na:
+        return ""
+
+    max_prefix = min(len(f), MAX_ECHO_SPAN)
+    for size in range(max_prefix, MIN_ECHO_SPAN - 1, -1):
+        prefix = f[:size]
+        nprefix = _normalize_overlap_key(prefix)
+        if len(nprefix) < MIN_ECHO_SPAN:
+            continue
+        if prefix in a or nprefix in na:
+            remainder = f[size:].strip()
+            if not remainder:
+                return ""
+            return strip_echo_already_in_accumulated(a, remainder)
+    return f
+
+
+def collapse_consecutive_duplicate_spans(
+    text: str,
+    min_len: int = MIN_ECHO_SPAN,
+    max_len: int = MAX_ECHO_SPAN,
+) -> str:
+    """Bỏ mọi đoạn AB→AB liên tiếp trong transcript liên tục."""
+    t = text.strip()
+    if len(t) < min_len * 2:
+        return t
+
+    changed = True
+    while changed and len(t) >= min_len * 2:
+        changed = False
+        limit = min(len(t) // 2, max_len)
+        for size in range(limit, min_len - 1, -1):
+            pos = 0
+            while pos + size * 2 <= len(t):
+                if t[pos : pos + size] == t[pos + size : pos + size * 2]:
+                    t = t[: pos + size] + t[pos + size * 2 :]
+                    changed = True
+                    pos = max(0, pos - size)
+                else:
+                    pos += 1
+            if changed:
+                break
+    return t.strip()
+
+
+def remove_later_duplicate_spans(
+    text: str,
+    min_len: int = MIN_ECHO_SPAN,
+    max_len: int = MAX_ECHO_SPAN,
+) -> str:
+    """Xóa lần xuất hiện sau của cụm đã có (echo giữa đoạn dài)."""
+    t = text.strip()
+    if len(t) < min_len * 2:
+        return t
+
+    changed = True
+    while changed and len(t) >= min_len * 2:
+        changed = False
+        limit = min(len(t) // 2, max_len)
+        for size in range(limit, min_len - 1, -1):
+            pos = 0
+            while pos + size <= len(t):
+                chunk = t[pos : pos + size]
+                if len(_normalize_overlap_key(chunk)) < min_len:
+                    pos += 1
+                    continue
+                second = t.find(chunk, pos + size)
+                if second > 0:
+                    t = t[:second] + t[second + size :]
+                    changed = True
+                    break
+                pos += 1
+            if changed:
+                break
+    return t.strip()
+
+
+def _finalize_merged_text(text: str) -> str:
+    return dedupe_stt_repetition(text.strip())
 
 
 def dedupe_sentence_loops(text: str) -> str:
@@ -125,20 +224,23 @@ def extract_incremental_stt(
     inc = polish_stt_text(incoming, language)
     if not inc:
         return "", prev
+    inc = strip_echo_already_in_accumulated(prev, inc)
+    if not inc:
+        return "", prev
     inc = strip_redundant_overlap(prev, inc)
     if not inc:
         return "", prev
 
     if not prev:
-        cleaned = dedupe_sentence_loops(inc)
+        cleaned = dedupe_stt_repetition(inc)
         return cleaned, cleaned
 
     if inc.startswith(prev):
         suffix = inc[len(prev) :].strip()
         if not suffix:
             return "", prev
-        merged = dedupe_stt_repetition(merge_stt_fragments(prev, suffix))
-        return suffix, merged
+        merged = _finalize_merged_text(merge_stt_fragments(prev, suffix))
+        return merged[len(prev) :].strip() if merged.startswith(prev) else suffix, merged
 
     if prev in inc:
         # incoming chứa nguyên accumulated → chỉ lấy suffix
@@ -146,14 +248,16 @@ def extract_incremental_stt(
         if idx >= 0:
             suffix = inc[idx + len(prev) :].strip()
             if suffix:
-                merged = polish_stt_text(merge_stt_fragments(prev, suffix), language)
-                merged = dedupe_sentence_loops(merged)
+                merged = _finalize_merged_text(
+                    polish_stt_text(merge_stt_fragments(prev, suffix), language)
+                )
                 delta = merged[len(prev) :].strip() if merged.startswith(prev) else suffix
                 return delta, merged
             return "", prev
 
-    merged = polish_stt_text(merge_stt_fragments(prev, inc), language)
-    merged = dedupe_sentence_loops(merged)
+    merged = _finalize_merged_text(
+        polish_stt_text(merge_stt_fragments(prev, inc), language)
+    )
 
     if merged == prev:
         return "", prev
@@ -161,12 +265,12 @@ def extract_incremental_stt(
         return merged[len(prev) :].strip(), merged
 
     # Không khớp prefix — thử chỉ ghép phần không trùng
-    for size in range(min(len(prev), len(inc), 120), 1, -1):
+    for size in range(min(len(prev), len(inc), MAX_ECHO_SPAN), 1, -1):
         tail = prev[-size:]
         if inc.startswith(tail):
             suffix = inc[size:].strip()
             if suffix:
-                merged2 = dedupe_sentence_loops(
+                merged2 = _finalize_merged_text(
                     polish_stt_text(merge_stt_fragments(prev, suffix), language)
                 )
                 if len(merged2) > len(prev):
@@ -179,7 +283,8 @@ def extract_incremental_stt(
 
 def dedupe_stt_repetition(text: str) -> str:
     """Bỏ câu/cụm lặp liên tiếp do STT chồng chunk."""
-    t = dedupe_sentence_loops(text.strip())
+    t = collapse_consecutive_duplicate_spans(text.strip())
+    t = dedupe_sentence_loops(t)
     if not t:
         return t
 
@@ -187,7 +292,7 @@ def dedupe_stt_repetition(text: str) -> str:
     while changed and len(t) >= 16:
         changed = False
         half = len(t) // 2
-        for size in range(min(half, 120), 6, -1):
+        for size in range(min(half, MAX_ECHO_SPAN), 6, -1):
             if t[:size] == t[size : size * 2]:
                 t = (t[:size] + t[size * 2 :]).strip()
                 changed = True
@@ -210,6 +315,8 @@ def dedupe_stt_repetition(text: str) -> str:
                 i += 1
         t = "".join(deduped).strip()
 
+    t = collapse_consecutive_duplicate_spans(t)
+    t = remove_later_duplicate_spans(t)
     return dedupe_sentence_loops(t)
 
 

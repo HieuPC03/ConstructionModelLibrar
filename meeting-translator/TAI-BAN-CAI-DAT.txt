@@ -1,10 +1,11 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.16
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.17
 ============================================
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.16
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.17
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.16/Meeting-Translator-Setup-1.8.16.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.17/Meeting-Translator-Setup-1.8.17.exe
 
+v1.8.17 — Sửa lặp cụm dài giữa đoạn (echo Whisper + collapse span)
 v1.8.16 — Fix overlap STT 2 ký tự, CHUNK 1.2s, WebSocket ổn định, lưu Live Caption
 v1.8.15 — Sửa lặp từ Live Caption + dịch realtime (sync full text, dedupe mạnh hơn)
 v1.8.14 — Dịch realtime: đẩy từng câu ngay khi kết thúc, dịch ChatGPT nền

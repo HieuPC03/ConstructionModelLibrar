@@ -13,7 +13,10 @@ import {
   openSessionWebSocket,
   uploadRecording,
 } from "../api";
-import { splitCompletedSentences } from "../utils/transcriptText";
+import {
+  dedupeTranscriptDisplay,
+  splitCompletedSentences,
+} from "../utils/transcriptText";
 import {
   chunkFilenameForMime,
   createMediaRecorder,
@@ -116,7 +119,7 @@ export function useRealtimeSession() {
   }, []);
 
   const syncTranscriptCaption = useCallback((fullText: string) => {
-    const original = fullText.trim();
+    const original = dedupeTranscriptDisplay(fullText.trim());
     setTranscriptSegments((prev) => {
       let list = prev;
       let openId = openSegmentIdRef.current;
