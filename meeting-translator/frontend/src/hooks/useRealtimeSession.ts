@@ -28,10 +28,10 @@ import {
 const MODE_TRANSCRIPT: SessionMode = "transcript";
 const MODE_REALTIME: SessionMode = "translate_realtime";
 
-/** Live Caption — độ trễ ~1s/chunk. */
-const CHUNK_MS_TRANSCRIPT = 1000;
-/** Dịch realtime — độ trễ ~0.8s/chunk. */
-const CHUNK_MS_REALTIME = 800;
+/** Live Caption — độ trễ ~1.5s/chunk (chính xác hơn). */
+const CHUNK_MS_TRANSCRIPT = 1500;
+/** Dịch realtime — độ trễ ~1.2s/chunk. */
+const CHUNK_MS_REALTIME = 1200;
 
 function chunkMsForMode(mode: SessionMode): number {
   return mode === MODE_REALTIME ? CHUNK_MS_REALTIME : CHUNK_MS_TRANSCRIPT;
@@ -39,11 +39,6 @@ function chunkMsForMode(mode: SessionMode): number {
 
 /** Chunk nhỏ hơn vẫn gửi STT (micro / loopback). */
 const MIN_CHUNK_BYTES = 160;
-
-function isSentenceComplete(text: string): boolean {
-  const t = text.trim();
-  return t.length >= 2 && /[.?!。．？！…]$/.test(t);
-}
 
 function newSegment(index: number): TranscriptSegment {
   return {
@@ -99,29 +94,16 @@ export function useRealtimeSession() {
   }, []);
 
   const appendRealtimeUtterance = useCallback((u: Utterance) => {
+    const incoming = u.original.trim();
+    if (!incoming) return;
     setUtterances((prev) => {
-      if (
-        prev.length === 0 ||
-        isSentenceComplete(prev[prev.length - 1].original)
-      ) {
-        return [...prev, u];
-      }
       const last = prev[prev.length - 1];
-      return [
-        ...prev.slice(0, -1),
-        {
-          ...last,
-          id: u.id,
-          timestamp: u.timestamp,
-          original: appendChunkText(last.original, u.original),
-          translation: u.translation || last.translation,
-        },
-      ];
+      if (last?.original.trim() === incoming) return prev;
+      return [...prev, u];
     });
   }, []);
 
-  const syncTranscriptCaption = useCallback((fullText: string) => {
-    const original = fullText.trim();
+  const appendTranscriptChunk = useCallback((text: string) => {
     setTranscriptSegments((prev) => {
       let list = prev;
       let openId = openSegmentIdRef.current;
@@ -145,6 +127,7 @@ export function useRealtimeSession() {
       }
       return list.map((s) => {
         if (s.id !== openId) return s;
+        const original = appendChunkText(s.original, text);
         return { ...s, ...withSplitSentences(original) };
       });
     });
@@ -263,12 +246,10 @@ export function useRealtimeSession() {
           if (sessionModeRef.current === MODE_REALTIME) {
             setLiveDraft(String(data.original));
           }
-        } else if (data.type === "caption_sync" && data.original) {
-          if (sessionModeRef.current === MODE_TRANSCRIPT) {
-            syncTranscriptCaption(String(data.original));
-          }
         } else if (data.type === "utterance" && data.original) {
-          if (sessionModeRef.current === MODE_REALTIME) {
+          if (sessionModeRef.current === MODE_TRANSCRIPT) {
+            appendTranscriptChunk(data.original);
+          } else if (sessionModeRef.current === MODE_REALTIME) {
             setLiveDraft("");
             appendRealtimeUtterance({
               id: data.id,
@@ -294,7 +275,7 @@ export function useRealtimeSession() {
       };
 
     },
-    [appendRealtimeUtterance, syncTranscriptCaption, resetTranscript, startLiveAudioRecording]
+    [appendRealtimeUtterance, appendTranscriptChunk, resetTranscript, startLiveAudioRecording]
   );
 
   const beginNextSegmentAfterTranslate = useCallback((segmentId: string) => {

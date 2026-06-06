@@ -1,13 +1,15 @@
-"""Gom STT cho dịch realtime — chỉ phát utterance khi hết câu."""
+"""Gom STT cho dịch realtime — đẩy từng câu, không gộp đoạn dài."""
 
 from __future__ import annotations
 
+import re
+
 SENTENCE_END = ".?!。．？！…"
 MAX_PENDING_CHARS = 600
-# Chờ im lặng 1 chunk trước khi chốt (Live Caption ~1s, realtime ~0.8s)
+# Chờ im lặng 1 chunk trước khi chốt phần dở (Live Caption ~1.5s, realtime ~1.2s)
 SILENCE_CHUNKS_TO_FLUSH = 1
-# Một chunk im + đủ chữ → coi như hết câu (ngắt nghỉ ~1.2s)
 SILENCE_ONE_CHUNK_MIN_CHARS = 6
+REALTIME_MIN_CHARS = 4
 
 
 def merge_stt_fragments(previous: str, new: str) -> str:
@@ -50,7 +52,54 @@ def should_flush_on_silence(silence_streak: int, pending: str) -> bool:
     return False
 
 
+def is_meaningful_realtime_sentence(text: str) -> bool:
+    p = text.strip()
+    if len(p) < REALTIME_MIN_CHARS:
+        return False
+    if re.search(r"[\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af]", p):
+        return len(re.sub(r"\s", "", p)) >= REALTIME_MIN_CHARS
+    return len(p) >= 6
+
+
+def pop_complete_sentences(text: str) -> tuple[list[str], str]:
+    """Tách câu hoàn chỉnh ở đầu buffer — mỗi câu dịch riêng."""
+    t = text.strip()
+    if not t:
+        return [], ""
+
+    parts = re.split(r"(?<=[。．！？.?!…])", t)
+    complete: list[str] = []
+    remainder_parts: list[str] = []
+
+    for part in parts:
+        p = part.strip()
+        if not p:
+            continue
+        if p[-1] in SENTENCE_END and is_meaningful_realtime_sentence(p):
+            complete.append(p)
+        else:
+            remainder_parts.append(part)
+
+    remainder = "".join(remainder_parts).strip()
+    return complete, remainder
+
+
+def should_flush_realtime_remainder(pending: str, silence_streak: int) -> bool:
+    """Phần chưa có dấu câu — chốt sau 1 chunk im lặng."""
+    p = pending.strip()
+    if not p:
+        return False
+    if is_sentence_complete(p) and is_meaningful_realtime_sentence(p):
+        return silence_streak >= SILENCE_CHUNKS_TO_FLUSH
+    if silence_streak >= SILENCE_CHUNKS_TO_FLUSH and is_meaningful_realtime_sentence(p):
+        return True
+    if len(p) >= MAX_PENDING_CHARS:
+        return True
+    return False
+
+
 def should_flush_buffer(pending: str, silence_streak: int) -> bool:
+    """Live Caption — chốt chậm hơn (giữ tương thích)."""
     p = pending.strip()
     if not p:
         return False
