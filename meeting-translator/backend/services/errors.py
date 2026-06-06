@@ -71,6 +71,12 @@ def friendly_api_error(exc: Exception, provider_hint: str | None = None) -> str:
                 f"Kiểm tra {hint} — hoặc dùng Google Translate cho dịch văn bản."
             )
         return f"Hết quota API. Kiểm tra key trong {hint}."
+    if "model not found" in lower or "invalid argument" in lower:
+        if provider_hint == "grok" or "x.ai" in lower:
+            return (
+                "Model Grok không còn hỗ trợ. Sửa GROK_MODEL=grok-4.3 trong "
+                f"{hint} (hoặc xóa dòng GROK_MODEL để dùng mặc định)."
+            )
     if "OPENAI_API_KEY" in msg or "XAI_API_KEY" in msg:
         return f"{msg} — File cấu hình: {hint}"
 

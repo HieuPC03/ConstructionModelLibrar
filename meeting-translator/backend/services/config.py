@@ -46,13 +46,29 @@ def get_translator_provider() -> str:
     return "grok"
 
 
+_LEGACY_GROK_MODELS = {
+    "grok-2-latest": "grok-4.3",
+    "grok-2-1212": "grok-4.3",
+    "grok-2": "grok-4.3",
+    "grok-beta": "grok-4.3",
+    "grok-3": "grok-4.3",
+    "grok-3-latest": "grok-4.3",
+}
+
+
+def get_grok_model() -> str:
+    _reload_env()
+    raw = (os.getenv("GROK_MODEL") or "grok-4.3").strip()
+    return _LEGACY_GROK_MODELS.get(raw.lower(), raw) or "grok-4.3"
+
+
 _reload_env()
 
 OPENAI_API_KEY = get_openai_api_key()
 OPENAI_STT_MODEL = os.getenv("OPENAI_STT_MODEL", "gpt-4o-mini-transcribe")
 OPENAI_TRANSLATE_MODEL = os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-4o-mini")
 GROK_API_KEY = get_grok_api_key()
-GROK_MODEL = os.getenv("GROK_MODEL", "grok-2-latest")
+GROK_MODEL = get_grok_model()
 GROK_API_BASE = os.getenv("GROK_API_BASE", "https://api.x.ai/v1")
 TRANSLATOR_PROVIDER = get_translator_provider()
 

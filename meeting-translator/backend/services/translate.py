@@ -5,9 +5,9 @@ from dataclasses import dataclass
 
 from services.config import (
     GROK_API_BASE,
-    GROK_MODEL,
     OPENAI_TRANSLATE_MODEL,
     get_grok_api_key,
+    get_grok_model,
     get_openai_api_key,
     get_translator_provider,
 )
@@ -67,6 +67,8 @@ def _should_fallback_to_openai(exc: Exception) -> bool:
             "503",
             "capacity",
             "insufficient",
+            "model not found",
+            "invalid argument",
         )
     )
 
@@ -162,7 +164,7 @@ async def _translate_grok(prompt: str) -> str:
 
     client = AsyncOpenAI(api_key=api_key, base_url=GROK_API_BASE)
     response = await client.chat.completions.create(
-        model=GROK_MODEL,
+        model=get_grok_model(),
         messages=[
             {"role": "system", "content": VI_JA_SYSTEM},
             {"role": "user", "content": prompt},

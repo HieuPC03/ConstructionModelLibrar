@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from services.config import (
-    GROK_MODEL,
+    get_grok_model,
     OPENAI_STT_MODEL,
     OPENAI_TRANSLATE_MODEL,
     PROVIDER_LABELS,
@@ -128,7 +128,7 @@ def _provider_health() -> tuple[bool, str, str, str | None]:
     if provider == "google":
         return openai_ok or grok_ok, label, stt, " ".join(hints) if not ok else None
     if provider == "grok":
-        return grok_ok or openai_ok, "Grok (xAI)", GROK_MODEL, msg
+        return grok_ok or openai_ok, "Grok (xAI)", get_grok_model(), msg
     return ok, label, stt, msg
 
 
