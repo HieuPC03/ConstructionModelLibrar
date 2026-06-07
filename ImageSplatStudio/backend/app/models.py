@@ -53,6 +53,7 @@ class JobInfo(BaseModel):
     error: Optional[str] = None
     demo: bool = False
     mesh_method: Optional[str] = None
+    training_quality: Optional[str] = None
 
 
 class HealthResponse(BaseModel):
@@ -60,6 +61,7 @@ class HealthResponse(BaseModel):
     gpu_available: bool
     colmap_available: bool
     open3d_available: bool
+    inria_3dgs_available: bool = False
     demo_mode: bool
 
 

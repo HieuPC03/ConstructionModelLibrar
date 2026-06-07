@@ -153,11 +153,16 @@ function AppContent() {
     return () => clearInterval(timer);
   }, [selectedId, jobs]);
 
-  const handleImageSubmit = async (name: string, files: File[], demo: boolean) => {
+  const handleImageSubmit = async (
+    name: string,
+    files: File[],
+    demo: boolean,
+    trainingQuality: "preview" | "standard",
+  ) => {
     setBusy(true);
     setError(null);
     try {
-      const result = await createJob(name, files, demo);
+      const result = await createJob(name, files, demo, trainingQuality);
       setPcPreviewFiles([]);
       await refresh();
       setSelectedId(result.job_id);
@@ -812,6 +817,7 @@ function AppContent() {
                   onSubmit={handleImageSubmit}
                   busy={busy}
                   demoMode={!!health?.demo_mode}
+                  inriaAvailable={!!health?.inria_3dgs_available}
                 />
               )}
               <JobList

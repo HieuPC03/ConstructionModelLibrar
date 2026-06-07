@@ -131,12 +131,19 @@ class PipelineRunner:
             ),
         )
 
+        job = job_store.get(job_id)
+        quality = (job.training_quality if job and job.training_quality else "standard")
+
         env = {
             **dict(__import__("os").environ),
             "JOB_ID": job_id,
             "INPUT_DIR": str(upload_dir),
             "OUTPUT_DIR": str(output_dir),
+            "TRAINING_QUALITY": quality,
         }
+        gs_dir = __import__("os").environ.get("GAUSSIAN_SPLATTING_DIR")
+        if gs_dir:
+            env["GAUSSIAN_SPLATTING_DIR"] = gs_dir
 
         process = subprocess.Popen(
             cmd,

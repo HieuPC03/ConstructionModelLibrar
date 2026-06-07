@@ -22,6 +22,7 @@ class JobStore:
         file_count: int = 0,
         demo: bool = False,
         mesh_method: str | None = None,
+        training_quality: str | None = None,
     ) -> JobInfo:
         job_id = uuid.uuid4().hex[:12]
         now = datetime.now(timezone.utc)
@@ -41,6 +42,7 @@ class JobStore:
             updated_at=now,
             demo=demo,
             mesh_method=mesh_method,
+            training_quality=training_quality,
         )
         with self._lock:
             self._jobs[job_id] = job

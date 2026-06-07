@@ -33,6 +33,7 @@ export interface JobInfo {
   error?: string | null;
   demo?: boolean;
   mesh_method?: string | null;
+  training_quality?: string | null;
 }
 
 export interface HealthInfo {
@@ -40,7 +41,10 @@ export interface HealthInfo {
   gpu_available: boolean;
   colmap_available: boolean;
   open3d_available: boolean;
+  inria_3dgs_available?: boolean;
   demo_mode: boolean;
 }
+
+export type TrainingQuality = "preview" | "standard";
 
 export type AppMode = "images" | "pointcloud";

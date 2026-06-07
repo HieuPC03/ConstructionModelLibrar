@@ -241,6 +241,13 @@ const translations = {
       "Upload 20–100 ảnh chụp quanh vật thể (góc overlap ~60%). Hỗ trợ JPG, PNG, WEBP, TIFF.",
     imgGpuWarn:
       "Máy chủ không có GPU — huấn luyện thật cần CUDA. Bạn vẫn có thể thử Demo nhanh.",
+    imgInriaReady:
+      "Inria 3D Gaussian Splatting đã sẵn sàng — huấn luyện chất lượng cao từ ảnh.",
+    imgTrainingQuality: "Chất lượng huấn luyện",
+    imgQualityPreview: "Xem trước (~7.000 bước, nhanh)",
+    imgQualityStandard: "Chuẩn (~30.000 bước, Inria 3DGS)",
+    imgQualityHint:
+      "Chuẩn cho kết quả tốt nhất; Xem trước để thử nhanh. Cần GAUSSIAN_SPLATTING_DIR + GPU.",
     imgNamePlaceholder: "Ví dụ: Nhà máy Zone A",
     dropImages: "Kéo thả ảnh vào đây hoặc",
     chooseImages: "Chọn ảnh",
@@ -518,6 +525,13 @@ const translations = {
       "物体を囲むように20〜100枚の写真をアップロード（オーバーラップ約60%）。JPG、PNG、WEBP、TIFF対応。",
     imgGpuWarn:
       "GPUがありません — 本番トレーニングにはCUDAが必要です。クイックデモをお試しください。",
+    imgInriaReady:
+      "Inria 3D Gaussian Splatting 利用可能 — 高品質な画像ベース再構築。",
+    imgTrainingQuality: "トレーニング品質",
+    imgQualityPreview: "プレビュー（約7,000ステップ・高速）",
+    imgQualityStandard: "標準（約30,000ステップ・Inria 3DGS）",
+    imgQualityHint:
+      "最高品質は標準。お試しはプレビュー。GAUSSIAN_SPLATTING_DIR + GPU が必要です。",
     imgNamePlaceholder: "例: 工場 Zone A",
     dropImages: "画像をドラッグ＆ドロップまたは",
     chooseImages: "画像を選択",

@@ -15,9 +15,11 @@ Web app tạo **mô hình 3D** từ:
 
 ### Ảnh → Gaussian Splat
 - Upload nhiều ảnh (drag & drop)
-- Pipeline: **COLMAP** → **3D Gaussian Splatting** → `.splat`
+- Pipeline: **COLMAP** → **Inria 3D Gaussian Splatting** → `.splat`
+- Fallback: gsplat hoặc demo khi chưa cấu hình trainer
+- Chọn chất lượng: **Xem trước** (7k) / **Chuẩn** (30k)
 - Viewer Gaussian Splat trong trình duyệt
-- Cần GPU cho huấn luyện thật
+- Cần GPU + [Inria 3DGS](https://github.com/graphdeco-inria/gaussian-splatting) cho huấn luyện thật
 
 ## Chạy nhanh
 
@@ -80,7 +82,16 @@ flowchart LR
 
 - NVIDIA GPU + CUDA
 - [COLMAP](https://colmap.github.io/install.html)
-- `gsplat` hoặc `nerfstudio` (tùy chọn, xem `pipeline/`)
+- [Inria 3D Gaussian Splatting](https://github.com/graphdeco-inria/gaussian-splatting) (khuyến nghị):
+
+```bash
+./scripts/setup-gaussian-splatting.sh ~/gaussian-splatting
+export GAUSSIAN_SPLATTING_DIR=~/gaussian-splatting
+```
+
+- Hoặc `gsplat` (fallback): `pip install gsplat torch`
+
+Chi tiết pipeline: [pipeline/README.md](pipeline/README.md)
 
 ## Chạy nhanh (development)
 

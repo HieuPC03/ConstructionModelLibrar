@@ -26,10 +26,12 @@ export async function createJob(
   name: string,
   images: File[],
   demo: boolean,
+  trainingQuality: "preview" | "standard" = "standard",
 ): Promise<{ job_id: string; message: string }> {
   const form = new FormData();
   form.append("name", name);
   form.append("demo", String(demo));
+  form.append("training_quality", trainingQuality);
   for (const file of images) {
     form.append("images", file);
   }

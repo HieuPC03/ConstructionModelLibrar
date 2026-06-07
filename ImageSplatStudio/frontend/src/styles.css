@@ -263,6 +263,12 @@ body.iss-resizing {
   color: #fde68a;
 }
 
+.banner-ok {
+  background: rgba(52, 211, 153, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  color: #a7f3d0;
+}
+
 .banner-error {
   background: rgba(251, 113, 133, 0.1);
   border: 1px solid rgba(251, 113, 133, 0.3);

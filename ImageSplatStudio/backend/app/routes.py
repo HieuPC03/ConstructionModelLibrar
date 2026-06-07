@@ -5,7 +5,12 @@ from fastapi.responses import FileResponse, Response, StreamingResponse
 
 from app.config import settings
 from app.models import HealthResponse, JobCreateResponse, JobInfo, JobStatus, JobType, OutputFormat
-from app.services.capabilities import check_colmap_available, check_gpu_available, check_open3d_available
+from app.services.capabilities import (
+    check_colmap_available,
+    check_gpu_available,
+    check_inria_3dgs_available,
+    check_open3d_available,
+)
 from app.services.export_service import create_export_zip, ensure_fbx_export, safe_filename
 from app.services.job_store import job_store
 from app.services.pointcloud_preview import preview_upload_files
@@ -23,6 +28,7 @@ def health() -> HealthResponse:
         gpu_available=check_gpu_available(),
         colmap_available=check_colmap_available(),
         open3d_available=check_open3d_available(),
+        inria_3dgs_available=check_inria_3dgs_available(),
         demo_mode=settings.demo_mode or not check_gpu_available(),
     )
 
@@ -44,8 +50,12 @@ def get_job(job_id: str) -> JobInfo:
 async def create_image_job(
     name: str = Form(...),
     demo: bool = Form(False),
+    training_quality: str = Form("standard"),
     images: list[UploadFile] = File(default=[]),
 ) -> JobCreateResponse:
+    quality = training_quality.strip().lower()
+    if quality not in {"preview", "standard"}:
+        quality = "standard"
     if not demo and len(images) < 3:
         raise HTTPException(
             status_code=400,
@@ -63,6 +73,7 @@ async def create_image_job(
         output_format=OutputFormat.SPLAT,
         file_count=len(images),
         demo=demo,
+        training_quality=quality,
     )
     upload_dir = job_store.job_dir(job.job_id, "uploads")
 

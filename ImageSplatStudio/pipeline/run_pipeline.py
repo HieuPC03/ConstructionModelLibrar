@@ -13,6 +13,8 @@ if _ROOT not in sys.path:
 
 PIPELINE_ROOT = Path(__file__).resolve().parent
 
+from inria_3dgs import run_colmap_undistort
+
 
 def run(cmd: list[str], *, cwd: Path | None = None) -> None:
     result = subprocess.run(cmd, cwd=str(cwd or PIPELINE_ROOT))
@@ -27,7 +29,10 @@ def main() -> int:
     colmap_db = work_dir / "database.db"
     sparse_dir = work_dir / "sparse"
     images_dir = work_dir / "images"
+    dataset_dir = work_dir / "dataset"
+    model_dir = work_dir / "inria_model"
     python = sys.executable
+    colmap = os.environ.get("COLMAP_BIN", "colmap")
 
     work_dir.mkdir(parents=True, exist_ok=True)
     sparse_dir.mkdir(parents=True, exist_ok=True)
@@ -37,7 +42,6 @@ def main() -> int:
     run([python, str(PIPELINE_ROOT / "prepare_images.py"), str(input_dir), str(images_dir)])
 
     print("STAGE:COLMAP")
-    colmap = os.environ.get("COLMAP_BIN", "colmap")
     run([
         colmap, "feature_extractor",
         "--database_path", str(colmap_db),
@@ -58,18 +62,27 @@ def main() -> int:
         "--output_path", str(sparse_dir),
     ])
 
+    print("STAGE:COLMAP_UNDISTORT")
+    run_colmap_undistort(
+        images_dir=images_dir,
+        sparse_dir=sparse_dir / "0",
+        output_dir=dataset_dir,
+        colmap_bin=colmap,
+    )
+
     print("STAGE:TRAINING")
     run([
         python, str(PIPELINE_ROOT / "train_gaussian_splat.py"),
-        "--images", str(images_dir),
-        "--sparse", str(sparse_dir / "0"),
-        "--output", str(work_dir / "point_cloud"),
+        "--dataset", str(dataset_dir),
+        "--images", str(dataset_dir / "images"),
+        "--sparse", str(dataset_dir / "sparse" / "0"),
+        "--output", str(model_dir),
     ])
 
     print("STAGE:EXPORT")
     run([
         python, str(PIPELINE_ROOT / "export_splat.py"),
-        "--input", str(work_dir / "point_cloud"),
+        "--input", str(model_dir),
         "--output", str(output_dir / "model.splat"),
     ])
 

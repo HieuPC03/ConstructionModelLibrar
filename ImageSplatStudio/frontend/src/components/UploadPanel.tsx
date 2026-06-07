@@ -3,9 +3,15 @@ import { useI18n } from "../i18n/I18nProvider";
 import { fileKey, isHeicFile, isSupportedImageFile } from "../utils/files";
 
 interface UploadPanelProps {
-  onSubmit: (name: string, files: File[], demo: boolean) => Promise<void>;
+  onSubmit: (
+    name: string,
+    files: File[],
+    demo: boolean,
+    trainingQuality: "preview" | "standard",
+  ) => Promise<void>;
   busy: boolean;
   demoMode: boolean;
+  inriaAvailable?: boolean;
 }
 
 interface FilePreview {
@@ -14,12 +20,13 @@ interface FilePreview {
   url: string;
 }
 
-export function UploadPanel({ onSubmit, busy, demoMode }: UploadPanelProps) {
+export function UploadPanel({ onSubmit, busy, demoMode, inriaAvailable }: UploadPanelProps) {
   const { tr } = useI18n();
   const [name, setName] = useState("");
   const [previews, setPreviews] = useState<FilePreview[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [demo, setDemo] = useState(false);
+  const [trainingQuality, setTrainingQuality] = useState<"preview" | "standard">("standard");
   const [skipped, setSkipped] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const previewsRef = useRef(previews);
@@ -94,10 +101,11 @@ export function UploadPanel({ onSubmit, busy, demoMode }: UploadPanelProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const files = previews.map((p) => p.file);
-    await onSubmit(name.trim() || "Mô hình mới", files, demo);
+    await onSubmit(name.trim() || "Mô hình mới", files, demo, trainingQuality);
     setName("");
     clearFiles();
     setDemo(false);
+    setTrainingQuality("standard");
   };
 
   const fileCount = previews.length;
@@ -110,6 +118,25 @@ export function UploadPanel({ onSubmit, busy, demoMode }: UploadPanelProps) {
 
       {demoMode && (
         <div className="banner banner-warn">{tr("imgGpuWarn")}</div>
+      )}
+
+      {inriaAvailable && !demoMode && (
+        <div className="banner banner-ok">{tr("imgInriaReady")}</div>
+      )}
+
+      {!demo && !demoMode && (
+        <label className="field">
+          <span>{tr("imgTrainingQuality")}</span>
+          <select
+            value={trainingQuality}
+            onChange={(e) => setTrainingQuality(e.target.value as "preview" | "standard")}
+            disabled={busy}
+          >
+            <option value="preview">{tr("imgQualityPreview")}</option>
+            <option value="standard">{tr("imgQualityStandard")}</option>
+          </select>
+          <p className="muted">{tr("imgQualityHint")}</p>
+        </label>
       )}
 
       {skipped > 0 && (

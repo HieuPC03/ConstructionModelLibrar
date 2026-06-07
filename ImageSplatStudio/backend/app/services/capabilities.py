@@ -1,4 +1,6 @@
+import os
 import subprocess
+from pathlib import Path
 
 
 def check_gpu_available() -> bool:
@@ -36,3 +38,11 @@ def check_open3d_available() -> bool:
         return True
     except ImportError:
         return False
+
+
+def check_inria_3dgs_available() -> bool:
+    raw = os.environ.get("GAUSSIAN_SPLATTING_DIR", "").strip()
+    if not raw:
+        return False
+    repo = Path(raw).expanduser()
+    return (repo / "train.py").is_file() and check_gpu_available()
