@@ -13,6 +13,7 @@ import {
 import { formatFileSize } from "../utils/pointcloud";
 import { viewerToWorld, worldToViewer, formatWorldCoords, type NormMeta } from "../utils/coordTransform";
 import { LassoOverlay } from "./pceditor/LassoOverlay";
+import { OrientationGizmo } from "./pceditor/OrientationGizmo";
 import { createAxesHelper, createWorldAxesHelper, applyViewDirection, type ViewDirection } from "./ViewCube";
 import { OSNAP_CURSOR, PLANE_PICK_TOOLS, TOOL_CURSORS, toolHintKey, type EditorTool, type OsnapMode } from "../utils/editorTools";
 import { applyColorMode, type ColorMode } from "../utils/colorModes";
@@ -206,7 +207,21 @@ export function PointCloudPreview({
   const onSessionReadyRef = useRef(onSessionReady);
   const cameraSavedRef = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
   const filesKeyRef = useRef<string>("");
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
 
+  const handleGizmoDrag = useCallback((deltaX: number, deltaY: number) => {
+    const ctx = sceneCtxRef.current;
+    if (!ctx) return;
+    const { camera, controls } = ctx;
+    const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
+    const spherical = new THREE.Spherical().setFromVector3(offset);
+    spherical.theta -= deltaX * 0.005;
+    spherical.phi = Math.max(0.05, Math.min(Math.PI - 0.05, spherical.phi - deltaY * 0.005));
+    offset.setFromSpherical(spherical);
+    camera.position.copy(controls.target).add(offset);
+    camera.lookAt(controls.target);
+    controls.update();
+  }, []);
   const [data, setData] = useState<PreviewData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -446,6 +461,7 @@ export function PointCloudPreview({
     const camera = new THREE.PerspectiveCamera(50, 1, maxDim * 0.001, maxDim * 100);
     camera.up.set(0, 0, 1);
     camera.position.set(maxDim * 1.2, -maxDim * 1.2, maxDim * 0.9);
+    cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -720,6 +736,7 @@ export function PointCloudPreview({
       renderer.dispose();
       mount.removeChild(renderer.domElement);
       sceneCtxRef.current = null;
+      cameraRef.current = null;
       if (cameraBridgeRef) cameraBridgeRef.current = null;
     };
   }, [data, resolvePick, showAxes, normMeta, swapXy, cameraBridgeRef, gridEnabled, showMesh, crsEpsg]);
@@ -1313,6 +1330,9 @@ export function PointCloudPreview({
           </div>
         )}
         <div ref={mountRef} className="pc-preview-mount" />
+        {data && !loading && (
+          <OrientationGizmo cameraRef={cameraRef} onDragRotate={handleGizmoDrag} />
+        )}
         {cursorXY && (
           <div className="pc-cursor-xy-bar" aria-live="polite">
             <span>
