@@ -134,13 +134,14 @@ export async function editorConfigureGrid(
 
 export async function editorCreateMesh(
   sessionId: string,
-  method = "poisson",
+  method: "idw" | "surface" | "tin" | "poisson" | "bpa" = "idw",
+  cellSize?: number,
 ): Promise<EditorProperties> {
   return parseJson(
     await fetch(`${API}/${sessionId}/mesh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ method }),
+      body: JSON.stringify({ method, cell_size: cellSize }),
     }),
   );
 }

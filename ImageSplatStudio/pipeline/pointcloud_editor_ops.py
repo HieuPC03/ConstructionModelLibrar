@@ -51,9 +51,11 @@ def create_idw_grid(
     cell_size: float,
     *,
     power: float = 2.0,
-    max_neighbors: int = 12,
+    max_neighbors: int = 24,
+    search_radius_factor: float = 2.5,
+    surface_mode: str = "idw",
 ) -> dict:
-    """Create elevation grid from point cloud using inverse distance weighting."""
+    """Create elevation grid from point cloud using inverse distance weighting (TREND-POINT style)."""
     cell = max(float(cell_size), 1e-6)
     mn = np.asarray(bbox_min, dtype=np.float64)
     mx = np.asarray(bbox_max, dtype=np.float64)
@@ -65,20 +67,41 @@ def create_idw_grid(
     ys = np.arange(mn[1], mx[1] + cell * 0.5, cell)
     nx, ny = len(xs), len(ys)
     values = np.full((ny, nx), np.nan, dtype=np.float64)
+    search_r2 = (cell * search_radius_factor) ** 2
+    half_cell2 = (cell * 0.5) ** 2
 
     for iy, y in enumerate(ys):
         for ix, x in enumerate(xs):
             dx = pts[:, 0] - x
             dy = pts[:, 1] - y
             dist2 = dx * dx + dy * dy
-            mask = dist2 < (cell * 0.5) ** 2
-            if np.any(mask):
-                values[iy, ix] = float(np.mean(pts[mask, 2]))
+
+            in_cell = dist2 < half_cell2
+            if np.any(in_cell):
+                z_in = pts[in_cell, 2]
+                if surface_mode == "min_z":
+                    values[iy, ix] = float(np.min(z_in))
+                elif surface_mode == "mean_z":
+                    values[iy, ix] = float(np.mean(z_in))
+                else:
+                    values[iy, ix] = float(np.mean(z_in))
                 continue
-            order = np.argsort(dist2)[:max_neighbors]
-            d = np.sqrt(dist2[order] + 1e-12)
-            w = 1.0 / np.power(d, power)
-            values[iy, ix] = float(np.sum(w * pts[order, 2]) / np.sum(w))
+
+            nearby = dist2 <= search_r2
+            if np.any(nearby):
+                idx = np.where(nearby)[0]
+            else:
+                idx = np.argsort(dist2)[:max_neighbors]
+
+            d = np.sqrt(dist2[idx] + 1e-12)
+            z = pts[idx, 2]
+            if surface_mode == "min_z":
+                values[iy, ix] = float(np.min(z))
+            else:
+                w = 1.0 / np.power(d, power)
+                values[iy, ix] = float(np.sum(w * z) / np.sum(w))
+
+    values = fill_nan_grid_2d(values)
 
     return {
         "cell_size": cell,
@@ -87,7 +110,145 @@ def create_idw_grid(
         "xs": xs.tolist(),
         "ys": ys.tolist(),
         "values": values.tolist(),
+        "surface_mode": surface_mode,
     }
+
+
+def fill_nan_grid_2d(values: np.ndarray, max_passes: int = 12) -> np.ndarray:
+    """Fill NaN cells by averaging valid 4-neighbors (hole filling for TIN)."""
+    out = np.asarray(values, dtype=np.float64).copy()
+    ny, nx = out.shape
+    for _ in range(max_passes):
+        nan_mask = np.isnan(out)
+        if not np.any(nan_mask):
+            break
+        filled = out.copy()
+        for iy in range(ny):
+            for ix in range(nx):
+                if not np.isnan(out[iy, ix]):
+                    continue
+                neighbors = []
+                if iy > 0 and not np.isnan(out[iy - 1, ix]):
+                    neighbors.append(out[iy - 1, ix])
+                if iy + 1 < ny and not np.isnan(out[iy + 1, ix]):
+                    neighbors.append(out[iy + 1, ix])
+                if ix > 0 and not np.isnan(out[iy, ix - 1]):
+                    neighbors.append(out[iy, ix - 1])
+                if ix + 1 < nx and not np.isnan(out[iy, ix + 1]):
+                    neighbors.append(out[iy, ix + 1])
+                if neighbors:
+                    filled[iy, ix] = float(np.mean(neighbors))
+        out = filled
+    return out
+
+
+def idw_grid_to_tin(idw: dict) -> tuple[np.ndarray, np.ndarray]:
+    """Triangulate IDW grid into TIN mesh (2 triangles per cell) — TREND-POINT 三角網."""
+    nx, ny = idw["size"]
+    xs = np.asarray(idw["xs"], dtype=np.float64)
+    ys = np.asarray(idw["ys"], dtype=np.float64)
+    values = np.asarray(idw["values"], dtype=np.float64)
+
+    vi_map: dict[tuple[int, int], int] = {}
+    vertices: list[list[float]] = []
+
+    def vertex_index(iy: int, ix: int) -> int | None:
+        if iy < 0 or ix < 0 or iy >= ny or ix >= nx:
+            return None
+        z = values[iy, ix]
+        if np.isnan(z):
+            return None
+        key = (iy, ix)
+        if key not in vi_map:
+            vi_map[key] = len(vertices)
+            vertices.append([float(xs[ix]), float(ys[iy]), float(z)])
+        return vi_map[key]
+
+    triangles: list[list[int]] = []
+    for iy in range(ny - 1):
+        for ix in range(nx - 1):
+            i00 = vertex_index(iy, ix)
+            i10 = vertex_index(iy, ix + 1)
+            i01 = vertex_index(iy + 1, ix)
+            i11 = vertex_index(iy + 1, ix + 1)
+            corners = [i00, i10, i11, i01]
+            valid = [c for c in corners if c is not None]
+            if len(valid) == 4:
+                a, b, c, d = i00, i10, i11, i01  # type: ignore
+                triangles.append([a, b, c])
+                triangles.append([a, c, d])
+            elif len(valid) == 3:
+                triangles.append(valid)
+
+    if not vertices:
+        raise ValueError("Không tạo được TIN — lưới IDW rỗng hoặc toàn NaN.")
+    return np.asarray(vertices, dtype=np.float64), np.asarray(triangles, dtype=np.int32)
+
+
+def mesh_from_idw_surface(
+    points: np.ndarray,
+    colors: np.ndarray | None,
+    output_path: Path,
+    *,
+    bbox_min: np.ndarray,
+    bbox_max: np.ndarray,
+    cell_size: float = 0.2,
+    surface_mode: str = "idw",
+    snap_to_points: bool = True,
+) -> dict:
+    """Terrain mesh via IDW surface interpolation → TIN (TREND-POINT workflow)."""
+    import open3d as o3d
+
+    idw = create_idw_grid(
+        points,
+        bbox_min,
+        bbox_max,
+        cell_size,
+        surface_mode=surface_mode,
+    )
+
+    if snap_to_points:
+        _snap_idw_to_points(idw, points, cell_size)
+
+    verts, tris = idw_grid_to_tin(idw)
+    mesh = o3d.geometry.TriangleMesh(
+        o3d.utility.Vector3dVector(verts),
+        o3d.utility.Vector3iVector(tris),
+    )
+    mesh.compute_vertex_normals()
+    mesh.paint_uniform_color([0.72, 0.78, 0.86])
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if not o3d.io.write_triangle_mesh(str(output_path), mesh, write_vertex_colors=True):
+        raise RuntimeError("Không ghi được file mesh.")
+
+    return {
+        "vertices": int(len(mesh.vertices)),
+        "triangles": int(len(mesh.triangles)),
+        "method": "idw",
+        "cell_size": float(cell_size),
+        "grid_size": idw["size"],
+    }
+
+
+def _snap_idw_to_points(idw: dict, points: np.ndarray, cell_size: float) -> None:
+    """Refine grid nodes with survey points inside each cell (honour measurements)."""
+    pts = np.asarray(points, dtype=np.float64)
+    xs = np.asarray(idw["xs"], dtype=np.float64)
+    ys = np.asarray(idw["ys"], dtype=np.float64)
+    values = np.asarray(idw["values"], dtype=np.float64)
+    half = cell_size * 0.5
+    ny, nx = values.shape
+
+    for iy, y in enumerate(ys):
+        for ix, x in enumerate(xs):
+            mask = (
+                (np.abs(pts[:, 0] - x) <= half)
+                & (np.abs(pts[:, 1] - y) <= half)
+            )
+            if np.any(mask):
+                values[iy, ix] = float(np.mean(pts[mask, 2]))
+    idw["values"] = values.tolist()
 
 
 def apply_swap_xy(points: np.ndarray, meta: dict | None = None) -> np.ndarray:
@@ -145,7 +306,34 @@ def split_by_axis(points: np.ndarray, colors: np.ndarray | None, axis: int, valu
     return (left_pts, left_cols), (right_pts, right_cols)
 
 
-def mesh_from_points(points: np.ndarray, colors: np.ndarray | None, output_path: Path, *, method="poisson", depth=8):
+def mesh_from_points(
+    points: np.ndarray,
+    colors: np.ndarray | None,
+    output_path: Path,
+    *,
+    method="idw",
+    depth=8,
+    cell_size: float = 0.2,
+    bbox_min: np.ndarray | None = None,
+    bbox_max: np.ndarray | None = None,
+):
+    """Create mesh from points. Default: IDW surface → TIN (TREND-POINT)."""
+    pts = np.asarray(points, dtype=np.float64)
+    if len(pts) < 4:
+        raise ValueError("Quá ít điểm để tạo mesh (cần ≥ 4).")
+
+    if method in ("idw", "surface", "tin"):
+        mn = np.min(pts, axis=0) if bbox_min is None else np.asarray(bbox_min, dtype=np.float64)
+        mx = np.max(pts, axis=0) if bbox_max is None else np.asarray(bbox_max, dtype=np.float64)
+        return mesh_from_idw_surface(
+            pts,
+            colors,
+            output_path,
+            bbox_min=mn,
+            bbox_max=mx,
+            cell_size=cell_size,
+        )
+
     import open3d as o3d
 
     pcd = o3d.geometry.PointCloud()
@@ -188,6 +376,7 @@ def mesh_from_points(points: np.ndarray, colors: np.ndarray | None, output_path:
     return {
         "vertices": int(len(mesh.vertices)),
         "triangles": int(len(mesh.triangles)),
+        "method": method,
     }
 
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
 import {
   editorCleanOutliers,
@@ -37,8 +37,15 @@ export function PointCloudProcessRibbon({
   const [groundCell, setGroundCell] = useState(1.0);
   const [groundOffset, setGroundOffset] = useState(0.5);
   const [subsampleRatio, setSubsampleRatio] = useState(0.5);
-  const [meshMethod, setMeshMethod] = useState<"poisson" | "bpa">("poisson");
+  const [meshMethod, setMeshMethod] = useState<"idw" | "poisson" | "bpa">("idw");
+  const [meshCellSize, setMeshCellSize] = useState(properties?.grid?.cell_size ?? 0.2);
   const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    if (properties?.grid?.cell_size) {
+      setMeshCellSize(properties.grid.cell_size);
+    }
+  }, [properties?.grid?.cell_size]);
 
   const disabled = !sessionId || busy;
 
@@ -172,21 +179,40 @@ export function PointCloudProcessRibbon({
           <select
             className="pc-ribbon-select"
             value={meshMethod}
-            onChange={(e) => setMeshMethod(e.target.value as "poisson" | "bpa")}
+            onChange={(e) => setMeshMethod(e.target.value as "idw" | "poisson" | "bpa")}
           >
-            <option value="poisson">Poisson</option>
-            <option value="bpa">BPA</option>
+            <option value="idw">{tr("meshMethodIdw")}</option>
+            <option value="poisson">{tr("meshMethodPoisson")}</option>
+            <option value="bpa">{tr("meshMethodBpa")}</option>
           </select>
+          {(meshMethod === "idw") && (
+            <label className="pc-process-inline">
+              {tr("pcGridCellSize")} {meshCellSize.toFixed(2)}m
+              <input
+                type="range"
+                min={0.05}
+                max={2}
+                step={0.05}
+                value={meshCellSize}
+                onChange={(e) => setMeshCellSize(Number(e.target.value))}
+              />
+            </label>
+          )}
           <button
             type="button"
             className="pc-process-btn pc-process-accent"
             disabled={disabled}
             onClick={() =>
-              void run(tr("pcMenuCreateMesh"), () => editorCreateMesh(sessionId!, meshMethod))
+              void run(tr("pcMenuCreateMesh"), () =>
+                editorCreateMesh(sessionId!, meshMethod, meshCellSize),
+              )
             }
           >
             {busy ? tr("pcMenuWorking") : tr("pcMenuCreateMesh")}
           </button>
+          {(meshMethod === "idw") && (
+            <p className="pc-process-hint">{tr("meshMethodHint")}</p>
+          )}
         </div>
 
         <button

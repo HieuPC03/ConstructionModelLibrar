@@ -21,17 +21,29 @@ def load_point_cloud(path: Path):
 def reconstruct(
     input_path: Path,
     output_path: Path,
-    method: str = "poisson",
+    method: str = "idw",
     voxel_size: float = 0.0,
     depth: int = 9,
+    cell_size: float = 0.2,
 ) -> None:
     import numpy as np
     import open3d as o3d
+
+    from pointcloud_editor_ops import mesh_from_points
 
     print("STAGE:PREPROCESS")
     pcd = load_point_cloud(input_path)
     point_count = len(pcd.points)
     print(f"Loaded {point_count} points")
+
+    pts = np.asarray(pcd.points, dtype=np.float64)
+    cols = np.asarray(pcd.colors, dtype=np.float64) if pcd.has_colors() else None
+
+    print("STAGE:MESHING")
+    if method in ("idw", "surface", "tin"):
+        mesh_from_points(pts, cols, output_path, method="idw", cell_size=cell_size)
+        print(f"Exported IDW/TIN mesh → {output_path}")
+        return
 
     if voxel_size <= 0:
         bbox = pcd.get_axis_aligned_bounding_box()
@@ -93,13 +105,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Point cloud → 3D mesh")
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--method", choices=["poisson", "bpa"], default="poisson")
+    parser.add_argument("--method", choices=["idw", "surface", "tin", "poisson", "bpa"], default="idw")
+    parser.add_argument("--cell-size", type=float, default=0.2)
     parser.add_argument("--voxel-size", type=float, default=0.0)
     parser.add_argument("--depth", type=int, default=9)
     args = parser.parse_args()
 
     try:
-        reconstruct(args.input, args.output, args.method, args.voxel_size, args.depth)
+        reconstruct(args.input, args.output, args.method, args.voxel_size, args.depth, args.cell_size)
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(1)

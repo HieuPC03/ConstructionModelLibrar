@@ -337,15 +337,34 @@ def get_grid_binary(session_id: str) -> bytes | None:
     return grid_path.read_bytes()
 
 
-def create_mesh(session_id: str, method: str = "poisson") -> dict:
+def create_mesh(session_id: str, method: str = "idw", cell_size: float | None = None) -> dict:
     _pipeline_path()
     from pointcloud_editor_ops import mesh_from_points
 
     visible_pts, visible_cols, state = get_visible_points(session_id)
-    if len(visible_pts) < 100:
-        raise ValueError("Cần ít nhất 100 điểm hiển thị để tạo mesh.")
+    if len(visible_pts) < 4:
+        raise ValueError("Cần ít nhất 4 điểm hiển thị để tạo mesh địa hình.")
+
+    grid = state.get("grid", {})
+    cell = max(float(cell_size or grid.get("cell_size", 0.2)), 0.01)
+
+    if grid.get("region"):
+        mn = np.asarray(grid["region"]["min"], dtype=np.float64)
+        mx = np.asarray(grid["region"]["max"], dtype=np.float64)
+    else:
+        mn = np.min(visible_pts, axis=0)
+        mx = np.max(visible_pts, axis=0)
+
     mesh_path = _session_dir(session_id) / "mesh.obj"
-    info = mesh_from_points(visible_pts, visible_cols, mesh_path, method=method)
+    info = mesh_from_points(
+        visible_pts,
+        visible_cols,
+        mesh_path,
+        method=method,
+        cell_size=cell,
+        bbox_min=mn,
+        bbox_max=mx,
+    )
     state["mesh"] = {"path": str(mesh_path.name), **info}
     save_state(session_id, state)
     return get_properties(session_id)

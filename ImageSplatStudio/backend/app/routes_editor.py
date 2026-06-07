@@ -83,7 +83,8 @@ class SplitBody(BaseModel):
 
 
 class MeshBody(BaseModel):
-    method: str = "poisson"
+    method: str = "idw"
+    cell_size: float | None = None
 
 
 class PointBody(BaseModel):
@@ -357,9 +358,10 @@ def editor_subsample(session_id: str, body: SubsampleBody) -> dict:
 @router.post("/{session_id}/mesh")
 def editor_mesh(session_id: str, body: MeshBody) -> dict:
     _ensure_session(session_id)
-    method = body.method if body.method in {"poisson", "bpa"} else "poisson"
+    allowed = {"idw", "surface", "tin", "poisson", "bpa"}
+    method = body.method if body.method in allowed else "idw"
     try:
-        return create_mesh(session_id, method=method)
+        return create_mesh(session_id, method=method, cell_size=body.cell_size)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

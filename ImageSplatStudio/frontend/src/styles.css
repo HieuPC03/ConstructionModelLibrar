@@ -1707,6 +1707,15 @@ body.iss-resizing {
   gap: 3px;
   padding: 2px 6px;
   border-right: 1px solid #c5ccd8;
+  flex-wrap: wrap;
+}
+
+.pc-process-hint {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  font-size: 0.65rem;
+  color: #64748b;
+  line-height: 1.35;
 }
 
 .pc-ribbon-label {
