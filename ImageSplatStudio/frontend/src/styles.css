@@ -994,6 +994,35 @@ body.iss-resizing-v {
   overflow: hidden;
 }
 
+.pc-cursor-xy-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 5px 14px;
+  background: rgba(255, 255, 255, 0.94);
+  border-top: 1px solid #9ca3af;
+  color: #111827;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.pc-cursor-xy-bar strong {
+  font-weight: 700;
+  color: #1d4ed8;
+}
+
+.pc-pro-viewport .pc-cursor-xy-bar {
+  border-radius: 0;
+}
+
 .pc-preview-mount {
   position: absolute;
   inset: 0;

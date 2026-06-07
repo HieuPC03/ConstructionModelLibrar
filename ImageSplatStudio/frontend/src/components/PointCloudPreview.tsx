@@ -205,6 +205,7 @@ export function PointCloudPreview({
   const [debouncedPercent, setDebouncedPercent] = useState(DEFAULT_PERCENT);
   const [pointSizeM, setPointSizeM] = useState(DEFAULT_POINT_SIZE_M);
   const [snapLabel, setSnapLabel] = useState<string | null>(null);
+  const [cursorXY, setCursorXY] = useState<[number, number] | null>(null);
   const colorModeRef = useRef(colorMode);
   const rawColorsRef = useRef<Uint8Array | null>(null);
   const rawClassificationsRef = useRef<Uint8Array | null>(null);
@@ -235,6 +236,26 @@ export function PointCloudPreview({
   useEffect(() => {
     onSnapHoverRef.current = onSnapHover;
   }, [onSnapHover]);
+
+  const normMetaRef = useRef(normMeta);
+  const swapXyRef = useRef(swapXy);
+
+  useEffect(() => {
+    normMetaRef.current = normMeta;
+  }, [normMeta]);
+  useEffect(() => {
+    swapXyRef.current = swapXy;
+  }, [swapXy]);
+
+  const reportCursorWorld = (world: [number, number, number] | null) => {
+    if (world) {
+      setCursorXY([world[0], world[1]]);
+      onSnapHoverRef.current?.(world);
+    } else {
+      setCursorXY(null);
+      onSnapHoverRef.current?.(null);
+    }
+  };
 
   useEffect(() => {
     const key = files.map((f) => `${f.name}:${f.size}`).join("|");
@@ -590,15 +611,16 @@ export function PointCloudPreview({
       ctx.raycaster.setFromCamera(ndc, ctx.camera);
       const tool = toolRef.current;
 
-      // TREND-POINT status bar: always show cursor XYZ on ground plane
+      // Cursor XY on ground plane (world / WCS)
       const planeHit = intersectGroundPlane(ctx.raycaster, ctx.groundZ);
-      if (planeHit && normMeta) {
-        const world = viewerToWorld([planeHit.x, planeHit.y, planeHit.z], normMeta, swapXy);
-        onSnapHoverRef.current?.(world);
+      const meta = normMetaRef.current;
+      const swapped = swapXyRef.current;
+      if (planeHit && meta) {
+        reportCursorWorld(viewerToWorld([planeHit.x, planeHit.y, planeHit.z], meta, swapped));
       } else if (planeHit) {
-        onSnapHoverRef.current?.([planeHit.x, planeHit.y, planeHit.z]);
+        reportCursorWorld([planeHit.x, planeHit.y, planeHit.z]);
       } else {
-        onSnapHoverRef.current?.(null);
+        reportCursorWorld(null);
       }
 
       if (tool === "navigate") {
@@ -612,13 +634,13 @@ export function PointCloudPreview({
         ctx.snapMarker.position.copy(hit.point);
         ctx.snapMarker.visible = true;
         const pos: [number, number, number] = [hit.point.x, hit.point.y, hit.point.z];
-        if (normMeta) {
-          const world = viewerToWorld(pos, normMeta, swapXy);
+        if (meta) {
+          const world = viewerToWorld(pos, meta, swapped);
           setSnapLabel(formatWorldCoords(world));
-          onSnapHoverRef.current?.(world);
+          reportCursorWorld(world);
         } else {
           setSnapLabel(formatSnapLabel(hit.point));
-          onSnapHoverRef.current?.(pos);
+          reportCursorWorld(pos);
         }
       } else {
         ctx.snapMarker.visible = false;
@@ -1173,6 +1195,7 @@ export function PointCloudPreview({
       <div
         ref={viewportRef}
         className={`pc-preview-viewport ${cursorClass}`}
+        onMouseLeave={() => reportCursorWorld(null)}
         style={{
           cursor:
             activeTool === "navigate"
@@ -1205,6 +1228,16 @@ export function PointCloudPreview({
           </div>
         )}
         <div ref={mountRef} className="pc-preview-mount" />
+        {cursorXY && (
+          <div className="pc-cursor-xy-bar" aria-live="polite">
+            <span>
+              X: <strong>{cursorXY[0].toFixed(3)}</strong>
+            </span>
+            <span>
+              Y: <strong>{cursorXY[1].toFixed(3)}</strong>
+            </span>
+          </div>
+        )}
         <LassoOverlay
           active={activeTool === "lasso_select"}
           onComplete={(polygonNdc) => {

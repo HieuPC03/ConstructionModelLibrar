@@ -34,11 +34,9 @@ export function PointCloudStatusBar({
       <div className="tp-status-center">
         {snapCoords ? (
           <span className="tp-status-xyz">
-            X: <strong>{snapCoords[0].toFixed(4)}</strong>
+            X: <strong>{snapCoords[0].toFixed(3)}</strong>
             {" · "}
-            Y: <strong>{snapCoords[1].toFixed(4)}</strong>
-            {" · "}
-            Z: <strong>{snapCoords[2].toFixed(4)}</strong>
+            Y: <strong>{snapCoords[1].toFixed(3)}</strong>
           </span>
         ) : (
           <span className="tp-status-xyz tp-status-xyz-empty">{tr("statusCursorEmpty")}</span>
