@@ -615,22 +615,24 @@ function AppContent() {
         </div>
       </header>
 
-      <div className="mode-tabs">
-        <button
-          type="button"
-          className={`mode-tab ${mode === "pointcloud" ? "active" : ""}`}
-          onClick={() => setMode("pointcloud")}
-        >
-          {tr("tabPointCloud")}
-        </button>
-        <button
-          type="button"
-          className={`mode-tab ${mode === "images" ? "active" : ""}`}
-          onClick={() => setMode("images")}
-        >
-          {tr("tabImages")}
-        </button>
-      </div>
+      {!showPointCloudPreview && (
+        <div className="mode-tabs">
+          <button
+            type="button"
+            className={`mode-tab ${mode === "pointcloud" ? "active" : ""}`}
+            onClick={() => setMode("pointcloud")}
+          >
+            {tr("tabPointCloud")}
+          </button>
+          <button
+            type="button"
+            className={`mode-tab ${mode === "images" ? "active" : ""}`}
+            onClick={() => setMode("images")}
+          >
+            {tr("tabImages")}
+          </button>
+        </div>
+      )}
 
       {error && <div className="banner banner-error">{error}</div>}
 
@@ -762,43 +764,6 @@ function AppContent() {
             }
             propertyPanel={
               <>
-                <ViewpointPanel
-                  sessionId={pcSessionId}
-                  properties={editorProperties}
-                  onSaveView={() => {
-                    if (!pcSessionId || !cameraBridgeRef.current) return;
-                    const cam = cameraBridgeRef.current.getCamera();
-                    if (!cam) return;
-                    void editorSaveViewpoint(pcSessionId, `View ${(editorProperties?.viewpoints?.length ?? 0) + 1}`, cam.position, cam.target).then(
-                      handleEditorUpdated,
-                    );
-                  }}
-                  onApplyView={(camera, target) => {
-                    cameraBridgeRef.current?.setCamera(
-                      camera as [number, number, number],
-                      target as [number, number, number],
-                    );
-                  }}
-                  onUpdated={handleEditorUpdated}
-                />
-                <ClassificationPanel
-                  sessionId={pcSessionId}
-                  properties={editorProperties}
-                  activeClassId={activeClassId}
-                  onActiveClassChange={setActiveClassId}
-                  activeTool={activeTool}
-                  lassoAction={lassoAction}
-                  onLassoActionChange={setLassoAction}
-                  onUpdated={handleEditorUpdated}
-                  onRefreshPreview={bumpPreview}
-                  onError={setError}
-                />
-                <PointCloudPanel
-                  onSubmit={handlePointCloudSubmit}
-                  onFilesChange={handlePointCloudFilesChange}
-                  busy={busy}
-                  open3dAvailable={!!health?.open3d_available}
-                />
                 <PointCloudPropertyTable
                   sessionId={pcSessionId}
                   properties={editorProperties}
@@ -823,14 +788,36 @@ function AppContent() {
                     logConsole(tr("gridCreate"), "success");
                   }}
                 />
-                <JobList
-                  jobs={jobs}
-                  selectedId={selectedId}
-                  onSelect={(id) => {
-                    setSelectedId(id);
-                    setPcPreviewFiles([]);
+                <ClassificationPanel
+                  sessionId={pcSessionId}
+                  properties={editorProperties}
+                  activeClassId={activeClassId}
+                  onActiveClassChange={setActiveClassId}
+                  activeTool={activeTool}
+                  lassoAction={lassoAction}
+                  onLassoActionChange={setLassoAction}
+                  onUpdated={handleEditorUpdated}
+                  onRefreshPreview={bumpPreview}
+                  onError={setError}
+                />
+                <ViewpointPanel
+                  sessionId={pcSessionId}
+                  properties={editorProperties}
+                  onSaveView={() => {
+                    if (!pcSessionId || !cameraBridgeRef.current) return;
+                    const cam = cameraBridgeRef.current.getCamera();
+                    if (!cam) return;
+                    void editorSaveViewpoint(pcSessionId, `View ${(editorProperties?.viewpoints?.length ?? 0) + 1}`, cam.position, cam.target).then(
+                      handleEditorUpdated,
+                    );
                   }}
-                  onDelete={handleDelete}
+                  onApplyView={(camera, target) => {
+                    cameraBridgeRef.current?.setCamera(
+                      camera as [number, number, number],
+                      target as [number, number, number],
+                    );
+                  }}
+                  onUpdated={handleEditorUpdated}
                 />
               </>
             }
