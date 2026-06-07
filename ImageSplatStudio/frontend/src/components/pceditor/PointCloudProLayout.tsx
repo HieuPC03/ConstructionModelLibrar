@@ -5,11 +5,14 @@ import { PointCloudDbTree } from "./PointCloudDbTree";
 import { PointCloudIconRibbon } from "./PointCloudIconRibbon";
 import { PointCloudInspector, type InspectedPoint } from "./PointCloudInspector";
 import { PointCloudProcessRibbon } from "./PointCloudProcessRibbon";
+import { PointCloudSurveyRibbon } from "./PointCloudSurveyRibbon";
 import type { EditorProperties } from "../../api/editor";
 import type { ClipMode, EditorTool, OsnapMode } from "../../utils/editorTools";
 import type { NormMeta } from "../../utils/coordTransform";
 
-type ProTab = "tools" | "process";
+import type { ContourData, VolumeResult } from "../../utils/editorTools";
+
+type ProTab = "tools" | "process" | "survey";
 
 interface PointCloudProLayoutProps {
   sessionId: string | null;
@@ -36,6 +39,9 @@ interface PointCloudProLayoutProps {
   onRedo: () => void;
   onStartGridRegion: () => void;
   onCreateGrid: () => void;
+  onContoursReady: (data: ContourData) => void;
+  onVolumeResult: (result: VolumeResult) => void;
+  onStartDensityRegion: () => void;
   viewport: ReactNode;
   propertyPanel: ReactNode;
   statusBar: ReactNode;
@@ -51,6 +57,7 @@ export function PointCloudProLayout({
   breaklineCount,
   polygonCount,
   inspectedPoint,
+  gridCellSize,
   onUpdated,
   onRefreshPreview,
   onError,
@@ -62,6 +69,9 @@ export function PointCloudProLayout({
   onFinishPolygon,
   onUndo,
   onRedo,
+  onContoursReady,
+  onVolumeResult,
+  onStartDensityRegion,
   viewport,
   propertyPanel,
   statusBar,
@@ -93,6 +103,13 @@ export function PointCloudProLayout({
         >
           {tr("chromeTabProcess")}
         </button>
+        <button
+          type="button"
+          className={ribbonTab === "survey" ? "active" : ""}
+          onClick={() => setRibbonTab("survey")}
+        >
+          {tr("chromeTabSurvey")}
+        </button>
       </div>
 
       {ribbonTab === "tools" ? (
@@ -115,13 +132,25 @@ export function PointCloudProLayout({
           onUndo={onUndo}
           onRedo={onRedo}
         />
-      ) : (
+      ) : ribbonTab === "process" ? (
         <PointCloudProcessRibbon
           sessionId={sessionId}
           properties={properties}
           onUpdated={onUpdated}
           onRefreshPreview={onRefreshPreview}
           onError={onError}
+        />
+      ) : (
+        <PointCloudSurveyRibbon
+          sessionId={sessionId}
+          properties={properties}
+          gridCellSize={gridCellSize}
+          onUpdated={onUpdated}
+          onRefreshPreview={onRefreshPreview}
+          onError={onError}
+          onContoursReady={onContoursReady}
+          onVolumeResult={onVolumeResult}
+          onStartDensityRegion={onStartDensityRegion}
         />
       )}
 

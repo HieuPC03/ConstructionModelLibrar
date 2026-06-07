@@ -33,6 +33,9 @@ export interface EditorProperties {
   basemap: { enabled: boolean; mode?: string };
   view: { show_axes: boolean; fov: number; color_mode?: string; show_grid_surface?: boolean };
   bounds: { min: number[]; max: number[] };
+  contours?: { interval: number; segment_count: number } | null;
+  volumes?: { id: string; base_z: number; cut_m3: number; fill_m3: number; net_m3: number }[];
+  last_cross_section?: { start: number[]; end: number[]; width: number } | null;
 }
 
 async function parseJson<T>(response: Response): Promise<T> {
@@ -293,7 +296,7 @@ export async function editorAddCoordPoint(
 
 export async function editorAddMeasurement(
   sessionId: string,
-  type: "distance" | "area",
+  type: "distance" | "area" | "angle" | "cross_section",
   points: [number, number, number][],
   value: number,
   unit = "m",
@@ -438,6 +441,62 @@ export async function editorSetClassVisibility(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ class_id: classId, visible }),
+    }),
+  );
+}
+
+export async function editorCrossSection(
+  sessionId: string,
+  start: [number, number, number],
+  end: [number, number, number],
+  width = 0.5,
+): Promise<import("../utils/editorTools").CrossSectionProfile> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/cross-section`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ start, end, width }),
+    }),
+  );
+}
+
+export async function editorFetchContours(
+  sessionId: string,
+  interval = 1.0,
+): Promise<import("../utils/editorTools").ContourData> {
+  return parseJson(await fetch(`${API}/${sessionId}/contours?interval=${interval}`));
+}
+
+export async function editorComputeVolume(
+  sessionId: string,
+  baseZ: number,
+): Promise<EditorProperties & { volume_result?: import("../utils/editorTools").VolumeResult }> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/volume`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ base_z: baseZ }),
+    }),
+  );
+}
+
+export async function editorDensityCheck(
+  sessionId: string,
+  min: [number, number, number],
+  max: [number, number, number],
+  cellSize: number,
+): Promise<{
+  total_points: number;
+  avg_density_pts_per_m2: number;
+  min_density: number;
+  max_density: number;
+  cells: { count: number; density_pts_per_m2: number }[];
+}> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/density-check`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ min, max, cell_size: cellSize }),
     }),
   );
 }

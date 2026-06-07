@@ -14,6 +14,7 @@ import { JobList } from "./components/JobList";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { Logo } from "./components/Logo";
 import { ClassificationPanel } from "./components/pceditor/ClassificationPanel";
+import { CrossSectionPanel } from "./components/pceditor/CrossSectionPanel";
 import type { InspectedPoint } from "./components/pceditor/PointCloudInspector";
 import { PointCloudProLayout } from "./components/pceditor/PointCloudProLayout";
 import { PointCloudPanel } from "./components/PointCloudPanel";
@@ -36,6 +37,8 @@ import {
   editorPolygonDelete,
   editorConfigureGrid,
   editorClassifyPolygon,
+  editorCrossSection,
+  editorDensityCheck,
   editorLassoAction,
   editorRedo,
   editorUndo,
@@ -43,11 +46,15 @@ import {
   type EditorProperties,
 } from "./api/editor";
 import {
+  angleAtVertex,
   distance3d,
   polygonAreaXY,
   type ClipMode,
+  type ContourData,
+  type CrossSectionProfile,
   type EditorTool,
   type OsnapMode,
+  type VolumeResult,
 } from "./utils/editorTools";
 import { logConsole } from "./utils/consoleLog";
 import type { ColorMode } from "./utils/colorModes";
@@ -81,6 +88,12 @@ function AppContent() {
   const [inspectedPoint, setInspectedPoint] = useState<InspectedPoint | null>(null);
   const [activeClassId, setActiveClassId] = useState(2);
   const [lassoAction, setLassoAction] = useState<"classify" | "delete" | "hide">("classify");
+  const [crossSectionStart, setCrossSectionStart] = useState<[number, number, number] | null>(null);
+  const [crossSectionProfile, setCrossSectionProfile] = useState<CrossSectionProfile | null>(null);
+  const [contourData, setContourData] = useState<ContourData | null>(null);
+  const [volumeResult, setVolumeResult] = useState<VolumeResult | null>(null);
+  const [anglePoints, setAnglePoints] = useState<[number, number, number][]>([]);
+  const [densityCheckMode, setDensityCheckMode] = useState(false);
 
   const selectedJob = jobs.find((j) => j.job_id === selectedId) ?? null;
 
@@ -213,7 +226,9 @@ function AppContent() {
     if (activeTool !== "breakline") setBreaklineDraft([]);
     if (activeTool !== "polygon_delete" && activeTool !== "polygon_classify" && activeTool !== "measure_area")
       setPolygonDraft([]);
-    if (activeTool !== "measure_distance") setMeasureStart(null);
+    if (activeTool !== "measure_distance" && activeTool !== "cross_section") setMeasureStart(null);
+    if (activeTool !== "cross_section") setCrossSectionStart(null);
+    if (activeTool !== "measure_angle") setAnglePoints([]);
   }, [activeTool]);
 
   const handleUndo = async () => {
@@ -321,7 +336,18 @@ function AppContent() {
               Math.max(regionStart[1], pos[1]),
               Math.max(regionStart[2], pos[2]),
             ];
-            if (activeTool === "clip_box") {
+            if (densityCheckMode) {
+              const stats = await editorDensityCheck(pcSessionId, min, max, gridCellSize);
+              setLastResult(
+                `${tr("surveyDensity")}: ${stats.total_points.toLocaleString()} pts · ${stats.avg_density_pts_per_m2.toFixed(1)} pts/m²`,
+              );
+              logConsole(
+                `${tr("surveyDensity")}: min=${stats.min_density} max=${stats.max_density} avg=${stats.avg_density_pts_per_m2.toFixed(1)} pts/m²`,
+                "info",
+              );
+              setDensityCheckMode(false);
+              setActiveTool("navigate");
+            } else if (activeTool === "clip_box") {
               const props = await editorClipBox(pcSessionId, min, max, clipMode);
               handleEditorUpdated(props);
               bumpPreview();
@@ -349,6 +375,44 @@ function AppContent() {
             handleEditorUpdated(props);
             setLastResult(`${tr("toolMeasureDistance")}: ${dist.toFixed(4)} m`);
             setMeasureStart(null);
+          }
+          break;
+        }
+        case "measure_angle": {
+          const next = [...anglePoints, pos];
+          if (next.length < 3) {
+            setAnglePoints(next);
+          } else {
+            const deg = angleAtVertex(next[0], next[1], next[2]);
+            const props = await editorAddMeasurement(
+              pcSessionId,
+              "angle",
+              [next[0], next[1], next[2]],
+              deg,
+              "°",
+            );
+            handleEditorUpdated(props);
+            setLastResult(`${tr("toolMeasureAngle")}: ${deg.toFixed(2)}°`);
+            setAnglePoints([]);
+          }
+          break;
+        }
+        case "cross_section": {
+          if (!crossSectionStart) {
+            setCrossSectionStart(pos);
+          } else {
+            const profile = await editorCrossSection(pcSessionId, crossSectionStart, pos);
+            setCrossSectionProfile(profile);
+            const props = await editorAddMeasurement(
+              pcSessionId,
+              "cross_section",
+              [crossSectionStart, pos],
+              profile.length_m,
+              "m",
+            );
+            handleEditorUpdated(props);
+            setLastResult(`${tr("toolCrossSection")}: L=${profile.length_m.toFixed(2)} m`);
+            setCrossSectionStart(null);
           }
           break;
         }
@@ -555,7 +619,25 @@ function AppContent() {
               bumpPreview();
               logConsole(tr("gridCreate"), "success");
             }}
+            onContoursReady={(data) => {
+              setContourData(data);
+              bumpPreview();
+              setLastResult(`${tr("surveyContours")}: ${data.segment_count} segments`);
+            }}
+            onVolumeResult={(result) => {
+              setVolumeResult(result);
+              setLastResult(
+                `${tr("surveyVolume")}: ${tr("surveyCut")}=${result.cut_m3.toFixed(1)} · ${tr("surveyFill")}=${result.fill_m3.toFixed(1)} · Δ=${result.net_m3.toFixed(1)} m³`,
+              );
+            }}
+            onStartDensityRegion={() => {
+              setDensityCheckMode(true);
+              setActiveTool("hide_region");
+              setRegionStart(null);
+              logConsole(tr("surveyDensityHint"), "info");
+            }}
             viewport={
+              <>
               <PointCloudPreview
                 files={pcPreviewFiles}
                 refreshToken={previewRefresh}
@@ -581,12 +663,39 @@ function AppContent() {
                 measurements={editorProperties?.measurements ?? []}
                 measureStart={measureStart}
                 regionStart={regionStart}
+                crossSectionLine={
+                  crossSectionProfile
+                    ? [crossSectionProfile.start as [number, number, number], crossSectionProfile.end as [number, number, number]]
+                    : editorProperties?.last_cross_section
+                      ? [
+                          editorProperties.last_cross_section.start as [number, number, number],
+                          editorProperties.last_cross_section.end as [number, number, number],
+                        ]
+                      : null
+                }
+                crossSectionDraft={crossSectionStart}
+                contourSegments={contourData?.segments ?? null}
+                angleDraft={anglePoints}
                 onSessionReady={handleSessionReady}
                 onPick={(pos, meta) => void handlePreviewPick(pos, meta)}
                 onInspect={handleInspect}
                 onLassoComplete={(polygon, matrices) => void handleLassoComplete(polygon, matrices)}
                 onSnapHover={setSnapCoords}
               />
+              <CrossSectionPanel
+                profile={crossSectionProfile}
+                onClose={() => setCrossSectionProfile(null)}
+              />
+              {volumeResult && (
+                <div className="pc-volume-result">
+                  <strong>{tr("surveyVolume")}</strong>
+                  <span>{tr("surveyCut")}: {volumeResult.cut_m3.toFixed(2)} m³</span>
+                  <span>{tr("surveyFill")}: {volumeResult.fill_m3.toFixed(2)} m³</span>
+                  <span>Δ: {volumeResult.net_m3.toFixed(2)} m³</span>
+                  <button type="button" onClick={() => setVolumeResult(null)}>×</button>
+                </div>
+              )}
+              </>
             }
             propertyPanel={
               <>

@@ -22,12 +22,16 @@ from app.services.pointcloud_editor import (
     classify_polygon,
     configure_grid,
     configure_view,
+    compute_volume,
     create_mesh,
+    check_density,
     delete_breakline,
     delete_hidden_region,
     delete_measurement,
     delete_points_at,
     export_session,
+    extract_cross_section_profile,
+    get_contours,
     get_grid_binary,
     get_grid_surface_json,
     get_properties,
@@ -120,10 +124,26 @@ class CoordPointBody(BaseModel):
 
 
 class MeasurementBody(BaseModel):
-    type: Literal["distance", "area"]
+    type: Literal["distance", "area", "angle", "cross_section"]
     points: list[list[float]] = Field(..., min_length=2)
     value: float
     unit: str = "m"
+
+
+class CrossSectionBody(BaseModel):
+    start: list[float] = Field(..., min_length=3, max_length=3)
+    end: list[float] = Field(..., min_length=3, max_length=3)
+    width: float = Field(0.5, gt=0)
+    n_samples: int = Field(200, ge=10, le=2000)
+
+
+class VolumeBody(BaseModel):
+    base_z: float
+
+
+    min: list[float] = Field(..., min_length=3, max_length=3)
+    max: list[float] = Field(..., min_length=3, max_length=3)
+    cell_size: float = Field(1.0, gt=0)
 
 
 class IdBody(BaseModel):
@@ -476,5 +496,47 @@ def editor_redo(session_id: str) -> dict:
     _ensure_session(session_id)
     try:
         return redo_session(session_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/cross-section")
+def editor_cross_section(session_id: str, body: CrossSectionBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return extract_cross_section_profile(
+            session_id,
+            body.start,
+            body.end,
+            width=body.width,
+            n_samples=body.n_samples,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/{session_id}/contours")
+def editor_contours(session_id: str, interval: float = 1.0) -> dict:
+    _ensure_session(session_id)
+    try:
+        return get_contours(session_id, interval)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/volume")
+def editor_volume(session_id: str, body: VolumeBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return compute_volume(session_id, body.base_z)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/density-check")
+def editor_density(session_id: str, body: DensityBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return check_density(session_id, body.min, body.max, body.cell_size)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

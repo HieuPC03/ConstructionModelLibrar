@@ -143,6 +143,22 @@ function IconClassify() {
   );
 }
 
+function IconAngle() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+      <path fill="none" stroke="currentColor" strokeWidth="2" d="M4 20 L12 4 L20 16" />
+    </svg>
+  );
+}
+
+function IconSection() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+      <path fill="none" stroke="currentColor" strokeWidth="2" d="M4 18 L20 18 M8 6 L16 14" />
+    </svg>
+  );
+}
+
 const TOOL_ICONS: Partial<Record<EditorTool, () => JSX.Element>> = {
   navigate: IconNav,
   delete_point: IconEraser,
@@ -155,6 +171,8 @@ const TOOL_ICONS: Partial<Record<EditorTool, () => JSX.Element>> = {
   lasso_select: IconLasso,
   measure_distance: IconRuler,
   measure_area: IconArea,
+  measure_angle: IconAngle,
+  cross_section: IconSection,
   mesh_add: IconPlus,
   mesh_delete: IconEraser,
   breakline: IconLine,

@@ -159,6 +159,9 @@ def get_properties(session_id: str) -> dict:
             "view",
             {"show_axes": True, "fov": 50, "color_mode": "rgb", "show_grid_surface": False},
         ),
+        "contours": state.get("contours"),
+        "volumes": state.get("volumes", []),
+        "last_cross_section": state.get("last_cross_section"),
     }
 
 
@@ -919,3 +922,72 @@ def set_class_visibility(session_id: str, class_id: int, visible: bool) -> dict:
     state["hidden_class_ids"] = sorted(hidden)
     save_state(session_id, state)
     return get_properties(session_id)
+
+
+def extract_cross_section_profile(
+    session_id: str,
+    start: list[float],
+    end: list[float],
+    *,
+    width: float = 0.5,
+    n_samples: int = 200,
+) -> dict:
+    _pipeline_path()
+    from pointcloud_survey import extract_cross_section
+
+    visible_pts, _, _ = get_visible_points(session_id)
+    profile = extract_cross_section(visible_pts, start, end, width=width, n_samples=n_samples)
+    profile_path = _session_dir(session_id) / "cross_section.json"
+    profile_path.write_text(json.dumps(profile, ensure_ascii=False), encoding="utf-8")
+    state = load_state(session_id)
+    state["last_cross_section"] = {"start": start, "end": end, "width": width}
+    save_state(session_id, state)
+    return profile
+
+
+def get_contours(session_id: str, interval: float = 1.0) -> dict:
+    _pipeline_path()
+    from pointcloud_survey import contour_lines_from_grid
+
+    grid_data = get_grid_surface_json(session_id)
+    if grid_data is None:
+        raise ValueError("Chưa có lưới IDW — tạo lưới trước (tab Lưới hoặc Xử lý).")
+    result = contour_lines_from_grid(grid_data, interval)
+    contours_path = _session_dir(session_id) / "contours.json"
+    contours_path.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+    state = load_state(session_id)
+    state["contours"] = {"interval": interval, "segment_count": result["segment_count"]}
+    save_state(session_id, state)
+    return result
+
+
+def compute_volume(session_id: str, base_z: float) -> dict:
+    _pipeline_path()
+    from pointcloud_survey import compute_grid_volume
+
+    grid_data = get_grid_surface_json(session_id)
+    if grid_data is None:
+        raise ValueError("Chưa có lưới IDW — tạo lưới trước.")
+    result = compute_grid_volume(grid_data, base_z)
+    state = load_state(session_id)
+    vols = state.get("volumes", [])
+    vols.append({"id": uuid.uuid4().hex[:8], **result})
+    state["volumes"] = vols[-20:]
+    save_state(session_id, state)
+    props = get_properties(session_id)
+    props["volume_result"] = result
+    return props
+
+
+def check_density(
+    session_id: str,
+    min_pt: list[float],
+    max_pt: list[float],
+    cell_size: float,
+) -> dict:
+    _pipeline_path()
+    from pointcloud_survey import compute_region_density
+
+    visible_pts, _, _ = get_visible_points(session_id)
+    result = compute_region_density(visible_pts, min_pt, max_pt, cell_size)
+    return result

@@ -73,6 +73,10 @@ interface PointCloudPreviewProps {
   measurements?: { id: string; type: string; points: number[][]; value: number; unit: string }[];
   measureStart?: [number, number, number] | null;
   regionStart?: [number, number, number] | null;
+  crossSectionLine?: [[number, number, number], [number, number, number]] | null;
+  crossSectionDraft?: [number, number, number] | null;
+  contourSegments?: Record<string, number[][][]> | null;
+  angleDraft?: [number, number, number][];
   colorMode?: ColorMode;
   showGridSurface?: boolean;
   onSessionReady?: (sessionId: string) => void;
@@ -148,6 +152,10 @@ export function PointCloudPreview({
   measurements = [],
   measureStart = null,
   regionStart = null,
+  crossSectionLine = null,
+  crossSectionDraft = null,
+  contourSegments = null,
+  angleDraft = [],
   colorMode = "rgb",
   showGridSurface = false,
   onSessionReady,
@@ -955,6 +963,11 @@ export function PointCloudPreview({
     for (const m of measurements) {
       if (m.type === "distance" && m.points.length >= 2) {
         measureSegs.push([m.points[0], m.points[1]]);
+      } else if (m.type === "cross_section" && m.points.length >= 2) {
+        measureSegs.push([m.points[0], m.points[1]]);
+      } else if (m.type === "angle" && m.points.length >= 3) {
+        measureSegs.push([m.points[0], m.points[1]]);
+        measureSegs.push([m.points[1], m.points[2]]);
       } else if (m.type === "area" && m.points.length >= 2) {
         for (let i = 0; i < m.points.length; i++) {
           const j = (i + 1) % m.points.length;
@@ -989,7 +1002,70 @@ export function PointCloudPreview({
         new THREE.Points(g, new THREE.PointsMaterial({ color: 0x66ccff, size: ctx.maxDim * 0.01 })),
       );
     }
-  }, [coordPoints, measurements, polygonDraft, measureStart]);
+
+    if (crossSectionLine) {
+      const csGeom = buildLineGeometry([[crossSectionLine[0], crossSectionLine[1]]]);
+      if (csGeom) {
+        ctx.annotationGroup.add(
+          new THREE.LineSegments(csGeom, new THREE.LineBasicMaterial({ color: 0xff6600, linewidth: 2 })),
+        );
+      }
+    }
+    if (crossSectionDraft) {
+      const m = new THREE.Mesh(
+        new THREE.SphereGeometry(ctx.maxDim * 0.012, 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0xff6600 }),
+      );
+      m.position.set(crossSectionDraft[0], crossSectionDraft[1], crossSectionDraft[2]);
+      ctx.annotationGroup.add(m);
+    }
+
+    if (angleDraft.length >= 1) {
+      const adPos = new Float32Array(angleDraft.length * 3);
+      angleDraft.forEach((p, i) => {
+        adPos[i * 3] = p[0];
+        adPos[i * 3 + 1] = p[1];
+        adPos[i * 3 + 2] = p[2];
+      });
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(adPos, 3));
+      ctx.annotationGroup.add(
+        new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffcc00, size: ctx.maxDim * 0.012 })),
+      );
+      if (angleDraft.length >= 2) {
+        const ag = buildLineGeometry([[angleDraft[0], angleDraft[1]]]);
+        if (ag) {
+          ctx.annotationGroup.add(
+            new THREE.LineSegments(ag, new THREE.LineBasicMaterial({ color: 0xffcc00 })),
+          );
+        }
+      }
+    }
+
+    if (contourSegments) {
+      const contourSegs: [number[], number[]][] = [];
+      for (const segs of Object.values(contourSegments)) {
+        for (const seg of segs) {
+          if (seg.length >= 2) contourSegs.push([seg[0], seg[1]]);
+        }
+      }
+      const cGeom = buildLineGeometry(contourSegs);
+      if (cGeom) {
+        ctx.annotationGroup.add(
+          new THREE.LineSegments(cGeom, new THREE.LineBasicMaterial({ color: 0xcc8844 })),
+        );
+      }
+    }
+  }, [
+    coordPoints,
+    measurements,
+    polygonDraft,
+    measureStart,
+    crossSectionLine,
+    crossSectionDraft,
+    contourSegments,
+    angleDraft,
+  ]);
 
   const osnapActive = osnapMode !== "off";
   const cursorClass =
@@ -1088,6 +1164,8 @@ export function PointCloudPreview({
               regionStart &&
               ` · ${tr("toolRegionSecond")}`}
             {activeTool === "measure_distance" && measureStart && ` · ${tr("toolMeasureSecond")}`}
+            {activeTool === "cross_section" && crossSectionDraft && ` · ${tr("toolMeasureSecond")}`}
+            {activeTool === "measure_angle" && angleDraft.length > 0 && ` · ${angleDraft.length}/3`}
           </div>
         )}
         <div ref={mountRef} className="pc-preview-mount" />

@@ -2191,6 +2191,119 @@ body.iss-resizing {
   cursor: pointer;
 }
 
+.pc-survey-ribbon {
+  flex-shrink: 0;
+  border-bottom: 1px solid #b0b8c4;
+  background: linear-gradient(180deg, #eef1f5 0%, #e4e8ee 100%);
+  padding: 6px 8px;
+}
+
+.pc-survey-volumes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 8px 6px;
+  font-size: 0.65rem;
+  color: #475569;
+  border-top: 1px solid #c8ced6;
+}
+
+.pc-survey-vol-item {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid #c8ced6;
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+
+.pc-survey-input {
+  width: 72px;
+  font-size: 0.72rem;
+  padding: 2px 4px;
+  border: 1px solid #b0b8c4;
+  border-radius: 3px;
+}
+
+.pc-cross-section-panel {
+  position: absolute;
+  left: 10px;
+  bottom: 48px;
+  z-index: 5;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #b0b8c4;
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  min-width: 280px;
+  max-width: 340px;
+}
+
+.pc-cross-section-panel header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+}
+
+.pc-cross-section-panel header span {
+  color: #64748b;
+  font-size: 0.65rem;
+}
+
+.pc-cross-close {
+  margin-left: auto;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #64748b;
+}
+
+.pc-cross-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.pc-cross-stats {
+  display: flex;
+  gap: 10px;
+  font-size: 0.62rem;
+  color: #475569;
+  margin-top: 4px;
+}
+
+.pc-cross-empty {
+  font-size: 0.68rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.pc-volume-result {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  background: rgba(255, 248, 220, 0.95);
+  border: 1px solid #d4a017;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.68rem;
+}
+
+.pc-volume-result button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #64748b;
+}
+
 @media (max-width: 960px) {
   .pc-pro-left,
   .pc-pro-right {
