@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
 import { PointCloudConsole } from "./PointCloudConsole";
 import { PointCloudDbTree } from "./PointCloudDbTree";
+import { PointCloudFileRibbon } from "./PointCloudFileRibbon";
 import { PointCloudIconRibbon } from "./PointCloudIconRibbon";
 import { PointCloudInspector, type InspectedPoint } from "./PointCloudInspector";
 import { PointCloudProcessRibbon } from "./PointCloudProcessRibbon";
@@ -12,7 +13,7 @@ import type { NormMeta } from "../../utils/coordTransform";
 
 import type { ContourData, VolumeResult } from "../../utils/editorTools";
 
-type ProTab = "tools" | "process" | "survey";
+type ProTab = "file" | "tools" | "process" | "survey";
 
 interface PointCloudProLayoutProps {
   sessionId: string | null;
@@ -81,7 +82,7 @@ export function PointCloudProLayout({
   statusBar,
 }: PointCloudProLayoutProps) {
   const { tr } = useI18n();
-  const [ribbonTab, setRibbonTab] = useState<ProTab>("tools");
+  const [ribbonTab, setRibbonTab] = useState<ProTab>("file");
   const [leftWidth, setLeftWidth] = useState(240);
   const [rightWidth, setRightWidth] = useState(300);
   const [consoleCollapsed, setConsoleCollapsed] = useState(true);
@@ -93,6 +94,13 @@ export function PointCloudProLayout({
   return (
     <div className="pc-pro-layout">
       <div className="pc-pro-ribbon-tabs">
+        <button
+          type="button"
+          className={ribbonTab === "file" ? "active" : ""}
+          onClick={() => setRibbonTab("file")}
+        >
+          {tr("chromeTabFile")}
+        </button>
         <button
           type="button"
           className={ribbonTab === "tools" ? "active" : ""}
@@ -116,7 +124,15 @@ export function PointCloudProLayout({
         </button>
       </div>
 
-      {ribbonTab === "tools" ? (
+      {ribbonTab === "file" ? (
+        <PointCloudFileRibbon
+          sessionId={sessionId}
+          properties={properties}
+          onUpdated={onUpdated}
+          onRefreshPreview={onRefreshPreview}
+          onError={onError}
+        />
+      ) : ribbonTab === "tools" ? (
         <PointCloudIconRibbon
           activeTool={activeTool}
           osnapMode={osnapMode}

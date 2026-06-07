@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
+
+from app.config import settings
 
 from app.services.pointcloud_editor import (
     add_breakline,
@@ -32,6 +34,7 @@ from app.services.pointcloud_editor import (
     delete_viewpoint,
     evaluate_deviation,
     export_session,
+    import_files_to_session,
     extract_cross_section_profile,
     get_contours,
     get_deviation_heatmap,
@@ -379,23 +382,77 @@ def editor_mesh_download(session_id: str) -> FileResponse:
 
 
 @router.get("/{session_id}/export/las")
-def editor_export_las(session_id: str) -> FileResponse:
+def editor_export_las(session_id: str, file_index: int | None = None) -> FileResponse:
     _ensure_session(session_id)
     try:
-        path = export_session(session_id, "las")
+        path = export_session(session_id, "las", file_index=file_index)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return FileResponse(path=path, media_type="application/octet-stream", filename="pointcloud.las")
+    name = "pointcloud.las" if file_index is None else f"pointcloud_{file_index}.las"
+    return FileResponse(path=path, media_type="application/octet-stream", filename=name)
 
 
 @router.get("/{session_id}/export/txt")
-def editor_export_txt(session_id: str) -> FileResponse:
+def editor_export_txt(session_id: str, file_index: int | None = None) -> FileResponse:
     _ensure_session(session_id)
     try:
-        path = export_session(session_id, "txt")
+        path = export_session(session_id, "txt", file_index=file_index)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return FileResponse(path=path, media_type="text/plain", filename="pointcloud.txt")
+    name = "pointcloud.txt" if file_index is None else f"pointcloud_{file_index}.txt"
+    return FileResponse(path=path, media_type="text/plain", filename=name)
+
+
+@router.get("/{session_id}/export/ply")
+def editor_export_ply(session_id: str, file_index: int | None = None) -> FileResponse:
+    _ensure_session(session_id)
+    try:
+        path = export_session(session_id, "ply", file_index=file_index)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    name = "pointcloud.ply" if file_index is None else f"pointcloud_{file_index}.ply"
+    return FileResponse(path=path, media_type="application/octet-stream", filename=name)
+
+
+@router.post("/{session_id}/import/files")
+async def editor_import_files(
+    session_id: str,
+    files: list[UploadFile] = File(default=[]),
+    z_flip: str = Form("false"),
+) -> dict:
+    _ensure_session(session_id)
+    import shutil
+    import tempfile
+    from pathlib import Path
+
+    z_flip_on = z_flip.strip().lower() in {"true", "1", "yes", "on"}
+    if not files:
+        raise HTTPException(status_code=400, detail="Chọn ít nhất 1 file point cloud.")
+
+    tmp_dir = Path(tempfile.mkdtemp(prefix="pc_import_"))
+    paths: list[Path] = []
+    try:
+        for upload in files:
+            suffix = Path(upload.filename or "").suffix.lower()
+            if suffix not in settings.pointcloud_extensions:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Định dạng không hỗ trợ: {upload.filename}",
+                )
+            content = await upload.read()
+            if len(content) == 0:
+                continue
+            safe = Path(upload.filename or f"upload{suffix}").name
+            dest = tmp_dir / safe
+            dest.write_bytes(content)
+            paths.append(dest)
+        if not paths:
+            raise HTTPException(status_code=400, detail="Tất cả file rỗng.")
+        return import_files_to_session(session_id, paths, z_flip=z_flip_on)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 @router.post("/{session_id}/points/delete")

@@ -4,12 +4,12 @@ Tham chiếu:
 - [基本編 Smart Online](https://smart.fukuicompu.co.jp/civil_engineering/tabid101.html?pdid1=56501)
 - **TREND-POINT Ver.11 cài trên PC local** — xem [TREND-POINT-V11-LOCAL-REFERENCE.md](./TREND-POINT-V11-LOCAL-REFERENCE.md)
 
-**Quy tắc:** Hoàn thành + test OK (so sánh với Ver.11 nếu có) trước khi sang bước tiếp.
+**Quy tắc:** Đọc manual → implement → test tuần tự từng chương (không cần screenshot TREND-POINT local).
 
 | # | Manual (基本編) | Trạng thái | Ghi chú |
 |---|-----------------|------------|---------|
 | 1 | **2. 画面構成** | ✅ v0.12.3 | Layout, status bar, view bar, 選択, データ一覧 |
-| 2 | 3. ファイルの読込み・書込み | ⏳ | Import/export LAS, DXF, PLY |
+| 2 | **3. ファイルの読込み・書込み** | ✅ v0.12.5 | Tab ファイル, 読込/書込, PLY, append, per-file export |
 | 3 | 4. 座標点管理 | ⏳ | Coord points panel |
 | 4 | 5. 座標変換 | ⏳ | CRS, swap XY |
 | 5 | 6. 計測 | ⏳ | Distance, area, angle |
@@ -50,3 +50,33 @@ Tham chiếu:
 ### Chưa làm ở bước 1 (bước sau)
 - Tab 表示 riêng (màu sắc, trục) — chuyển sang Ch.8
 - Popup menu chuột phải — Ch.7
+
+---
+
+## Bước 2 — ファイルの読込み・書込み (v0.12.5)
+
+### Manual yêu cầu (TREND-POINT 基本編 Ch.3)
+1. **読込** — mở/追加点群: LAS/LAZ, PLY, TXT/XYZ, nhiều file
+2. **書込** — xuất point cloud: LAS, TXT, PLY
+3. **グループ** — xuất từng file trong データ一覧
+4. **TIN/mesh** — xuất OBJ sau khi tạo 三角網
+
+### Đã implement
+- Tab ribbon **ファイル** (読込 / 書込)
+- **点群読込** — thêm file vào session đang mở (append)
+- Tùy chọn **Z反転** cho TXT/XYZ
+- Xuất **LAS / TXT / PLY** (toàn bộ điểm đang hiển thị)
+- Chọn **từng file** trong dropdown khi có nhiều layer
+- **OBJ (TIN)出力** — mesh sau 三角網
+
+### Checklist test
+- [ ] Load LAS → tab ファイル → 点群読込 thêm file PLY thứ 2 → データ一覧 có 2 entry
+- [ ] Xuất LAS / TXT / PLY → mở lại file bằng phần mềm khác
+- [ ] Chọn 1 file trong dropdown → xuất chỉ file đó
+- [ ] Tạo TIN → xuất OBJ
+- [ ] TXT với Z ngược → bật Z反転 → kiểm tra cao độ
+
+### Chưa làm ở bước 2 (bước sau)
+- E57, LAZ nén, DXF/DWG, LandXML — manual nâng cao
+- Hộp thoại import (đơn vị, delimiter) — mở rộng sau
+

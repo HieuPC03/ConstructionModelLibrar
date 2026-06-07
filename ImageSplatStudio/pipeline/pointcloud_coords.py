@@ -181,3 +181,75 @@ def sample_fraction(points: np.ndarray, fraction: float, seed: int = 42) -> np.n
         return np.arange(total)
     rng = np.random.default_rng(seed)
     return rng.choice(total, count, replace=False)
+
+
+def normalize_world_points(world_pts: np.ndarray, meta: dict) -> np.ndarray:
+    """Map world XYZ (same as source file) into existing session viewer coordinates."""
+    from pointcloud_transform import viewer_from_centered_world
+
+    center = np.asarray(meta.get("center", [0, 0, 0]), dtype=np.float64)
+    wc = np.asarray(world_pts, dtype=np.float64) - center
+    return viewer_from_centered_world(wc, meta)
+
+
+def extend_norm_meta_bounds(meta: dict, world_pts: np.ndarray) -> dict:
+    """Expand world_min/world_max after appending points."""
+    out = dict(meta)
+    pts = np.asarray(world_pts, dtype=np.float64)
+    if len(pts) == 0:
+        return out
+    mn = np.min(pts, axis=0)
+    mx = np.max(pts, axis=0)
+    if "world_min" in out and "world_max" in out:
+        prev_min = np.asarray(out["world_min"], dtype=np.float64)
+        prev_max = np.asarray(out["world_max"], dtype=np.float64)
+        out["world_min"] = np.minimum(prev_min, mn).tolist()
+        out["world_max"] = np.maximum(prev_max, mx).tolist()
+    else:
+        out["world_min"] = mn.tolist()
+        out["world_max"] = mx.tolist()
+    return out
+
+
+def load_path_world_data(path: Path, *, z_flip: bool = False) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None]:
+    """Load one point cloud file in original world coordinates."""
+    from pointcloud_io import load_las_point_cloud, load_point_cloud_file
+
+    cls = None
+    cols = None
+    if path.suffix.lower() in {".las", ".laz"}:
+        loaded, cls = load_las_point_cloud(path)
+    else:
+        loaded = load_point_cloud_file(path)
+
+    if isinstance(loaded, tuple) and loaded[0] == "3dgs_ply":
+        from plyfile import PlyData
+
+        ply = PlyData.read(str(loaded[1]))
+        vertex = ply["vertex"]
+        xs = np.asarray(vertex["x"], dtype=np.float64)
+        ys = np.asarray(vertex["y"], dtype=np.float64)
+        zs = np.asarray(vertex["z"], dtype=np.float64)
+        pts = np.stack([xs, ys, zs], axis=1)
+        names = vertex.data.dtype.names or ()
+        if "red" in names:
+            cols = np.stack(
+                [
+                    np.asarray(vertex["red"], dtype=np.float64) / 255.0,
+                    np.asarray(vertex["green"], dtype=np.float64) / 255.0,
+                    np.asarray(vertex["blue"], dtype=np.float64) / 255.0,
+                ],
+                axis=1,
+            )
+    else:
+        pts = np.asarray(loaded.points, dtype=np.float64)
+        cols = np.asarray(loaded.colors, dtype=np.float64) if loaded.has_colors() else None
+
+    if z_flip:
+        pts = pts.copy()
+        pts[:, 2] *= -1.0
+
+    if len(pts) == 0:
+        raise ValueError(f"File rỗng: {path.name}")
+
+    return pts, cols, cls

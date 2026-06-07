@@ -1764,6 +1764,15 @@ body.iss-resizing {
   padding: 4px 8px;
 }
 
+.pc-file-input-hidden {
+  display: none;
+}
+
+.pc-file-option {
+  font-size: 0.65rem;
+  gap: 4px;
+}
+
 .pc-ribbon-tabs {
   display: flex;
   gap: 4px;

@@ -146,12 +146,19 @@ export async function editorCreateMesh(
   );
 }
 
-export function editorExportLasUrl(sessionId: string): string {
-  return `${API}/${sessionId}/export/las`;
+export function editorExportLasUrl(sessionId: string, fileIndex?: number): string {
+  const q = fileIndex != null ? `?file_index=${fileIndex}` : "";
+  return `${API}/${sessionId}/export/las${q}`;
 }
 
-export function editorExportTxtUrl(sessionId: string): string {
-  return `${API}/${sessionId}/export/txt`;
+export function editorExportTxtUrl(sessionId: string, fileIndex?: number): string {
+  const q = fileIndex != null ? `?file_index=${fileIndex}` : "";
+  return `${API}/${sessionId}/export/txt${q}`;
+}
+
+export function editorExportPlyUrl(sessionId: string, fileIndex?: number): string {
+  const q = fileIndex != null ? `?file_index=${fileIndex}` : "";
+  return `${API}/${sessionId}/export/ply${q}`;
 }
 
 export function editorMeshUrl(sessionId: string): string {
@@ -539,6 +546,24 @@ export async function editorEvaluateDeviation(
 
 export async function editorFetchDeviation(sessionId: string): Promise<DeviationHeatmap> {
   return parseJson(await fetch(`${API}/${sessionId}/deviation`));
+}
+
+export async function editorImportFiles(
+  sessionId: string,
+  files: File[],
+  opts: { z_flip?: boolean } = {},
+): Promise<EditorProperties & { imported_count?: number }> {
+  const form = new FormData();
+  for (const f of files) {
+    form.append("files", f);
+  }
+  form.append("z_flip", opts.z_flip ? "true" : "false");
+  return parseJson(
+    await fetch(`${API}/${sessionId}/import/files`, {
+      method: "POST",
+      body: form,
+    }),
+  );
 }
 
 export async function editorImportCsvSurvey(

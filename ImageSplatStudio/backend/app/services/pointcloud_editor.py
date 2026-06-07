@@ -370,26 +370,139 @@ def create_mesh(session_id: str, method: str = "idw", cell_size: float | None = 
     return get_properties(session_id)
 
 
-def export_session(session_id: str, fmt: str) -> Path:
+def export_session(session_id: str, fmt: str, *, file_index: int | None = None) -> Path:
     _pipeline_path()
-    from pointcloud_export import denormalize_points, write_las_file, write_xyz_txt
+    from pointcloud_export import denormalize_points, write_las_file, write_ply_file, write_xyz_txt
 
     visible_pts, visible_cols, state = get_visible_points(session_id)
+    if file_index is not None:
+        visible_pts, visible_cols = _slice_file_points(session_id, file_index, visible_pts, visible_cols, state)
     if len(visible_pts) == 0:
         raise ValueError("Không có điểm để xuất.")
     meta = state.get("norm_meta", {})
     world_pts = denormalize_points(visible_pts, meta, swap_xy=False)
     export_dir = _session_dir(session_id) / "exports"
     export_dir.mkdir(exist_ok=True)
+    suffix = f"_{file_index}" if file_index is not None else ""
     if fmt == "las":
-        out = export_dir / "export.las"
+        out = export_dir / f"export{suffix}.las"
         write_las_file(out, world_pts, visible_cols)
     elif fmt == "txt":
-        out = export_dir / "export.txt"
+        out = export_dir / f"export{suffix}.txt"
         write_xyz_txt(out, world_pts, visible_cols)
+    elif fmt == "ply":
+        out = export_dir / f"export{suffix}.ply"
+        write_ply_file(out, world_pts, visible_cols)
     else:
         raise ValueError(f"Định dạng không hỗ trợ: {fmt}")
     return out
+
+
+def _slice_file_points(
+    session_id: str,
+    file_index: int,
+    visible_pts: np.ndarray,
+    visible_cols: np.ndarray | None,
+    state: dict,
+) -> tuple[np.ndarray, np.ndarray | None]:
+    """Extract visible points belonging to one imported file group."""
+    files = state.get("files", [])
+    if file_index < 0 or file_index >= len(files):
+        raise ValueError("File index không hợp lệ.")
+    fi = files[file_index]
+    start = int(fi.get("start_index", 0))
+    count = int(fi.get("point_count", 0))
+    end = start + count
+
+    pts, cols = load_points_colors(session_id)
+    cls = load_classifications(session_id)
+    _pipeline_path()
+    from pointcloud_editor_ops import apply_swap_xy, compute_visibility_mask
+
+    meta = state.get("norm_meta", {})
+    if state.get("swap_xy"):
+        pts = apply_swap_xy(pts, meta)
+    mask = compute_visibility_mask(len(pts), state, pts)
+    hidden_cls = state.get("hidden_class_ids", [])
+    if hidden_cls and len(cls) == len(mask):
+        mask = mask & ~np.isin(cls, hidden_cls)
+
+    file_mask = np.zeros(len(pts), dtype=bool)
+    file_mask[start:end] = True
+    combined = mask & file_mask
+    file_pts = pts[combined]
+    file_cols = cols[combined] if cols is not None and len(cols) == len(pts) else None
+    return file_pts, file_cols
+
+
+def import_files_to_session(session_id: str, paths: list[Path], *, z_flip: bool = False) -> dict:
+    """Append point cloud files to an open editor session (TREND-POINT 読込)."""
+    _pipeline_path()
+    from pointcloud_coords import extend_norm_meta_bounds, load_path_world_data, normalize_world_points
+
+    if not paths:
+        raise ValueError("Không có file để nhập.")
+
+    push_undo(session_id)
+    state = load_state(session_id)
+    meta = state.get("norm_meta", {})
+    pts, cols = load_points_colors(session_id)
+    cls = load_classifications(session_id)
+    files = list(state.get("files", []))
+    offset = len(pts)
+
+    new_pts_chunks: list[np.ndarray] = []
+    new_cols_chunks: list[np.ndarray | None] = []
+    new_cls_chunks: list[np.ndarray] = []
+    imported = 0
+
+    for path in paths:
+        world_pts, world_cols, world_cls = load_path_world_data(path, z_flip=z_flip)
+        meta = extend_norm_meta_bounds(meta, world_pts)
+        viewer_pts = normalize_world_points(world_pts, meta)
+        count = len(viewer_pts)
+        files.append(
+            {
+                "name": path.name,
+                "format": path.suffix.lower().lstrip(".") or "unknown",
+                "point_count": int(count),
+                "size_bytes": int(path.stat().st_size) if path.exists() else 0,
+                "start_index": int(offset),
+                "visible": True,
+            }
+        )
+        offset += count
+        imported += count
+        new_pts_chunks.append(viewer_pts.astype(np.float32))
+        new_cols_chunks.append(world_cols.astype(np.float32) if world_cols is not None else None)
+        if world_cls is not None and len(world_cls) == count:
+            new_cls_chunks.append(world_cls.astype(np.uint8))
+        else:
+            new_cls_chunks.append(np.zeros(count, dtype=np.uint8))
+
+    merged_pts = np.vstack([pts] + new_pts_chunks)
+    old_has_color = cols is not None and len(cols) == len(pts)
+    any_new_color = any(c is not None for c in new_cols_chunks)
+    if old_has_color or any_new_color:
+        parts: list[np.ndarray] = []
+        parts.append(cols if old_has_color else np.full((len(pts), 3), 0.5, dtype=np.float32))
+        for i, nc in enumerate(new_cols_chunks):
+            if nc is not None:
+                parts.append(nc.astype(np.float32))
+            else:
+                parts.append(np.full((len(new_pts_chunks[i]), 3), 0.5, dtype=np.float32))
+        merged_cols = np.vstack(parts)
+    else:
+        merged_cols = cols
+
+    merged_cls = np.concatenate([cls] + new_cls_chunks) if new_cls_chunks else cls
+    state["files"] = files
+    state["norm_meta"] = meta
+    save_points_colors(session_id, merged_pts, merged_cols, merged_cls)
+    save_state(session_id, state)
+    props = get_properties(session_id)
+    props["imported_count"] = imported
+    return props
 
 
 def get_mesh_path(session_id: str) -> Path:

@@ -3,8 +3,6 @@ import { useI18n } from "../../i18n/I18nProvider";
 import {
   editorCleanOutliers,
   editorCreateMesh,
-  editorExportLasUrl,
-  editorExportTxtUrl,
   editorFilterDensity,
   editorFilterGround,
   editorSplit,
@@ -12,7 +10,6 @@ import {
   editorSwapXy,
   type EditorProperties,
 } from "../../api/editor";
-import { triggerDownload } from "../../utils/export";
 import { logConsole } from "../../utils/consoleLog";
 
 interface PointCloudProcessRibbonProps {
@@ -77,36 +74,6 @@ export function PointCloudProcessRibbon({
   return (
     <div className="pc-process-ribbon">
       <div className="pc-process-row">
-        <div className="pc-process-group">
-          <span className="pc-ribbon-label">{tr("pcMenuFile")}</span>
-          <button
-            type="button"
-            className="pc-process-btn"
-            disabled={disabled}
-            onClick={() => {
-              if (sessionId) {
-                triggerDownload(editorExportLasUrl(sessionId), "pointcloud.las");
-                logConsole(tr("pcMenuExportLas"), "info");
-              }
-            }}
-          >
-            {tr("pcMenuExportLas")}
-          </button>
-          <button
-            type="button"
-            className="pc-process-btn"
-            disabled={disabled}
-            onClick={() => {
-              if (sessionId) {
-                triggerDownload(editorExportTxtUrl(sessionId), "pointcloud.txt");
-                logConsole(tr("pcMenuExportTxt"), "info");
-              }
-            }}
-          >
-            {tr("pcMenuExportTxt")}
-          </button>
-        </div>
-
         <div className="pc-process-group">
           <span className="pc-ribbon-label">{tr("pcMenuEdit")}</span>
           <button
