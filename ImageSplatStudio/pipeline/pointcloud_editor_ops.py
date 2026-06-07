@@ -296,7 +296,12 @@ def apply_swap_xy(points: np.ndarray, meta: dict | None = None) -> np.ndarray:
     return pts
 
 
-def compute_visibility_mask(total: int, state: dict, points: np.ndarray) -> np.ndarray:
+def compute_visibility_mask(
+    total: int,
+    state: dict,
+    points: np.ndarray,
+    hidden_mask: np.ndarray | None = None,
+) -> np.ndarray:
     mask = np.ones(total, dtype=bool)
     for file_info in state.get("files", []):
         if file_info.get("visible", True):
@@ -308,10 +313,15 @@ def compute_visibility_mask(total: int, state: dict, points: np.ndarray) -> np.n
     for region in state.get("hidden_regions", []):
         if not region.get("hidden", True):
             continue
+        if region.get("type") == "lasso":
+            continue
         mn = np.asarray(region["min"], dtype=np.float64)
         mx = np.asarray(region["max"], dtype=np.float64)
         inside = np.all((points >= mn) & (points <= mx), axis=1)
         mask &= ~inside
+
+    if hidden_mask is not None and len(hidden_mask) == total:
+        mask &= ~np.asarray(hidden_mask, dtype=bool)
     return mask
 
 

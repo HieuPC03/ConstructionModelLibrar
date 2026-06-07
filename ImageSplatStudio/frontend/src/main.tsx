@@ -94,7 +94,7 @@ function AppContent() {
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [inspectedPoint, setInspectedPoint] = useState<InspectedPoint | null>(null);
   const [activeClassId, setActiveClassId] = useState(2);
-  const [lassoAction, setLassoAction] = useState<"classify" | "delete" | "hide">("classify");
+  const [lassoAction, setLassoAction] = useState<"classify" | "delete" | "hide" | "show">("hide");
   const [crossSectionWidth, setCrossSectionWidth] = useState(0.5);
   const [crossSectionStart, setCrossSectionStart] = useState<[number, number, number] | null>(null);
   const [crossSectionProfile, setCrossSectionProfile] = useState<CrossSectionProfile | null>(null);
@@ -561,6 +561,9 @@ function AppContent() {
       } else if (lassoAction === "classify") {
         bumpPreview();
         msg = `${tr("toolLassoClassify")}: ${props.classified_count ?? 0}`;
+      } else if (lassoAction === "show") {
+        bumpPreview();
+        msg = `${tr("toolLassoShow")}: ${props.selected_count ?? 0}`;
       } else {
         bumpPreview();
         msg = `${tr("toolLassoHide")}: ${props.selected_count ?? 0}`;

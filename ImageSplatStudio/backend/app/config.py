@@ -27,7 +27,7 @@ def _default_app_root() -> Path:
 
 class Settings(BaseSettings):
     app_name: str = "ImageSplat Studio"
-    app_version: str = "0.13.1"
+    app_version: str = "0.14.0"
     data_dir: Path = _default_data_dir()
     frontend_dir: Path = _default_frontend_dir()
     app_root: Path = _default_app_root()

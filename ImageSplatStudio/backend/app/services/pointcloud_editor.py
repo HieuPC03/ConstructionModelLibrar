@@ -33,6 +33,24 @@ def _state_path(session_id: str) -> Path:
     return _session_dir(session_id) / "state.json"
 
 
+def _hidden_mask_path(session_id: str) -> Path:
+    return _session_dir(session_id) / "hidden_mask.npy"
+
+
+def load_hidden_mask(session_id: str, total: int) -> np.ndarray:
+    path = _hidden_mask_path(session_id)
+    if not path.exists():
+        return np.zeros(total, dtype=bool)
+    mask = np.load(path)
+    if len(mask) != total:
+        return np.zeros(total, dtype=bool)
+    return np.asarray(mask, dtype=bool)
+
+
+def save_hidden_mask(session_id: str, mask: np.ndarray) -> None:
+    np.save(_hidden_mask_path(session_id), np.asarray(mask, dtype=bool))
+
+
 def load_state(session_id: str) -> dict:
     _pipeline_path()
     from pointcloud_editor_ops import load_json
@@ -99,7 +117,8 @@ def get_visible_points(session_id: str) -> tuple[np.ndarray, np.ndarray | None, 
     pts, cols = load_points_colors(session_id)
     if state.get("swap_xy"):
         pts = apply_swap_xy(pts, meta)
-    mask = compute_visibility_mask(len(pts), state, pts)
+    hidden_mask = load_hidden_mask(session_id, len(pts))
+    mask = compute_visibility_mask(len(pts), state, pts, hidden_mask)
     visible_pts = pts[mask]
     visible_cols = cols[mask] if cols is not None and len(cols) == len(pts) else None
     return visible_pts, visible_cols, state
@@ -235,6 +254,44 @@ def set_file_visibility(session_id: str, file_index: int, visible: bool) -> dict
     return get_properties(session_id)
 
 
+def remove_file_from_session(session_id: str, file_index: int) -> dict:
+    state = load_state(session_id)
+    files = state.get("files", [])
+    if file_index < 0 or file_index >= len(files):
+        raise ValueError("File index không hợp lệ.")
+    if len(files) <= 1:
+        raise ValueError("Không thể xóa file cuối cùng.")
+
+    push_undo(session_id)
+    fi = files[file_index]
+    start = int(fi.get("start_index", 0))
+    count = int(fi.get("point_count", 0))
+
+    pts, cols = load_points_colors(session_id)
+    cls = load_classifications(session_id)
+    hidden_mask = load_hidden_mask(session_id, len(pts))
+
+    keep = np.ones(len(pts), dtype=bool)
+    keep[start : start + count] = False
+
+    new_pts = pts[keep]
+    new_cols = cols[keep] if cols is not None and len(cols) == len(pts) else None
+    new_cls = cls[keep] if len(cls) == len(pts) else cls
+    new_hidden = hidden_mask[keep]
+
+    save_points_colors(session_id, new_pts, new_cols, new_cls)
+    save_hidden_mask(session_id, new_hidden)
+
+    files.pop(file_index)
+    offset = 0
+    for f in files:
+        f["start_index"] = offset
+        offset += int(f.get("point_count", 0))
+    state["files"] = files
+    save_state(session_id, state)
+    return get_properties(session_id)
+
+
 def add_hidden_region(session_id: str, min_pt: list[float], max_pt: list[float]) -> dict:
     state = load_state(session_id)
     regions = state.get("hidden_regions", [])
@@ -264,6 +321,8 @@ def show_all(session_id: str) -> dict:
         f["visible"] = True
     state["hidden_regions"] = []
     save_state(session_id, state)
+    pts, _ = load_points_colors(session_id)
+    save_hidden_mask(session_id, np.zeros(len(pts), dtype=bool))
     return get_properties(session_id)
 
 
@@ -474,7 +533,8 @@ def _slice_file_points(
     meta = state.get("norm_meta", {})
     if state.get("swap_xy"):
         pts = apply_swap_xy(pts, meta)
-    mask = compute_visibility_mask(len(pts), state, pts)
+    hidden_mask = load_hidden_mask(session_id, len(pts))
+    mask = compute_visibility_mask(len(pts), state, pts, hidden_mask)
     hidden_cls = state.get("hidden_class_ids", [])
     if hidden_cls and len(cls) == len(mask):
         mask = mask & ~np.isin(cls, hidden_cls)
@@ -548,6 +608,10 @@ def import_files_to_session(session_id: str, paths: list[Path], *, z_flip: bool 
         merged_cols = cols
 
     merged_cls = np.concatenate([cls] + new_cls_chunks) if new_cls_chunks else cls
+    hidden_mask = load_hidden_mask(session_id, len(pts))
+    if imported > 0:
+        hidden_mask = np.concatenate([hidden_mask, np.zeros(imported, dtype=bool)])
+        save_hidden_mask(session_id, hidden_mask)
     state["files"] = files
     state["norm_meta"] = meta
     save_points_colors(session_id, merged_pts, merged_cols, merged_cls)
@@ -1031,8 +1095,29 @@ def delete_breakline(session_id: str, breakline_id: str) -> dict:
 
 def delete_hidden_region(session_id: str, region_id: str) -> dict:
     state = load_state(session_id)
-    regions = [r for r in state.get("hidden_regions", []) if r.get("id") != region_id]
-    state["hidden_regions"] = regions
+    removed = None
+    kept: list[dict] = []
+    for r in state.get("hidden_regions", []):
+        if r.get("id") == region_id:
+            removed = r
+        else:
+            kept.append(r)
+    state["hidden_regions"] = kept
+    save_state(session_id, state)
+    if removed and removed.get("type") == "lasso":
+        # Lasso regions share one cumulative mask; deleting one entry cannot restore points.
+        pass
+    return get_properties(session_id)
+
+
+def toggle_hidden_region(session_id: str, region_id: str) -> dict:
+    state = load_state(session_id)
+    for r in state.get("hidden_regions", []):
+        if r.get("id") == region_id:
+            r["hidden"] = not bool(r.get("hidden", True))
+            break
+    else:
+        raise ValueError("Không tìm thấy vùng ẩn.")
     save_state(session_id, state)
     return get_properties(session_id)
 
@@ -1156,19 +1241,33 @@ def lasso_action(
         return result
 
     if action == "hide":
-        bbox = bbox_from_mask(pts, mask)
-        if bbox is None:
-            raise ValueError("Không thể ẩn vùng lasso.")
-        mn, mx = bbox
+        hidden_mask = load_hidden_mask(session_id, len(pts))
+        hidden_mask[mask] = True
+        save_hidden_mask(session_id, hidden_mask)
         state = load_state(session_id)
         regions = state.get("hidden_regions", [])
-        regions.append({"id": uuid.uuid4().hex[:8], "min": mn, "max": mx, "hidden": True})
+        regions.append(
+            {
+                "id": uuid.uuid4().hex[:8],
+                "type": "lasso",
+                "hidden": True,
+                "point_count": selected,
+            }
+        )
         state["hidden_regions"] = regions
         stack = state.get("undo_stack", [])
         if stack:
             stack.pop()
             state["undo_stack"] = stack
         save_state(session_id, state)
+        result = get_properties(session_id)
+        result["selected_count"] = selected
+        return result
+
+    if action == "show":
+        hidden_mask = load_hidden_mask(session_id, len(pts))
+        hidden_mask[mask] = False
+        save_hidden_mask(session_id, hidden_mask)
         result = get_properties(session_id)
         result["selected_count"] = selected
         return result

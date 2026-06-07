@@ -24,11 +24,11 @@ export type ClipMode = "inside" | "outside";
 
 export const TOOL_CURSORS: Record<EditorTool, string> = {
   navigate: "grab",
-  delete_point: "crosshair",
-  add_point: "cell",
+  delete_point: "not-allowed",
+  add_point: "copy",
   coord_point: "crosshair",
-  clip_box: "crosshair",
-  hide_region: "crosshair",
+  clip_box: "cell",
+  hide_region: "cell",
   polygon_delete: "crosshair",
   polygon_classify: "crosshair",
   lasso_select: "crosshair",
@@ -40,10 +40,10 @@ export const TOOL_CURSORS: Record<EditorTool, string> = {
   mesh_delete: "not-allowed",
   breakline: "pointer",
   trace_surface: "crosshair",
-  grid_region: "crosshair",
+  grid_region: "cell",
 };
 
-export const OSNAP_CURSOR = "crosshair";
+export const OSNAP_CURSOR = "pointer";
 
 export interface ToolGroup {
   id: string;

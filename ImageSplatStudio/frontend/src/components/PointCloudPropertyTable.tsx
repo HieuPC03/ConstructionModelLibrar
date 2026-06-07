@@ -6,7 +6,11 @@ import {
   editorDeleteCoordPoint,
   editorDeleteMeasurement,
   editorDeleteRegion,
+  editorRemoveFile,
   editorSetVisibility,
+  editorToggleHiddenRegion,
+  editorExportLasUrl,
+  editorExportTxtUrl,
   type EditorProperties,
 } from "../api/editor";
 import { useI18n } from "../i18n/I18nProvider";
@@ -40,7 +44,7 @@ export function PointCloudPropertyTable({
   onCreateGrid,
 }: PointCloudPropertyTableProps) {
   const { tr } = useI18n();
-  const [tab, setTab] = useState<PropTab>("crs");
+  const [tab, setTab] = useState<PropTab>("files");
 
   if (!properties) {
     return (
@@ -86,6 +90,28 @@ export function PointCloudPropertyTable({
     if (!sessionId) return;
     try {
       const props = await editorSetVisibility(sessionId, index, visible);
+      onUpdated(props);
+      onRefreshPreview();
+    } catch (e: unknown) {
+      onError(String(e));
+    }
+  };
+
+  const removeFile = async (index: number) => {
+    if (!sessionId) return;
+    try {
+      const props = await editorRemoveFile(sessionId, index);
+      onUpdated(props);
+      onRefreshPreview();
+    } catch (e: unknown) {
+      onError(String(e));
+    }
+  };
+
+  const toggleRegionVisibility = async (id: string) => {
+    if (!sessionId) return;
+    try {
+      const props = await editorToggleHiddenRegion(sessionId, id);
       onUpdated(props);
       onRefreshPreview();
     } catch (e: unknown) {
@@ -321,6 +347,7 @@ export function PointCloudPropertyTable({
                 <th>{tr("pcPropFormat")}</th>
                 <th>{tr("pcPropPoints")}</th>
                 <th>{tr("pcPropSize")}</th>
+                <th>{tr("pcPropActions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -337,6 +364,38 @@ export function PointCloudPropertyTable({
                   <td>{f.format.toUpperCase()}</td>
                   <td>{f.point_count.toLocaleString()}</td>
                   <td>{f.size_bytes > 0 ? formatFileSize(f.size_bytes) : "—"}</td>
+                  <td className="pc-prop-file-actions">
+                    {sessionId && (
+                      <>
+                        <a
+                          className="pc-prop-link"
+                          href={editorExportLasUrl(sessionId, i)}
+                          download
+                          title={tr("exportLas")}
+                        >
+                          LAS
+                        </a>
+                        <a
+                          className="pc-prop-link"
+                          href={editorExportTxtUrl(sessionId, i)}
+                          download
+                          title={tr("exportTxt")}
+                        >
+                          TXT
+                        </a>
+                        {properties.files.length > 1 && (
+                          <button
+                            type="button"
+                            className="pc-prop-del"
+                            title={tr("pcPropRemoveFile")}
+                            onClick={() => void removeFile(i)}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -418,7 +477,21 @@ export function PointCloudPropertyTable({
               <ul className="pc-prop-list">
                 {properties.hidden_regions.map((r) => (
                   <li key={r.id}>
-                    <span>{r.id}</span>
+                    <label className="pc-prop-region-row">
+                      <input
+                        type="checkbox"
+                        checked={r.hidden}
+                        onChange={() => void toggleRegionVisibility(r.id)}
+                      />
+                      <span>
+                        {r.id}
+                        {r.type === "lasso"
+                          ? ` · ${tr("toolLassoSelect")} (${(r.point_count ?? 0).toLocaleString()})`
+                          : r.min && r.max
+                            ? ` · X ${r.min[0].toFixed(1)}…${r.max[0].toFixed(1)}`
+                            : ""}
+                      </span>
+                    </label>
                     <button type="button" className="pc-prop-del" onClick={() => void removeRegion(r.id)}>
                       ×
                     </button>

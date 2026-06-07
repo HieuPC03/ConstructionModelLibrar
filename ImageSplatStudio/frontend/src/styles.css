@@ -1212,6 +1212,27 @@ body.iss-resizing {
   cursor: grabbing;
 }
 
+.pc-preview-viewport.pc-cursor-lasso_select .pc-preview-mount,
+.pc-preview-viewport.pc-cursor-hide_region .pc-preview-mount,
+.pc-preview-viewport.pc-cursor-clip_box .pc-preview-mount,
+.pc-preview-viewport.pc-cursor-grid_region .pc-preview-mount {
+  cursor: crosshair;
+}
+
+.pc-preview-viewport.pc-cursor-delete_point .pc-preview-mount,
+.pc-preview-viewport.pc-cursor-mesh_delete .pc-preview-mount {
+  cursor: not-allowed;
+}
+
+.pc-preview-viewport.pc-cursor-add_point .pc-preview-mount,
+.pc-preview-viewport.pc-cursor-mesh_add .pc-preview-mount {
+  cursor: copy;
+}
+
+.pc-preview-viewport.pc-cursor-breakline .pc-preview-mount {
+  cursor: pointer;
+}
+
 .viewer-section {
   display: flex;
   flex-direction: column;
@@ -2296,6 +2317,31 @@ body.iss-resizing {
 .pc-class-hint {
   margin: 0 0 8px;
   font-size: 0.68rem;
+}
+
+.pc-prop-file-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.pc-prop-link {
+  font-size: 0.68rem;
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.pc-prop-link:hover {
+  text-decoration: underline;
+}
+
+.pc-prop-region-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
 }
 
 .pc-class-lasso-action {

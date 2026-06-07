@@ -50,6 +50,7 @@ from app.services.pointcloud_editor import (
     mesh_add_vertex,
     mesh_delete_vertex,
     polygon_delete,
+    remove_file_from_session,
     redo_session,
     save_viewpoint,
     set_class_visibility,
@@ -57,6 +58,7 @@ from app.services.pointcloud_editor import (
     show_all,
     split_session,
     subsample_session,
+    toggle_hidden_region,
     toggle_swap_xy,
     undo_session,
 )
@@ -211,7 +213,7 @@ class LassoBody(BaseModel):
     polygon_ndc: list[list[float]] = Field(..., min_length=3)
     view_matrix: list[float] = Field(..., min_length=16, max_length=16)
     proj_matrix: list[float] = Field(..., min_length=16, max_length=16)
-    action: Literal["select", "delete", "hide", "classify"] = "select"
+    action: Literal["select", "delete", "hide", "show", "classify"] = "select"
     class_id: int = Field(0, ge=0, le=255)
 
 
@@ -249,6 +251,19 @@ def editor_swap_xy(session_id: str) -> dict:
 def editor_visibility(session_id: str, body: VisibilityBody) -> dict:
     _ensure_session(session_id)
     return set_file_visibility(session_id, body.file_index, body.visible)
+
+
+class FileIndexBody(BaseModel):
+    file_index: int
+
+
+@router.post("/{session_id}/files/remove")
+def editor_file_remove(session_id: str, body: FileIndexBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return remove_file_from_session(session_id, body.file_index)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/{session_id}/show-all")
@@ -602,6 +617,15 @@ def editor_breakline_delete(session_id: str, body: IdBody) -> dict:
 def editor_region_delete(session_id: str, body: IdBody) -> dict:
     _ensure_session(session_id)
     return delete_hidden_region(session_id, body.id)
+
+
+@router.post("/{session_id}/region/toggle")
+def editor_region_toggle(session_id: str, body: IdBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return toggle_hidden_region(session_id, body.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/{session_id}/measurement/delete")

@@ -35,7 +35,7 @@ def _prepare_session_points(session_id: str) -> tuple[np.ndarray, np.ndarray | N
     _pipeline_path()
     from pointcloud_editor_ops import apply_swap_xy, compute_visibility_mask
 
-    from app.services.pointcloud_editor import load_classifications, load_state
+    from app.services.pointcloud_editor import load_classifications, load_hidden_mask, load_state
 
     session = get_session(session_id)
     if session is None:
@@ -48,7 +48,8 @@ def _prepare_session_points(session_id: str) -> tuple[np.ndarray, np.ndarray | N
     meta = state.get("norm_meta", {})
     if state.get("swap_xy"):
         pts = apply_swap_xy(pts, meta)
-    mask = compute_visibility_mask(len(pts), state, pts)
+    hidden_mask = load_hidden_mask(session_id, len(pts))
+    mask = compute_visibility_mask(len(pts), state, pts, hidden_mask)
     hidden_cls = state.get("hidden_class_ids", [])
     if hidden_cls and cls is not None and len(cls) == len(mask):
         cls_mask = ~np.isin(cls, hidden_cls)

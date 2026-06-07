@@ -15,8 +15,8 @@ interface ClassificationPanelProps {
   activeClassId: number;
   onActiveClassChange: (id: number) => void;
   activeTool?: EditorTool;
-  lassoAction?: "classify" | "delete" | "hide";
-  onLassoActionChange?: (action: "classify" | "delete" | "hide") => void;
+  lassoAction?: "classify" | "delete" | "hide" | "show";
+  onLassoActionChange?: (action: "classify" | "delete" | "hide" | "show") => void;
   onUpdated: (props: EditorProperties) => void;
   onRefreshPreview: () => void;
   onError: (msg: string) => void;
@@ -58,11 +58,12 @@ export function ClassificationPanel({
           <select
             className="tp-select"
             value={lassoAction}
-            onChange={(e) => onLassoActionChange(e.target.value as "classify" | "delete" | "hide")}
+            onChange={(e) => onLassoActionChange(e.target.value as "classify" | "delete" | "hide" | "show")}
           >
             <option value="classify">{tr("lassoActionClassify")}</option>
             <option value="delete">{tr("lassoActionDelete")}</option>
             <option value="hide">{tr("lassoActionHide")}</option>
+            <option value="show">{tr("lassoActionShow")}</option>
           </select>
         </label>
       )}

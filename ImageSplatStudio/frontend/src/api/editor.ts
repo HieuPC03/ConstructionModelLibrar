@@ -14,7 +14,7 @@ export interface EditorProperties {
   total_points: number;
   files: EditorFileInfo[];
   swap_xy: boolean;
-  hidden_regions: { id: string; min: number[]; max: number[]; hidden: boolean }[];
+  hidden_regions: { id: string; min?: number[]; max?: number[]; hidden: boolean; type?: string; point_count?: number }[];
   grid: { enabled: boolean; cell_size: number; region?: { min: number[]; max: number[] } | null; method?: string; has_data?: boolean; data_size?: number[] };
   mesh: { path: string; vertices: number; triangles: number } | null;
   breaklines: { id: string; points: number[][] }[];
@@ -79,6 +79,26 @@ export async function editorSetVisibility(
 
 export async function editorShowAll(sessionId: string): Promise<EditorProperties> {
   return parseJson(await fetch(`${API}/${sessionId}/show-all`, { method: "POST" }));
+}
+
+export async function editorRemoveFile(sessionId: string, fileIndex: number): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/files/remove`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file_index: fileIndex }),
+    }),
+  );
+}
+
+export async function editorToggleHiddenRegion(sessionId: string, id: string): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/region/toggle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    }),
+  );
 }
 
 export async function editorHideRegion(
@@ -425,7 +445,7 @@ export async function editorLassoAction(
     polygon_ndc: [number, number][];
     view_matrix: number[];
     proj_matrix: number[];
-    action: "select" | "delete" | "hide" | "classify";
+    action: "select" | "delete" | "hide" | "show" | "classify";
     class_id?: number;
   },
 ): Promise<EditorProperties & { selected_count?: number; removed_count?: number; classified_count?: number }> {
