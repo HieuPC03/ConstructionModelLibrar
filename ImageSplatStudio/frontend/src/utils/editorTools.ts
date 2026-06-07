@@ -75,6 +75,22 @@ export const TOOL_GROUPS: ToolGroup[] = [
 
 export const MESH_TOOLS: EditorTool[] = ["mesh_add", "mesh_delete", "breakline"];
 
+/** Tools that may pick on the ground plane when no point is hit (TREND-POINT style). */
+export const PLANE_PICK_TOOLS: EditorTool[] = [
+  "clip_box",
+  "hide_region",
+  "grid_region",
+  "polygon_delete",
+  "polygon_classify",
+  "measure_area",
+  "measure_distance",
+  "measure_angle",
+  "cross_section",
+  "coord_point",
+  "add_point",
+  "breakline",
+];
+
 export function toolLabelKey(tool: EditorTool): string {
   const map: Record<EditorTool, string> = {
     navigate: "toolNavigate",

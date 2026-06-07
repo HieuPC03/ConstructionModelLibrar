@@ -727,10 +727,11 @@ body.iss-resizing {
   gap: 12px;
   flex-shrink: 0;
   margin-bottom: 6px;
-  padding: 6px 8px;
+  padding: 6px 10px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--border);
+  background: #f5f6f8;
+  border: 1px solid #c8cdd4;
+  color: #1a1a1a;
 }
 
 .pc-preview-meta {
@@ -742,6 +743,7 @@ body.iss-resizing {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: #1a1a1a;
 }
 
 .pc-preview-sliders {
@@ -762,13 +764,13 @@ body.iss-resizing {
 .pc-sample-label {
   display: block;
   font-size: 0.68rem;
-  color: var(--muted);
+  color: #333;
   margin: 0;
   white-space: nowrap;
 }
 
 .pc-sample-label strong {
-  color: var(--accent-2);
+  color: #111;
   font-family: "JetBrains Mono", monospace;
   font-size: 0.72rem;
 }
@@ -968,8 +970,8 @@ body.iss-resizing {
   flex: 1;
   min-height: 0;
   border-radius: 12px;
-  border: 1px solid var(--border);
-  background: #040508;
+  border: 1px solid #b8bec8;
+  background: #e8ecef;
   overflow: hidden;
 }
 
@@ -982,7 +984,8 @@ body.iss-resizing {
   position: absolute;
   inset: 0;
   z-index: 2;
-  background: rgba(6, 8, 12, 0.85);
+  background: rgba(232, 236, 239, 0.92);
+  color: #111;
 }
 
 .pc-tool-bar {
@@ -1183,11 +1186,13 @@ body.iss-resizing {
   z-index: 3;
   padding: 4px 12px;
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.65);
-  color: #ccd6e8;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #b8bec8;
+  color: #111;
   font-size: 0.72rem;
   pointer-events: none;
   white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .pc-preview-viewport.pc-cursor-navigate .pc-preview-mount {

@@ -54,3 +54,13 @@ export function ndcFromEvent(event: MouseEvent, dom: HTMLElement): THREE.Vector2
 export function formatSnapLabel(p: THREE.Vector3): string {
   return `${p.x.toFixed(4)}, ${p.y.toFixed(4)}, ${p.z.toFixed(4)}`;
 }
+
+/** Ray–plane intersection for Z-up ground picking (empty space). */
+export function intersectGroundPlane(
+  raycaster: THREE.Raycaster,
+  planeZ: number,
+): THREE.Vector3 | null {
+  const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -planeZ);
+  const hit = new THREE.Vector3();
+  return raycaster.ray.intersectPlane(plane, hit) ? hit : null;
+}

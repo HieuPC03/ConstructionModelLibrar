@@ -186,30 +186,7 @@ export function PointCloudPropertyTable({
               {wm[2].toFixed(2)}…{wx[2].toFixed(2)}
             </p>
           )}
-          <label className="pc-grid-label">
-            <input
-              type="checkbox"
-              checked={properties.basemap?.enabled ?? false}
-              onChange={(e) =>
-                void applyView({
-                  basemap_enabled: e.target.checked,
-                  basemap_mode: e.target.checked ? "aerial" : undefined,
-                })
-              }
-            />
-            {tr("pcBasemapEnable")}
-          </label>
-          {properties.basemap?.enabled && (
-            <select
-              className="tp-select tp-basemap-mode"
-              value={properties.basemap?.mode === "off" ? "aerial" : (properties.basemap?.mode ?? "aerial")}
-              onChange={(e) => void applyView({ basemap_mode: e.target.value })}
-            >
-              <option value="aerial">{tr("pcBasemapAerial")}</option>
-              <option value="road">{tr("pcBasemapRoad")}</option>
-              <option value="hybrid">{tr("pcBasemapHybrid")}</option>
-            </select>
-          )}
+          <p className="tp-muted tp-texture-hint">{tr("pcTextureMappingHint")}</p>
           <label className="pc-grid-label">
             <input
               type="checkbox"
