@@ -18,6 +18,8 @@ import { CrossSectionPanel } from "./components/pceditor/CrossSectionPanel";
 import { ViewpointPanel } from "./components/pceditor/ViewpointPanel";
 import type { InspectedPoint } from "./components/pceditor/PointCloudInspector";
 import { PointCloudProLayout } from "./components/pceditor/PointCloudProLayout";
+import { PointCloudViewBar } from "./components/pceditor/PointCloudViewBar";
+import type { CameraBridge } from "./components/pceditor/PointCloudViewBar";
 import { PointCloudPanel } from "./components/PointCloudPanel";
 import { PointCloudPreview, type PickMeta } from "./components/PointCloudPreview";
 import { PointCloudPropertyTable } from "./components/PointCloudPropertyTable";
@@ -98,10 +100,20 @@ function AppContent() {
   const [anglePoints, setAnglePoints] = useState<[number, number, number][]>([]);
   const [densityCheckMode, setDensityCheckMode] = useState(false);
   const [deviationHeatmap, setDeviationHeatmap] = useState<DeviationHeatmap | null>(null);
-  const cameraBridgeRef = useRef<{
-    getCamera: () => { position: [number, number, number]; target: [number, number, number] } | null;
-    setCamera: (position: [number, number, number], target: [number, number, number]) => void;
-  } | null>(null);
+  const cameraBridgeRef = useRef<CameraBridge | null>(null);
+
+  const cancelActiveCommand = useCallback(() => {
+    setActiveTool("navigate");
+    setRegionStart(null);
+    setMeasureStart(null);
+    setCrossSectionStart(null);
+    setBreaklineDraft([]);
+    setPolygonDraft([]);
+    setAnglePoints([]);
+    setDensityCheckMode(false);
+    setCrossSectionProfile(null);
+    logConsole(tr("toolSelect"), "info");
+  }, [tr]);
 
   const selectedJob = jobs.find((j) => j.job_id === selectedId) ?? null;
 
@@ -117,6 +129,15 @@ function AppContent() {
   useEffect(() => {
     refresh().catch((e: unknown) => setError(String(e)));
   }, [refresh]);
+
+  useEffect(() => {
+    if (pcPreviewFiles.length === 0) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cancelActiveCommand();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pcPreviewFiles.length, cancelActiveCommand]);
 
   useEffect(() => {
     const active = jobs.some(
@@ -610,6 +631,7 @@ function AppContent() {
             onRefreshPreview={bumpPreview}
             onError={setError}
             onToolChange={setActiveTool}
+            onCancelCommand={cancelActiveCommand}
             onOsnapModeChange={setOsnapMode}
             onClipModeChange={setClipMode}
             onDeleteRadiusChange={setDeleteRadius}
@@ -657,6 +679,7 @@ function AppContent() {
             }}
             viewport={
               <>
+              <PointCloudViewBar cameraBridgeRef={cameraBridgeRef} />
               <PointCloudPreview
                 files={pcPreviewFiles}
                 refreshToken={previewRefresh}

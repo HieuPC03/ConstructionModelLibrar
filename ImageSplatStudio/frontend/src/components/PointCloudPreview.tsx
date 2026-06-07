@@ -13,7 +13,7 @@ import {
 import { formatFileSize } from "../utils/pointcloud";
 import { viewerToWorld, formatWorldCoords, type NormMeta } from "../utils/coordTransform";
 import { LassoOverlay } from "./pceditor/LassoOverlay";
-import { createAxesHelper, createWorldAxesHelper } from "./ViewCube";
+import { createAxesHelper, createWorldAxesHelper, applyViewDirection, type ViewDirection } from "./ViewCube";
 import { OSNAP_CURSOR, PLANE_PICK_TOOLS, TOOL_CURSORS, toolHintKey, type EditorTool, type OsnapMode } from "../utils/editorTools";
 import { applyColorMode, type ColorMode } from "../utils/colorModes";
 import { fetchGridSurface } from "../api/editor";
@@ -72,6 +72,7 @@ interface PointCloudPreviewProps {
   cameraBridgeRef?: React.MutableRefObject<{
     getCamera: () => { position: [number, number, number]; target: [number, number, number] } | null;
     setCamera: (position: [number, number, number], target: [number, number, number]) => void;
+    applyViewPreset?: (dir: ViewDirection) => void;
   } | null>;
   colorMode?: ColorMode;
   showGridSurface?: boolean;
@@ -507,6 +508,9 @@ export function PointCloudPreview({
           camera.lookAt(controls.target);
           controls.update();
         },
+        applyViewPreset: (dir: ViewDirection) => {
+          applyViewDirection(camera, controls, controls.target.clone(), maxDim * 1.8, dir);
+        },
       };
     }
 
@@ -573,14 +577,29 @@ export function PointCloudPreview({
 
     const onMove = (event: MouseEvent) => {
       const ctx = sceneCtxRef.current;
-      if (!ctx || toolRef.current === "navigate") {
-        ctx?.snapMarker && (ctx.snapMarker.visible = false);
-        setSnapLabel(null);
-        onSnapHoverRef.current?.(null);
-        return;
-      }
+      if (!ctx) return;
+
       const ndc = ndcFromEvent(event, ctx.renderer.domElement);
       ctx.raycaster.setFromCamera(ndc, ctx.camera);
+      const tool = toolRef.current;
+
+      // TREND-POINT status bar: always show cursor XYZ on ground plane
+      const planeHit = intersectGroundPlane(ctx.raycaster, ctx.groundZ);
+      if (planeHit && normMeta) {
+        const world = viewerToWorld([planeHit.x, planeHit.y, planeHit.z], normMeta, swapXy);
+        onSnapHoverRef.current?.(world);
+      } else if (planeHit) {
+        onSnapHoverRef.current?.([planeHit.x, planeHit.y, planeHit.z]);
+      } else {
+        onSnapHoverRef.current?.(null);
+      }
+
+      if (tool === "navigate") {
+        ctx.snapMarker.visible = false;
+        setSnapLabel(null);
+        return;
+      }
+
       const hit = resolvePick(ctx.raycaster, ctx);
       if (hit) {
         ctx.snapMarker.position.copy(hit.point);
@@ -597,7 +616,6 @@ export function PointCloudPreview({
       } else {
         ctx.snapMarker.visible = false;
         setSnapLabel(null);
-        onSnapHoverRef.current?.(null);
       }
     };
 

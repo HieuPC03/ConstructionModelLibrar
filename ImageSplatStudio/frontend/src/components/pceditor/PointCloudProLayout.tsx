@@ -30,6 +30,7 @@ interface PointCloudProLayoutProps {
   onRefreshPreview: () => void;
   onError: (msg: string) => void;
   onToolChange: (tool: EditorTool) => void;
+  onCancelCommand?: () => void;
   onOsnapModeChange: (mode: OsnapMode) => void;
   onClipModeChange: (mode: ClipMode) => void;
   onDeleteRadiusChange: (radius: number) => void;
@@ -63,6 +64,7 @@ export function PointCloudProLayout({
   onRefreshPreview,
   onError,
   onToolChange,
+  onCancelCommand,
   onOsnapModeChange,
   onClipModeChange,
   onDeleteRadiusChange,
@@ -126,6 +128,7 @@ export function PointCloudProLayout({
           canUndo={!!properties?.can_undo}
           canRedo={!!properties?.can_redo}
           onToolChange={onToolChange}
+          onCancelCommand={onCancelCommand}
           onOsnapModeChange={onOsnapModeChange}
           onClipModeChange={onClipModeChange}
           onDeleteRadiusChange={onDeleteRadiusChange}

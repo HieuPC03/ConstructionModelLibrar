@@ -1342,9 +1342,102 @@ body.iss-resizing {
 }
 
 .tp-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   background: #e8eaef !important;
-  color: #374151 !important;
-  border-top-color: #b0b8c4 !important;
+  color: #1a1a1a !important;
+  border-top: 1px solid #b0b8c4 !important;
+  padding: 4px 10px !important;
+  font-size: 0.72rem;
+}
+
+.tp-status-left,
+.tp-status-center,
+.tp-status-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tp-status-points {
+  font-weight: 700;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  color: #111;
+}
+
+.tp-status-xyz {
+  font-variant-numeric: tabular-nums;
+  color: #111;
+}
+
+.tp-status-xyz-empty {
+  color: #64748b;
+  font-style: italic;
+}
+
+.tp-status-crs {
+  color: #64748b;
+  font-size: 0.68rem;
+}
+
+.tp-view-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 4px 8px;
+  background: #f0f2f5;
+  border-bottom: 1px solid #c5ccd8;
+  z-index: 5;
+}
+
+.tp-view-bar-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.tp-view-bar-group {
+  display: flex;
+  gap: 4px;
+}
+
+.tp-view-btn {
+  padding: 2px 8px;
+  font-size: 0.68rem;
+  border: 1px solid #b8bec8;
+  border-radius: 4px;
+  background: #fff;
+  color: #111;
+  cursor: pointer;
+}
+
+.tp-view-btn:hover {
+  background: #e8ecf2;
+}
+
+.tp-view-btn-home {
+  font-weight: 600;
+}
+
+.pc-ribbon-btn-select {
+  min-width: 48px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+.pc-ribbon-btn-select.active {
+  background: #dbeafe;
+  border-color: #3b82f6;
 }
 
 .tp-view-cube {

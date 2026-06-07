@@ -190,6 +190,7 @@ interface PointCloudIconRibbonProps {
   canUndo: boolean;
   canRedo: boolean;
   onToolChange: (tool: EditorTool) => void;
+  onCancelCommand?: () => void;
   onOsnapModeChange: (mode: OsnapMode) => void;
   onClipModeChange: (mode: ClipMode) => void;
   onDeleteRadiusChange: (radius: number) => void;
@@ -245,6 +246,16 @@ export function PointCloudIconRibbon(props: PointCloudIconRibbonProps) {
       </div>
 
       <div className="pc-ribbon-row">
+        <div className="pc-ribbon-group">
+          <button
+            type="button"
+            className={`pc-ribbon-btn pc-ribbon-btn-select ${props.activeTool === "navigate" ? "active" : ""}`}
+            title={tr("toolSelectHint")}
+            onClick={() => props.onCancelCommand?.()}
+          >
+            {tr("toolSelect")}
+          </button>
+        </div>
         <div className="pc-ribbon-group">
           <button
             type="button"
