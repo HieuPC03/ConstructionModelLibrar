@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   createJob,
@@ -15,6 +15,7 @@ import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { Logo } from "./components/Logo";
 import { ClassificationPanel } from "./components/pceditor/ClassificationPanel";
 import { CrossSectionPanel } from "./components/pceditor/CrossSectionPanel";
+import { ViewpointPanel } from "./components/pceditor/ViewpointPanel";
 import type { InspectedPoint } from "./components/pceditor/PointCloudInspector";
 import { PointCloudProLayout } from "./components/pceditor/PointCloudProLayout";
 import { PointCloudPanel } from "./components/PointCloudPanel";
@@ -39,6 +40,7 @@ import {
   editorClassifyPolygon,
   editorCrossSection,
   editorDensityCheck,
+  editorSaveViewpoint,
   editorLassoAction,
   editorRedo,
   editorUndo,
@@ -56,6 +58,7 @@ import {
   type OsnapMode,
   type VolumeResult,
 } from "./utils/editorTools";
+import type { DeviationHeatmap } from "./api/editor";
 import { logConsole } from "./utils/consoleLog";
 import type { ColorMode } from "./utils/colorModes";
 import type { AppMode, HealthInfo, JobInfo } from "./types";
@@ -94,6 +97,11 @@ function AppContent() {
   const [volumeResult, setVolumeResult] = useState<VolumeResult | null>(null);
   const [anglePoints, setAnglePoints] = useState<[number, number, number][]>([]);
   const [densityCheckMode, setDensityCheckMode] = useState(false);
+  const [deviationHeatmap, setDeviationHeatmap] = useState<DeviationHeatmap | null>(null);
+  const cameraBridgeRef = useRef<{
+    getCamera: () => { position: [number, number, number]; target: [number, number, number] } | null;
+    setCamera: (position: [number, number, number], target: [number, number, number]) => void;
+  } | null>(null);
 
   const selectedJob = jobs.find((j) => j.job_id === selectedId) ?? null;
 
@@ -630,6 +638,12 @@ function AppContent() {
                 `${tr("surveyVolume")}: ${tr("surveyCut")}=${result.cut_m3.toFixed(1)} · ${tr("surveyFill")}=${result.fill_m3.toFixed(1)} · Δ=${result.net_m3.toFixed(1)} m³`,
               );
             }}
+            onDeviationReady={(data) => {
+              setDeviationHeatmap(data);
+              setLastResult(
+                `${tr("dekiEvaluate")}: RMSE=${data.stats.rmse_m.toFixed(3)}m · ${tr("dekiWithinOk")}=${data.stats.within_ok_pct.toFixed(1)}%`,
+              );
+            }}
             onStartDensityRegion={() => {
               setDensityCheckMode(true);
               setActiveTool("hide_region");
@@ -676,6 +690,8 @@ function AppContent() {
                 crossSectionDraft={crossSectionStart}
                 contourSegments={contourData?.segments ?? null}
                 angleDraft={anglePoints}
+                deviationHeatmap={deviationHeatmap}
+                cameraBridgeRef={cameraBridgeRef}
                 onSessionReady={handleSessionReady}
                 onPick={(pos, meta) => void handlePreviewPick(pos, meta)}
                 onInspect={handleInspect}
@@ -699,6 +715,25 @@ function AppContent() {
             }
             propertyPanel={
               <>
+                <ViewpointPanel
+                  sessionId={pcSessionId}
+                  properties={editorProperties}
+                  onSaveView={() => {
+                    if (!pcSessionId || !cameraBridgeRef.current) return;
+                    const cam = cameraBridgeRef.current.getCamera();
+                    if (!cam) return;
+                    void editorSaveViewpoint(pcSessionId, `View ${(editorProperties?.viewpoints?.length ?? 0) + 1}`, cam.position, cam.target).then(
+                      handleEditorUpdated,
+                    );
+                  }}
+                  onApplyView={(camera, target) => {
+                    cameraBridgeRef.current?.setCamera(
+                      camera as [number, number, number],
+                      target as [number, number, number],
+                    );
+                  }}
+                  onUpdated={handleEditorUpdated}
+                />
                 <ClassificationPanel
                   sessionId={pcSessionId}
                   properties={editorProperties}

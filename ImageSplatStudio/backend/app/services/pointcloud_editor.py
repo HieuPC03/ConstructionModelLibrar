@@ -162,6 +162,10 @@ def get_properties(session_id: str) -> dict:
         "contours": state.get("contours"),
         "volumes": state.get("volumes", []),
         "last_cross_section": state.get("last_cross_section"),
+        "deviation_heatmap": state.get("deviation_heatmap"),
+        "viewpoints": state.get("viewpoints", []),
+        "has_splat": state.get("has_splat", False),
+        "survey_imports": state.get("survey_imports", []),
     }
 
 
@@ -991,3 +995,163 @@ def check_density(
     visible_pts, _, _ = get_visible_points(session_id)
     result = compute_region_density(visible_pts, min_pt, max_pt, cell_size)
     return result
+
+
+def register_splat_as_points(
+    session_id: str,
+    splat_path: Path,
+    *,
+    filter_strength: float = 0.5,
+    alpha_threshold: float = 0.05,
+    offset: list[float] | None = None,
+    scale: float = 1.0,
+    swap_xy: bool = False,
+) -> dict:
+    _pipeline_path()
+    from pointcloud_splat import splat_to_point_cloud
+
+    push_undo(session_id)
+    pts, cols = splat_to_point_cloud(
+        splat_path,
+        alpha_threshold=alpha_threshold,
+        filter_strength=filter_strength,
+        offset=offset,
+        scale=scale,
+        swap_xy=swap_xy,
+    )
+    existing_pts, existing_cols = load_points_colors(session_id)
+    new_pts = np.vstack([existing_pts, pts]) if len(existing_pts) else pts
+    if existing_cols is not None and len(existing_cols) == len(existing_pts):
+        new_cols = np.vstack([existing_cols, cols])
+    elif cols is not None:
+        new_cols = cols if len(existing_pts) == 0 else np.vstack([
+            existing_cols if existing_cols is not None else np.full((len(existing_pts), 3), 0.7),
+            cols,
+        ])
+    else:
+        new_cols = existing_cols
+    cls = load_classifications(session_id)
+    new_cls = np.concatenate([cls, np.zeros(len(pts), dtype=np.uint8)]) if len(cls) == len(existing_pts) else np.zeros(len(new_pts), dtype=np.uint8)
+    save_points_colors(session_id, new_pts, new_cols, new_cls)
+    state = load_state(session_id)
+    state = _sync_edited_files(state, len(new_pts))
+    state["has_splat"] = True
+    save_state(session_id, state)
+    result = get_properties(session_id)
+    result["added_count"] = len(pts)
+    return result
+
+
+def evaluate_deviation(
+    session_id: str,
+    design_z: float,
+    *,
+    tolerance_ok: float = 0.05,
+    tolerance_warn: float = 0.15,
+) -> dict:
+    _pipeline_path()
+    from pointcloud_deki import compute_deviation_heatmap
+
+    grid_data = get_grid_surface_json(session_id)
+    if grid_data is None:
+        raise ValueError("Chưa có lưới IDW — tạo lưới trước.")
+    result = compute_deviation_heatmap(
+        grid_data,
+        design_z=design_z,
+        tolerance_ok=tolerance_ok,
+        tolerance_warn=tolerance_warn,
+    )
+    heatmap_path = _session_dir(session_id) / "deviation_heatmap.json"
+    heatmap_path.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+    state = load_state(session_id)
+    state["deviation_heatmap"] = {
+        "design_z": design_z,
+        "stats": result["stats"],
+        "tolerance_ok": tolerance_ok,
+        "tolerance_warn": tolerance_warn,
+    }
+    save_state(session_id, state)
+    return result
+
+
+def get_deviation_heatmap(session_id: str) -> dict | None:
+    path = _session_dir(session_id) / "deviation_heatmap.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def import_survey_csv(
+    session_id: str,
+    csv_text: str,
+    *,
+    skip_header_rows: int = 0,
+    z_flip: bool = False,
+    col_x: int = 0,
+    col_y: int = 1,
+    col_z: int = 2,
+) -> dict:
+    _pipeline_path()
+    from pointcloud_deki import parse_survey_csv
+
+    push_undo(session_id)
+    state = load_state(session_id)
+    swap = bool(state.get("swap_xy", False))
+    pts = parse_survey_csv(
+        csv_text,
+        skip_header_rows=skip_header_rows,
+        swap_xy=swap,
+        z_flip=z_flip,
+        col_x=col_x,
+        col_y=col_y,
+        col_z=col_z,
+    )
+    existing_pts, existing_cols = load_points_colors(session_id)
+    new_pts = np.vstack([existing_pts, pts]) if len(existing_pts) else pts
+    gray = np.full((len(pts), 3), 0.85, dtype=np.float32)
+    if existing_cols is not None and len(existing_cols) == len(existing_pts):
+        new_cols = np.vstack([existing_cols, gray])
+    else:
+        new_cols = gray if len(existing_pts) == 0 else np.vstack([
+            existing_cols if existing_cols is not None else np.full((len(existing_pts), 3), 0.7),
+            gray,
+        ])
+    cls = load_classifications(session_id)
+    new_cls = np.concatenate([cls, np.zeros(len(pts), dtype=np.uint8)]) if len(cls) == len(existing_pts) else np.zeros(len(new_pts), dtype=np.uint8)
+    save_points_colors(session_id, new_pts, new_cols, new_cls)
+    state = _sync_edited_files(state, len(new_pts))
+    survey_pts = state.get("survey_imports", [])
+    survey_pts.append({"count": len(pts), "source": "csv"})
+    state["survey_imports"] = survey_pts[-20:]
+    save_state(session_id, state)
+    result = get_properties(session_id)
+    result["imported_count"] = len(pts)
+    return result
+
+
+def save_viewpoint(
+    session_id: str,
+    name: str,
+    camera_pos: list[float],
+    target: list[float],
+    up: list[float] | None = None,
+) -> dict:
+    state = load_state(session_id)
+    views = state.get("viewpoints", [])
+    views.append({
+        "id": uuid.uuid4().hex[:8],
+        "name": name or f"View {len(views) + 1}",
+        "camera": camera_pos,
+        "target": target,
+        "up": up or [0, 0, 1],
+    })
+    state["viewpoints"] = views[-30:]
+    save_state(session_id, state)
+    return get_properties(session_id)
+
+
+def delete_viewpoint(session_id: str, view_id: str) -> dict:
+    state = load_state(session_id)
+    state["viewpoints"] = [v for v in state.get("viewpoints", []) if v.get("id") != view_id]
+    save_state(session_id, state)
+    return get_properties(session_id)

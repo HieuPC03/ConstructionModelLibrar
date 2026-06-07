@@ -29,17 +29,22 @@ from app.services.pointcloud_editor import (
     delete_hidden_region,
     delete_measurement,
     delete_points_at,
+    delete_viewpoint,
+    evaluate_deviation,
     export_session,
     extract_cross_section_profile,
     get_contours,
+    get_deviation_heatmap,
     get_grid_binary,
     get_grid_surface_json,
     get_properties,
+    import_survey_csv,
     lasso_action,
     mesh_add_vertex,
     mesh_delete_vertex,
     polygon_delete,
     redo_session,
+    save_viewpoint,
     set_class_visibility,
     set_file_visibility,
     show_all,
@@ -141,9 +146,40 @@ class VolumeBody(BaseModel):
     base_z: float
 
 
+class DensityBody(BaseModel):
     min: list[float] = Field(..., min_length=3, max_length=3)
     max: list[float] = Field(..., min_length=3, max_length=3)
     cell_size: float = Field(1.0, gt=0)
+
+
+class DeviationBody(BaseModel):
+    design_z: float
+    tolerance_ok: float = Field(0.05, gt=0)
+    tolerance_warn: float = Field(0.15, gt=0)
+
+
+class SplatRegisterBody(BaseModel):
+    filter_strength: float = Field(0.5, ge=0, le=1)
+    alpha_threshold: float = Field(0.05, ge=0, le=1)
+    offset: list[float] = Field(default_factory=lambda: [0, 0, 0])
+    scale: float = Field(1.0, gt=0)
+    swap_xy: bool = False
+
+
+class CsvImportBody(BaseModel):
+    csv_text: str
+    skip_header_rows: int = Field(0, ge=0)
+    z_flip: bool = False
+    col_x: int = Field(0, ge=0)
+    col_y: int = Field(1, ge=0)
+    col_z: int = Field(2, ge=0)
+
+
+class ViewpointBody(BaseModel):
+    name: str = "View"
+    camera: list[float] = Field(..., min_length=3, max_length=3)
+    target: list[float] = Field(..., min_length=3, max_length=3)
+    up: list[float] | None = None
 
 
 class IdBody(BaseModel):
@@ -540,3 +576,55 @@ def editor_density(session_id: str, body: DensityBody) -> dict:
         return check_density(session_id, body.min, body.max, body.cell_size)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/deviation")
+def editor_deviation(session_id: str, body: DeviationBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return evaluate_deviation(
+            session_id,
+            body.design_z,
+            tolerance_ok=body.tolerance_ok,
+            tolerance_warn=body.tolerance_warn,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/{session_id}/deviation")
+def editor_deviation_get(session_id: str) -> dict:
+    _ensure_session(session_id)
+    data = get_deviation_heatmap(session_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Chưa có heatmap 出来形.")
+    return data
+
+
+@router.post("/{session_id}/import/csv-survey")
+def editor_csv_import(session_id: str, body: CsvImportBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return import_survey_csv(
+            session_id,
+            body.csv_text,
+            skip_header_rows=body.skip_header_rows,
+            z_flip=body.z_flip,
+            col_x=body.col_x,
+            col_y=body.col_y,
+            col_z=body.col_z,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/viewpoint")
+def editor_save_viewpoint(session_id: str, body: ViewpointBody) -> dict:
+    _ensure_session(session_id)
+    return save_viewpoint(session_id, body.name, body.camera, body.target, body.up)
+
+
+@router.post("/{session_id}/viewpoint/delete")
+def editor_delete_viewpoint(session_id: str, body: IdBody) -> dict:
+    _ensure_session(session_id)
+    return delete_viewpoint(session_id, body.id)

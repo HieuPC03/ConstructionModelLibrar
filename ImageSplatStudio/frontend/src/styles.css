@@ -2304,6 +2304,52 @@ body.iss-resizing {
   color: #64748b;
 }
 
+.pc-viewpoint-panel {
+  padding: 8px 10px;
+  border-bottom: 1px solid #c8ced6;
+}
+
+.pc-viewpoint-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+}
+
+.pc-viewpoint-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.pc-viewpoint-list li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.pc-viewpoint-list li button:first-child {
+  flex: 1;
+  text-align: left;
+  font-size: 0.68rem;
+  padding: 3px 6px;
+  border: 1px solid #c8ced6;
+  border-radius: 3px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.pc-viewpoint-del {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #64748b;
+}
+
 @media (max-width: 960px) {
   .pc-pro-left,
   .pc-pro-right {

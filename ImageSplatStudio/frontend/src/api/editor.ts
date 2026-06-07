@@ -36,6 +36,14 @@ export interface EditorProperties {
   contours?: { interval: number; segment_count: number } | null;
   volumes?: { id: string; base_z: number; cut_m3: number; fill_m3: number; net_m3: number }[];
   last_cross_section?: { start: number[]; end: number[]; width: number } | null;
+  deviation_heatmap?: {
+    design_z: number;
+    stats: { rmse_m: number; within_ok_pct: number; max_m: number; min_m: number };
+    tolerance_ok: number;
+    tolerance_warn: number;
+  } | null;
+  viewpoints?: { id: string; name: string; camera: number[]; target: number[]; up?: number[] }[];
+  has_splat?: boolean;
 }
 
 async function parseJson<T>(response: Response): Promise<T> {
@@ -497,6 +505,82 @@ export async function editorDensityCheck(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ min, max, cell_size: cellSize }),
+    }),
+  );
+}
+
+export interface DeviationHeatmap {
+  deviation: number[][];
+  color_class: number[][];
+  stats: { mean_m: number; max_m: number; min_m: number; rmse_m: number; within_ok_pct: number; valid_cells: number };
+  tolerance_ok_m: number;
+  tolerance_warn_m: number;
+  xs: number[];
+  ys: number[];
+  cell_size: number;
+  size: number[];
+}
+
+export async function editorEvaluateDeviation(
+  sessionId: string,
+  designZ: number,
+  toleranceOk = 0.05,
+  toleranceWarn = 0.15,
+): Promise<DeviationHeatmap> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/deviation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ design_z: designZ, tolerance_ok: toleranceOk, tolerance_warn: toleranceWarn }),
+    }),
+  );
+}
+
+export async function editorFetchDeviation(sessionId: string): Promise<DeviationHeatmap> {
+  return parseJson(await fetch(`${API}/${sessionId}/deviation`));
+}
+
+export async function editorImportCsvSurvey(
+  sessionId: string,
+  opts: {
+    csv_text: string;
+    skip_header_rows?: number;
+    z_flip?: boolean;
+    col_x?: number;
+    col_y?: number;
+    col_z?: number;
+  },
+): Promise<EditorProperties & { imported_count?: number }> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/import/csv-survey`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(opts),
+    }),
+  );
+}
+
+export async function editorSaveViewpoint(
+  sessionId: string,
+  name: string,
+  camera: [number, number, number],
+  target: [number, number, number],
+): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/viewpoint`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, camera, target }),
+    }),
+  );
+}
+
+export async function editorDeleteViewpoint(sessionId: string, id: string): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/viewpoint/delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
     }),
   );
 }

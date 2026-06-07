@@ -77,6 +77,11 @@ interface PointCloudPreviewProps {
   crossSectionDraft?: [number, number, number] | null;
   contourSegments?: Record<string, number[][][]> | null;
   angleDraft?: [number, number, number][];
+  deviationHeatmap?: import("../api/editor").DeviationHeatmap | null;
+  cameraBridgeRef?: React.MutableRefObject<{
+    getCamera: () => { position: [number, number, number]; target: [number, number, number] } | null;
+    setCamera: (position: [number, number, number], target: [number, number, number]) => void;
+  } | null>;
   colorMode?: ColorMode;
   showGridSurface?: boolean;
   onSessionReady?: (sessionId: string) => void;
@@ -156,6 +161,8 @@ export function PointCloudPreview({
   crossSectionDraft = null,
   contourSegments = null,
   angleDraft = [],
+  deviationHeatmap = null,
+  cameraBridgeRef,
   colorMode = "rgb",
   showGridSurface = false,
   onSessionReady,
@@ -181,6 +188,7 @@ export function PointCloudPreview({
     regionGroup: THREE.Group;
     annotationGroup: THREE.Group;
     gridSurfaceGroup: THREE.Group;
+    deviationGroup: THREE.Group;
     axesGroup: THREE.Group;
     basemapPlane: THREE.Mesh | null;
     maxDim: number;
@@ -505,6 +513,9 @@ export function PointCloudPreview({
     const gridSurfaceGroup = new THREE.Group();
     scene.add(gridSurfaceGroup);
 
+    const deviationGroup = new THREE.Group();
+    scene.add(deviationGroup);
+
     const snapMarker = new THREE.Mesh(
       new THREE.SphereGeometry(maxDim * 0.008, 12, 12),
       new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.9 }),
@@ -527,6 +538,7 @@ export function PointCloudPreview({
       regionGroup,
       annotationGroup,
       gridSurfaceGroup,
+      deviationGroup,
       axesGroup,
       basemapPlane,
       maxDim,
@@ -534,6 +546,21 @@ export function PointCloudPreview({
       pickPlane,
     };
     viewCubeCameraRef.current = camera;
+
+    if (cameraBridgeRef) {
+      cameraBridgeRef.current = {
+        getCamera: () => ({
+          position: [camera.position.x, camera.position.y, camera.position.z],
+          target: [controls.target.x, controls.target.y, controls.target.z],
+        }),
+        setCamera: (pos: [number, number, number], tgt: [number, number, number]) => {
+          camera.position.set(pos[0], pos[1], pos[2]);
+          controls.target.set(tgt[0], tgt[1], tgt[2]);
+          camera.lookAt(controls.target);
+          controls.update();
+        },
+      };
+    }
 
     const sid = sessionRef.current;
     if (gridEnabled && sid) {
@@ -692,8 +719,9 @@ export function PointCloudPreview({
       mount.removeChild(renderer.domElement);
       sceneCtxRef.current = null;
       viewCubeCameraRef.current = null;
+      if (cameraBridgeRef) cameraBridgeRef.current = null;
     };
-  }, [data, resolvePick, showAxes, basemapEnabled, basemapMode, crsEpsg, normMeta, swapXy]);
+  }, [data, resolvePick, showAxes, basemapEnabled, basemapMode, crsEpsg, normMeta, swapXy, cameraBridgeRef]);
 
   const handleViewCube = (dir: ViewDirection) => {
     const ctx = sceneCtxRef.current;
@@ -788,6 +816,45 @@ export function PointCloudPreview({
       cancelled = true;
     };
   }, [showGridSurface, refreshToken, gridEnabled]);
+
+  useEffect(() => {
+    const ctx = sceneCtxRef.current;
+    if (!ctx) return;
+    while (ctx.deviationGroup.children.length) {
+      const child = ctx.deviationGroup.children[0];
+      ctx.deviationGroup.remove(child);
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose();
+        (child.material as THREE.Material).dispose();
+      }
+    }
+    if (!deviationHeatmap) return;
+    const { xs, ys, cell_size: cell, color_class, deviation } = deviationHeatmap;
+    const ny = color_class.length;
+    const nx = color_class[0]?.length ?? 0;
+    const colors: Record<number, number> = { 1: 0x44cc66, 2: 0xffcc00, 3: 0xff4444 };
+    for (let iy = 0; iy < ny; iy++) {
+      for (let ix = 0; ix < nx; ix++) {
+        const cls = color_class[iy]?.[ix] ?? 0;
+        if (cls === 0) continue;
+        const z = deviation[iy]?.[ix];
+        if (!Number.isFinite(z)) continue;
+        const x = xs[ix] ?? 0;
+        const y = ys[iy] ?? 0;
+        const geom = new THREE.PlaneGeometry(cell * 0.95, cell * 0.95);
+        const mat = new THREE.MeshBasicMaterial({
+          color: colors[cls] ?? 0xffffff,
+          transparent: true,
+          opacity: 0.55,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        });
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.position.set(x + cell / 2, y + cell / 2, z);
+        ctx.deviationGroup.add(mesh);
+      }
+    }
+  }, [deviationHeatmap]);
 
   useEffect(() => {
     const ctx = sceneCtxRef.current;

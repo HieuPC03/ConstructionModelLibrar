@@ -41,6 +41,7 @@ interface PointCloudProLayoutProps {
   onCreateGrid: () => void;
   onContoursReady: (data: ContourData) => void;
   onVolumeResult: (result: VolumeResult) => void;
+  onDeviationReady: (data: import("../../api/editor").DeviationHeatmap) => void;
   onStartDensityRegion: () => void;
   viewport: ReactNode;
   propertyPanel: ReactNode;
@@ -71,6 +72,7 @@ export function PointCloudProLayout({
   onRedo,
   onContoursReady,
   onVolumeResult,
+  onDeviationReady,
   onStartDensityRegion,
   viewport,
   propertyPanel,
@@ -150,6 +152,7 @@ export function PointCloudProLayout({
           onError={onError}
           onContoursReady={onContoursReady}
           onVolumeResult={onVolumeResult}
+          onDeviationReady={onDeviationReady}
           onStartDensityRegion={onStartDensityRegion}
         />
       )}
