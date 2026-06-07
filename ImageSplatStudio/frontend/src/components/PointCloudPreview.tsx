@@ -17,7 +17,7 @@ import { createAxesHelper, createWorldAxesHelper, applyViewDirection, type ViewD
 import { OSNAP_CURSOR, PLANE_PICK_TOOLS, TOOL_CURSORS, toolHintKey, type EditorTool, type OsnapMode } from "../utils/editorTools";
 import { applyColorMode, type ColorMode } from "../utils/colorModes";
 import { fetchGridSurface } from "../api/editor";
-import { createTrendPointGrid, groundPlaneZ } from "../utils/trendPointGrid";
+import { groundPlaneZ } from "../utils/trendPointGrid";
 import {
   formatSnapLabel,
   intersectGroundPlane,
@@ -408,7 +408,7 @@ export function PointCloudPreview({
     let cancelled = false;
     materialRef.current = null;
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xe8ecef);
+    scene.background = new THREE.Color(0x07080d);
 
     const count = data.count;
     const positions = data.positions.slice(0, count * 3);
@@ -466,15 +466,6 @@ export function PointCloudPreview({
     scene.add(new THREE.DirectionalLight(0xffffff, 0.45));
 
     const gZ = groundPlaneZ(box.min, normMeta, swapXy);
-    scene.add(
-      createTrendPointGrid({
-        min: box.min.clone(),
-        max: box.max.clone(),
-        normMeta,
-        swapXy,
-        groundZ: gZ,
-      }),
-    );
 
     const axesGroup =
       normMeta && (normMeta.center || normMeta.world_min)

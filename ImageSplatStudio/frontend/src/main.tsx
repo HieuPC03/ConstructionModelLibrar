@@ -13,7 +13,6 @@ import { ExportBar } from "./components/ExportBar";
 import { JobList } from "./components/JobList";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { Logo } from "./components/Logo";
-import { ClassificationPanel } from "./components/pceditor/ClassificationPanel";
 import { CrossSectionPanel } from "./components/pceditor/CrossSectionPanel";
 import { ViewpointPanel } from "./components/pceditor/ViewpointPanel";
 import type { InspectedPoint } from "./components/pceditor/PointCloudInspector";
@@ -93,8 +92,8 @@ function AppContent() {
   const [snapCoords, setSnapCoords] = useState<[number, number, number] | null>(null);
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [inspectedPoint, setInspectedPoint] = useState<InspectedPoint | null>(null);
-  const [activeClassId, setActiveClassId] = useState(2);
-  const [lassoAction, setLassoAction] = useState<"classify" | "delete" | "hide" | "show">("hide");
+  const [activeClassId] = useState(2);
+  const [lassoAction] = useState<"classify" | "delete" | "hide" | "show">("hide");
   const [crossSectionWidth, setCrossSectionWidth] = useState(0.5);
   const [crossSectionStart, setCrossSectionStart] = useState<[number, number, number] | null>(null);
   const [crossSectionProfile, setCrossSectionProfile] = useState<CrossSectionProfile | null>(null);
@@ -594,9 +593,6 @@ function AppContent() {
             <h1 className={showPointCloudPreview ? "app-title-compact" : ""}>
               {tr("appTitle")}
               <span className="app-version-badge">v{APP_VERSION}</span>
-              {showPointCloudPreview && (
-                <span className="app-mode-badge">{tr("tpEditorBadge")}</span>
-              )}
             </h1>
           </div>
         </div>
@@ -788,18 +784,6 @@ function AppContent() {
                     bumpPreview();
                     logConsole(tr("gridCreate"), "success");
                   }}
-                />
-                <ClassificationPanel
-                  sessionId={pcSessionId}
-                  properties={editorProperties}
-                  activeClassId={activeClassId}
-                  onActiveClassChange={setActiveClassId}
-                  activeTool={activeTool}
-                  lassoAction={lassoAction}
-                  onLassoActionChange={setLassoAction}
-                  onUpdated={handleEditorUpdated}
-                  onRefreshPreview={bumpPreview}
-                  onError={setError}
                 />
                 <ViewpointPanel
                   sessionId={pcSessionId}
