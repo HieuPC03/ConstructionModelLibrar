@@ -63,6 +63,38 @@ export function formatWorldCoords(p: [number, number, number], decimals = 3): st
   return `${p[0].toFixed(decimals)}, ${p[1].toFixed(decimals)}, ${p[2].toFixed(decimals)}`;
 }
 
+/** Real-world point → Three.js viewer position (Z-up WCS). */
+export function worldPointToViewerVec(
+  world: [number, number, number],
+  meta: NormMeta,
+  swapXy = false,
+): { x: number; y: number; z: number } {
+  const [vx, vy, vz] = worldToViewer(world, meta, swapXy);
+  return { x: vx, y: vy, z: vz };
+}
+
+/** WCS anchor at world origin (0,0,0) or world_min when origin is far from data. */
+export function wcsAnchorWorld(meta: NormMeta): [number, number, number] {
+  const wm = meta.world_min;
+  const wx = meta.world_max;
+  if (wm && wx && wm.length >= 3 && wx.length >= 3) {
+    const cx = ((wm[0] ?? 0) + (wx[0] ?? 0)) / 2;
+    const cy = ((wm[1] ?? 0) + (wx[1] ?? 0)) / 2;
+    const cz = ((wm[2] ?? 0) + (wx[2] ?? 0)) / 2;
+    const dist = Math.hypot(cx, cy, cz);
+    const extent = Math.max(
+      Math.abs((wx[0] ?? 0) - (wm[0] ?? 0)),
+      Math.abs((wx[1] ?? 0) - (wm[1] ?? 0)),
+      Math.abs((wx[2] ?? 0) - (wm[2] ?? 0)),
+      1,
+    );
+    if (dist > extent * 50) {
+      return [wm[0], wm[1], wm[2]];
+    }
+  }
+  return [0, 0, wm?.[2] ?? 0];
+}
+
 export function isJapanGeographic(meta: NormMeta): boolean {
   const c = meta.center ?? meta.world_min;
   if (!c || c.length < 2) return false;

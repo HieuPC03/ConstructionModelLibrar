@@ -11,10 +11,18 @@ import {
   type PointCloudPreviewMeta,
 } from "../api";
 import { formatFileSize } from "../utils/pointcloud";
-import { viewerToWorld, formatWorldCoords, type NormMeta } from "../utils/coordTransform";
+import { viewerToWorld, formatWorldCoords, worldPointToViewerVec, type NormMeta } from "../utils/coordTransform";
 import { buildGeoreferencedBasemap, effectiveBasemapMode, type BasemapMode } from "../utils/basemapTiles";
 import { LassoOverlay } from "./pceditor/LassoOverlay";
-import { applyViewDirection, createAxesHelper, ViewCube, type ViewDirection } from "./ViewCube";
+import {
+  applyViewDirection,
+  createAxesHelper,
+  createWorldAxesHelper,
+  rotateCameraAroundZ,
+  rotateCameraOrbit,
+  ViewCube,
+  type ViewDirection,
+} from "./ViewCube";
 import { OSNAP_CURSOR, TOOL_CURSORS, toolHintKey, type EditorTool, type OsnapMode } from "../utils/editorTools";
 import { applyColorMode, type ColorMode } from "../utils/colorModes";
 import { fetchGridSurface } from "../api/editor";
@@ -422,10 +430,22 @@ export function PointCloudPreview({
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const floor = new THREE.GridHelper(maxDim * 2.5, 20, 0x2a3444, 0x1a2230);
     floor.rotation.x = Math.PI / 2;
-    floor.position.z = box.min.z - maxDim * 0.01;
+    if (normMeta?.world_min && normMeta.world_min.length >= 3) {
+      const ground = worldPointToViewerVec(
+        [normMeta.world_min[0], normMeta.world_min[1], normMeta.world_min[2]],
+        normMeta,
+        swapXy,
+      );
+      floor.position.set(ground.x, ground.y, ground.z - maxDim * 0.01);
+    } else {
+      floor.position.z = box.min.z - maxDim * 0.01;
+    }
     scene.add(floor);
 
-    const axesGroup = createAxesHelper(maxDim * 0.45);
+    const axesGroup =
+      normMeta && (normMeta.center || normMeta.world_min)
+        ? createWorldAxesHelper(maxDim * 0.45, normMeta, swapXy)
+        : createAxesHelper(maxDim * 0.45);
     axesGroup.visible = showAxes;
     scene.add(axesGroup);
 
@@ -672,6 +692,18 @@ export function PointCloudPreview({
     if (!ctx) return;
     const dist = ctx.maxDim * 1.8;
     applyViewDirection(ctx.camera, ctx.controls, ctx.controls.target.clone(), dist, dir);
+  };
+
+  const handleViewCubeDrag = (deltaX: number, deltaY: number) => {
+    const ctx = sceneCtxRef.current;
+    if (!ctx) return;
+    rotateCameraOrbit(ctx.camera, ctx.controls, deltaX, deltaY);
+  };
+
+  const handleViewCubeRotateZ = (radians: number) => {
+    const ctx = sceneCtxRef.current;
+    if (!ctx) return;
+    rotateCameraAroundZ(ctx.camera, ctx.controls, radians);
   };
 
   const handleViewHome = () => {
@@ -1074,6 +1106,8 @@ export function PointCloudPreview({
         <ViewCube
           onSelect={handleViewCube}
           onHome={handleViewHome}
+          onDragRotate={handleViewCubeDrag}
+          onRotateZ={handleViewCubeRotateZ}
           cameraRef={viewCubeCameraRef}
         />
       </div>

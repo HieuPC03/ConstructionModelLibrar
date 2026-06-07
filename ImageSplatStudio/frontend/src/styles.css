@@ -1354,6 +1354,54 @@ body.iss-resizing {
   height: 118px;
 }
 
+.tp-compass-arrow {
+  position: absolute;
+  z-index: 3;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  font-size: 0.55rem;
+  line-height: 1;
+  color: #334155;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid #94a3b8;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tp-compass-arrow:hover {
+  background: #fff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+}
+
+.tp-compass-arrow-n {
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tp-compass-arrow-s {
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tp-compass-arrow-e {
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.tp-compass-arrow-w {
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
 .tp-compass-n,
 .tp-compass-e,
 .tp-compass-s,
