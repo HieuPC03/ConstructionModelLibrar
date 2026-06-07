@@ -27,6 +27,7 @@ function makeLabel(text: string, color: number): THREE.Sprite {
   return sprite;
 }
 
+/** Z-up WCS axes + horizontal XY grid (TREND-POINT style). */
 function createGizmoGroup(): THREE.Group {
   const group = new THREE.Group();
 
@@ -42,7 +43,7 @@ function createGizmoGroup(): THREE.Group {
   group.add(
     new THREE.LineSegments(
       gridGeom,
-      new THREE.LineBasicMaterial({ color: 0x44aa44, transparent: true, opacity: 0.85 }),
+      new THREE.LineBasicMaterial({ color: 0xcccccc, transparent: true, opacity: 0.9 }),
     ),
   );
 
@@ -54,7 +55,7 @@ function createGizmoGroup(): THREE.Group {
   group.add(
     new THREE.LineSegments(
       new THREE.EdgesGeometry(new THREE.BoxGeometry(0.17, 0.17, 0.17)),
-      new THREE.LineBasicMaterial({ color: 0x666666 }),
+      new THREE.LineBasicMaterial({ color: 0x888888 }),
     ),
   );
 
@@ -103,13 +104,16 @@ export function OrientationGizmo({ cameraRef, onDragRotate }: OrientationGizmoPr
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mount.appendChild(renderer.domElement);
 
-    const cam = new THREE.PerspectiveCamera(42, 1, 0.1, 20);
-    cam.position.set(1.75, -1.75, 1.35);
+    const cam = new THREE.OrthographicCamera(-0.95, 0.95, 0.95, -0.95, 0.1, 20);
+    cam.position.set(2.1, -2.1, 1.55);
     cam.up.set(0, 0, 1);
     cam.lookAt(0, 0, 0);
+    cam.updateProjectionMatrix();
 
     const gizmo = createGizmoGroup();
     scene.add(gizmo);
+
+    const syncMatrix = new THREE.Matrix4();
 
     let dragStart: { x: number; y: number } | null = null;
     let dragging = false;
@@ -146,7 +150,9 @@ export function OrientationGizmo({ cameraRef, onDragRotate }: OrientationGizmoPr
       frame = requestAnimationFrame(tick);
       const mainCam = cameraRef.current;
       if (mainCam) {
-        gizmo.quaternion.copy(mainCam.quaternion).invert();
+        mainCam.updateMatrixWorld();
+        syncMatrix.copy(mainCam.matrixWorld).invert();
+        gizmo.quaternion.setFromRotationMatrix(syncMatrix);
       }
       renderer.render(scene, cam);
     };

@@ -14,7 +14,7 @@ import { formatFileSize } from "../utils/pointcloud";
 import { viewerToWorld, worldToViewer, formatWorldCoords, type NormMeta } from "../utils/coordTransform";
 import { LassoOverlay } from "./pceditor/LassoOverlay";
 import { OrientationGizmo } from "./pceditor/OrientationGizmo";
-import { createAxesHelper, createWorldAxesHelper, applyViewDirection, type ViewDirection } from "./ViewCube";
+import { createAxesHelper, createWorldAxesHelper, applyViewDirection, rotateCameraOrbit, type ViewDirection } from "./ViewCube";
 import { OSNAP_CURSOR, PLANE_PICK_TOOLS, TOOL_CURSORS, toolHintKey, type EditorTool, type OsnapMode } from "../utils/editorTools";
 import { applyColorMode, type ColorMode } from "../utils/colorModes";
 import { fetchGridSurface } from "../api/editor";
@@ -212,15 +212,7 @@ export function PointCloudPreview({
   const handleGizmoDrag = useCallback((deltaX: number, deltaY: number) => {
     const ctx = sceneCtxRef.current;
     if (!ctx) return;
-    const { camera, controls } = ctx;
-    const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
-    const spherical = new THREE.Spherical().setFromVector3(offset);
-    spherical.theta -= deltaX * 0.005;
-    spherical.phi = Math.max(0.05, Math.min(Math.PI - 0.05, spherical.phi - deltaY * 0.005));
-    offset.setFromSpherical(spherical);
-    camera.position.copy(controls.target).add(offset);
-    camera.lookAt(controls.target);
-    controls.update();
+    rotateCameraOrbit(ctx.camera, ctx.controls, deltaX, deltaY);
   }, []);
   const [data, setData] = useState<PreviewData | null>(null);
   const [error, setError] = useState<string | null>(null);
