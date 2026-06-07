@@ -60,6 +60,15 @@ export interface EditorProperties {
 async function parseJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const text = await response.text();
+    try {
+      const body = JSON.parse(text) as { detail?: string | { msg?: string }[] };
+      if (typeof body.detail === "string") throw new Error(body.detail);
+      if (Array.isArray(body.detail) && body.detail[0]?.msg) {
+        throw new Error(body.detail.map((d) => d.msg).join("; "));
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message !== text) throw e;
+    }
     throw new Error(text || response.statusText);
   }
   return response.json() as Promise<T>;

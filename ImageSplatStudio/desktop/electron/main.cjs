@@ -94,7 +94,37 @@ function buildBackendEnv() {
     env.SPLAT_PYTHON = path.join(pythonRoot, "bin", "python3");
   }
 
+  const odaExe = resolveOdaConverter();
+  if (odaExe) {
+    env.ODAFC_EXE = odaExe;
+    log(`ODA File Converter: ${odaExe}`);
+  }
+
   return { backendDir, env };
+}
+
+function resolveOdaConverter() {
+  const envPath = process.env.ODAFC_EXE;
+  if (envPath && fs.existsSync(envPath)) return envPath;
+
+  const bundled = [
+    resolveResource("ODAFileConverter", "ODAFileConverter.exe"),
+    path.join(process.resourcesPath || "", "ODAFileConverter", "ODAFileConverter.exe"),
+  ];
+  for (const p of bundled) {
+    if (p && fs.existsSync(p)) return p;
+  }
+
+  if (process.platform === "win32") {
+    const defaults = [
+      "C:\\Program Files\\ODA\\ODAFileConverter\\ODAFileConverter.exe",
+      "C:\\Program Files (x86)\\ODA\\ODAFileConverter\\ODAFileConverter.exe",
+    ];
+    for (const p of defaults) {
+      if (fs.existsSync(p)) return p;
+    }
+  }
+  return null;
 }
 
 function startBackend() {

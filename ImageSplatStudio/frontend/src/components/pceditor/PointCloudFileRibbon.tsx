@@ -141,6 +141,7 @@ export function PointCloudFileRibbon({
           <p className="pc-process-hint">
             {tr("fileFormatsHint")}: {SUPPORTED_POINTCLOUD_LABEL}
           </p>
+          <p className="pc-process-hint">{tr("fileDwgHint")}</p>
         </div>
 
         <div className="pc-process-group">
