@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { useI18n } from "../i18n/I18nProvider";
-import { decodeGridLines, editorGridUrl, editorMeshUrl, editorTraceMeshUrl } from "../api/editor";
+import { decodeGridLines, editorGeorefImageUrl, editorGridUrl, editorMeshUrl, editorTraceMeshUrl } from "../api/editor";
 import {
   fetchPreviewGeometry,
   previewPointClouds,
@@ -11,7 +11,7 @@ import {
   type PointCloudPreviewMeta,
 } from "../api";
 import { formatFileSize } from "../utils/pointcloud";
-import { viewerToWorld, formatWorldCoords, type NormMeta } from "../utils/coordTransform";
+import { viewerToWorld, worldToViewer, formatWorldCoords, type NormMeta } from "../utils/coordTransform";
 import { LassoOverlay } from "./pceditor/LassoOverlay";
 import { createAxesHelper, createWorldAxesHelper, applyViewDirection, type ViewDirection } from "./ViewCube";
 import { OSNAP_CURSOR, PLANE_PICK_TOOLS, TOOL_CURSORS, toolHintKey, type EditorTool, type OsnapMode } from "../utils/editorTools";
@@ -59,6 +59,13 @@ interface PointCloudPreviewProps {
   osnapMode?: OsnapMode;
   breaklines?: { id: string; points: number[][] }[];
   traces?: { id: string; polygon: number[][]; path: string; vertices: number; triangles: number }[];
+  georefImages?: {
+    id: string;
+    name: string;
+    corners_world: number[][];
+    visible: boolean;
+    opacity?: number;
+  }[];
   breaklineDraft?: [number, number, number][];
   polygonDraft?: [number, number, number][];
   coordPoints?: { id: string; position: number[]; label: string }[];
@@ -143,6 +150,7 @@ export function PointCloudPreview({
   osnapMode = "point",
   breaklines = [],
   traces = [],
+  georefImages = [],
   breaklineDraft = [],
   polygonDraft = [],
   coordPoints = [],
@@ -176,6 +184,7 @@ export function PointCloudPreview({
     points: THREE.Points;
     meshRoot: THREE.Group;
     traceRoot: THREE.Group;
+    georefImageGroup: THREE.Group;
     breaklineGroup: THREE.Group;
     snapMarker: THREE.Mesh;
     regionGroup: THREE.Group;
@@ -480,6 +489,9 @@ export function PointCloudPreview({
     const traceRoot = new THREE.Group();
     scene.add(traceRoot);
 
+    const georefImageGroup = new THREE.Group();
+    scene.add(georefImageGroup);
+
     const breaklineGroup = new THREE.Group();
     scene.add(breaklineGroup);
 
@@ -512,6 +524,7 @@ export function PointCloudPreview({
       points,
       meshRoot,
       traceRoot,
+      georefImageGroup,
       breaklineGroup,
       snapMarker,
       regionGroup,
@@ -919,6 +932,72 @@ export function PointCloudPreview({
       );
     }
   }, [traces, meshReloadToken]);
+
+  useEffect(() => {
+    const ctx = sceneCtxRef.current;
+    if (!ctx) return;
+    const sid = sessionRef.current;
+    if (!sid) return;
+
+    while (ctx.georefImageGroup.children.length) {
+      const child = ctx.georefImageGroup.children[0];
+      ctx.georefImageGroup.remove(child);
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose();
+        const mat = child.material as THREE.MeshBasicMaterial;
+        mat.map?.dispose();
+        mat.dispose();
+      }
+    }
+
+    const meta = normMetaRef.current;
+    const swapped = swapXyRef.current;
+    if (!meta) return;
+    const loader = new THREE.TextureLoader();
+
+    for (const layer of georefImages) {
+      if (!layer.visible || !layer.corners_world || layer.corners_world.length < 4) continue;
+
+      const viewerCorners = layer.corners_world.map((c) =>
+        worldToViewer(c as [number, number, number], meta, swapped),
+      );
+
+      const positions = new Float32Array([
+        viewerCorners[0][0], viewerCorners[0][1], viewerCorners[0][2],
+        viewerCorners[1][0], viewerCorners[1][1], viewerCorners[1][2],
+        viewerCorners[2][0], viewerCorners[2][1], viewerCorners[2][2],
+        viewerCorners[0][0], viewerCorners[0][1], viewerCorners[0][2],
+        viewerCorners[2][0], viewerCorners[2][1], viewerCorners[2][2],
+        viewerCorners[3][0], viewerCorners[3][1], viewerCorners[3][2],
+      ]);
+      const uvs = new Float32Array([0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0]);
+
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      geom.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+
+      loader.load(
+        `${editorGeorefImageUrl(sid, layer.id)}?t=${Date.now()}`,
+        (tex) => {
+          tex.colorSpace = THREE.SRGBColorSpace;
+          const mat = new THREE.MeshBasicMaterial({
+            map: tex,
+            transparent: true,
+            opacity: layer.opacity ?? 0.88,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+          });
+          const mesh = new THREE.Mesh(geom, mat);
+          mesh.renderOrder = 1;
+          ctx.georefImageGroup.add(mesh);
+        },
+        undefined,
+        () => {
+          geom.dispose();
+        },
+      );
+    }
+  }, [georefImages, normMeta, swapXy, refreshToken]);
 
   useEffect(() => {
     const ctx = sceneCtxRef.current;

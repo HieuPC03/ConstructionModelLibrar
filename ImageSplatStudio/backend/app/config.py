@@ -27,7 +27,7 @@ def _default_app_root() -> Path:
 
 class Settings(BaseSettings):
     app_name: str = "ImageSplat Studio"
-    app_version: str = "0.14.2"
+    app_version: str = "0.15.0"
     data_dir: Path = _default_data_dir()
     frontend_dir: Path = _default_frontend_dir()
     app_root: Path = _default_app_root()
@@ -37,7 +37,10 @@ class Settings(BaseSettings):
     allowed_extensions: set[str] = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"}
     pointcloud_extensions: set[str] = {
         ".ply", ".pcd", ".xyz", ".pts", ".las", ".laz", ".txt", ".obj", ".e57",
+        ".fbx", ".dxf", ".dwg", ".xml", ".landxml",
     }
+    georef_image_extensions: set[str] = {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
+    world_file_extensions: set[str] = {".pgw", ".jgw", ".tfw", ".wld"}
 
     class Config:
         env_prefix = "SPLAT_"

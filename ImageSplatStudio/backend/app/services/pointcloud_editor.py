@@ -186,6 +186,7 @@ def get_properties(session_id: str) -> dict:
         "has_splat": state.get("has_splat", False),
         "survey_imports": state.get("survey_imports", []),
         "traces": state.get("traces", []),
+        "georef_images": state.get("georef_images", []),
     }
 
 
@@ -619,6 +620,105 @@ def import_files_to_session(session_id: str, paths: list[Path], *, z_flip: bool 
     props = get_properties(session_id)
     props["imported_count"] = imported
     return props
+
+
+def import_georef_images_to_session(session_id: str, paths: list[Path]) -> dict:
+    """Import georeferenced raster (PNG/JPEG/TIF + PGW/JGW/TFW world file)."""
+    _pipeline_path()
+    from PIL import Image
+    from world_file_io import (
+        find_world_file,
+        geotransform_from_tiff,
+        image_world_corners,
+        parse_world_file,
+    )
+
+    if not paths:
+        raise ValueError("Không có file ảnh.")
+
+    state = load_state(session_id)
+    meta = state.get("norm_meta", {})
+    wm = meta.get("world_min")
+    ground_z = float(wm[2]) if wm and len(wm) >= 3 else 0.0
+
+    session_dir = _session_dir(session_id)
+    layers = list(state.get("georef_images", []))
+    world_by_stem: dict[str, Path] = {}
+    image_paths: list[Path] = []
+
+    for path in paths:
+        ext = path.suffix.lower()
+        if ext in {".pgw", ".jgw", ".tfw", ".wld"}:
+            world_by_stem[path.stem.lower()] = path
+        elif ext in {".png", ".jpg", ".jpeg", ".tif", ".tiff"}:
+            image_paths.append(path)
+
+    if not image_paths:
+        raise ValueError("Chọn file ảnh (.png, .jpg, .tif) kèm world file (.pgw/.jgw/.tfw).")
+
+    imported = 0
+    for img_path in image_paths:
+        wf = world_by_stem.get(img_path.stem.lower()) or find_world_file(img_path)
+        tf = None
+        if wf and wf.exists():
+            tf = parse_world_file(wf)
+        elif img_path.suffix.lower() in {".tif", ".tiff"}:
+            tf = geotransform_from_tiff(img_path)
+        if tf is None:
+            raise ValueError(
+                f"Thiếu world file cho {img_path.name}. "
+                f"Đặt cùng tên .pgw/.jgw/.tfw hoặc upload kèm trong một lần chọn."
+            )
+
+        with Image.open(img_path) as im:
+            im = im.convert("RGB")
+            width, height = im.size
+            layer_id = uuid.uuid4().hex[:8]
+            dest = session_dir / f"georef_{layer_id}{img_path.suffix.lower()}"
+            im.save(dest)
+
+        corners = image_world_corners(width, height, tf, z=ground_z)
+        layers.append(
+            {
+                "id": layer_id,
+                "name": img_path.name,
+                "path": dest.name,
+                "width": width,
+                "height": height,
+                "transform": list(tf),
+                "corners_world": corners,
+                "visible": True,
+                "opacity": 0.88,
+            }
+        )
+        imported += 1
+
+    state["georef_images"] = layers
+    save_state(session_id, state)
+    props = get_properties(session_id)
+    props["georef_imported_count"] = imported
+    return props
+
+
+def get_georef_image_path(session_id: str, image_id: str) -> Path:
+    state = load_state(session_id)
+    for layer in state.get("georef_images", []):
+        if layer.get("id") == image_id:
+            path = _session_dir(session_id) / layer.get("path", "")
+            if path.exists():
+                return path
+            break
+    raise ValueError("Không tìm thấy ảnh georef.")
+
+
+def set_georef_visibility(session_id: str, image_id: str, visible: bool) -> dict:
+    state = load_state(session_id)
+    for layer in state.get("georef_images", []):
+        if layer.get("id") == image_id:
+            layer["visible"] = visible
+            break
+    save_state(session_id, state)
+    return get_properties(session_id)
 
 
 def get_mesh_path(session_id: str) -> Path:

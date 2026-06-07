@@ -91,7 +91,7 @@ def load_xyz_point_cloud(path: Path):
 
 
 def load_point_cloud_file(path: Path):
-    """Load point cloud from PLY, PCD, LAS/LAZ, XYZ, OBJ, etc."""
+    """Load point cloud from PLY, PCD, LAS/LAZ, XYZ, OBJ, FBX, DXF, DWG, XML, etc."""
     import open3d as o3d
 
     suffix = path.suffix.lower()
@@ -101,6 +101,26 @@ def load_point_cloud_file(path: Path):
     if suffix in {".las", ".laz"}:
         pcd, _ = load_las_point_cloud(path)
         return pcd
+
+    if suffix in {".xml", ".landxml"}:
+        from landxml_io import load_landxml_point_cloud
+
+        return load_landxml_point_cloud(path)
+
+    if suffix == ".fbx":
+        from cad_io import load_fbx_point_cloud
+
+        return load_fbx_point_cloud(path)
+
+    if suffix == ".dxf":
+        from cad_io import load_dxf_point_cloud
+
+        return load_dxf_point_cloud(path)
+
+    if suffix == ".dwg":
+        from cad_io import load_dwg_point_cloud
+
+        return load_dwg_point_cloud(path)
 
     if suffix == ".ply":
         header = path.read_bytes()[:8192].decode("ascii", errors="ignore")

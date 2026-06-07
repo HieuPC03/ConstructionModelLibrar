@@ -112,7 +112,7 @@ export function PointCloudPanel({
           <input
             ref={inputRef}
             type="file"
-            accept=".ply,.pcd,.xyz,.pts,.las,.laz,.obj,.txt"
+            accept=".ply,.pcd,.xyz,.pts,.las,.laz,.obj,.txt,.fbx,.dxf,.dwg,.xml"
             multiple
             hidden
             disabled={busy}

@@ -44,6 +44,16 @@ export interface EditorProperties {
   } | null;
   viewpoints?: { id: string; name: string; camera: number[]; target: number[]; up?: number[] }[];
   traces?: { id: string; polygon: number[][]; path: string; vertices: number; triangles: number }[];
+  georef_images?: {
+    id: string;
+    name: string;
+    path: string;
+    width: number;
+    height: number;
+    corners_world: number[][];
+    visible: boolean;
+    opacity?: number;
+  }[];
   has_splat?: boolean;
 }
 
@@ -587,6 +597,40 @@ export async function editorImportFiles(
     await fetch(`${API}/${sessionId}/import/files`, {
       method: "POST",
       body: form,
+    }),
+  );
+}
+
+export async function editorImportGeorefImages(
+  sessionId: string,
+  files: File[],
+): Promise<EditorProperties & { georef_imported_count?: number }> {
+  const form = new FormData();
+  for (const f of files) {
+    form.append("files", f);
+  }
+  return parseJson(
+    await fetch(`${API}/${sessionId}/import/georef-images`, {
+      method: "POST",
+      body: form,
+    }),
+  );
+}
+
+export function editorGeorefImageUrl(sessionId: string, imageId: string): string {
+  return `${API}/${sessionId}/georef/${imageId}`;
+}
+
+export async function editorSetGeorefVisibility(
+  sessionId: string,
+  id: string,
+  visible: boolean,
+): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/georef/visibility`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, visible }),
     }),
   );
 }

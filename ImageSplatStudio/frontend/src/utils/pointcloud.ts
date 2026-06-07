@@ -8,6 +8,23 @@ const POINTCLOUD_EXTENSIONS = new Set([
   ".txt",
   ".obj",
   ".e57",
+  ".fbx",
+  ".dxf",
+  ".dwg",
+  ".xml",
+  ".landxml",
+]);
+
+export const GEOREF_IMAGE_EXTENSIONS = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".tif",
+  ".tiff",
+  ".pgw",
+  ".jgw",
+  ".tfw",
+  ".wld",
 ]);
 
 export function isPointCloudFile(file: File): boolean {
@@ -28,4 +45,6 @@ export function getPointCloudExtension(name: string): string {
   return name.slice(name.lastIndexOf(".") + 1).toLowerCase();
 }
 
-export const SUPPORTED_POINTCLOUD_LABEL = ".ply, .txt, .xyz, .las, .laz, .pcd";
+export const SUPPORTED_POINTCLOUD_LABEL =
+  ".ply, .txt, .xyz, .las, .laz, .pcd, .obj, .fbx, .dxf, .dwg, .xml";
+export const SUPPORTED_GEOREF_LABEL = ".png, .jpg, .tif + .pgw/.jgw/.tfw";

@@ -455,6 +455,7 @@ def default_state(*, files: list[dict], norm_meta: dict) -> dict:
         "view": {"show_axes": True, "fov": 50, "color_mode": "rgb", "show_grid_surface": False},
         "hidden_class_ids": [],
         "traces": [],
+        "georef_images": [],
     }
 
 

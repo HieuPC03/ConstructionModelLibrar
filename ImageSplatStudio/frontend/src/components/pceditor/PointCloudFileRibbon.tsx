@@ -5,12 +5,13 @@ import {
   editorExportPlyUrl,
   editorExportTxtUrl,
   editorImportFiles,
+  editorImportGeorefImages,
   editorMeshUrl,
   type EditorProperties,
 } from "../../api/editor";
 import { triggerDownload } from "../../utils/export";
 import { logConsole } from "../../utils/consoleLog";
-import { SUPPORTED_POINTCLOUD_LABEL } from "../../utils/pointcloud";
+import { SUPPORTED_GEOREF_LABEL, SUPPORTED_POINTCLOUD_LABEL } from "../../utils/pointcloud";
 
 interface PointCloudFileRibbonProps {
   sessionId: string | null;
@@ -29,7 +30,9 @@ export function PointCloudFileRibbon({
 }: PointCloudFileRibbonProps) {
   const { tr } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
+  const georefInputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [georefBusy, setGeorefBusy] = useState(false);
   const [zFlip, setZFlip] = useState(false);
   const [exportFileIndex, setExportFileIndex] = useState<number | "all">("all");
 
@@ -51,6 +54,24 @@ export function PointCloudFileRibbon({
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  const handleGeorefImport = async (fileList: FileList | null) => {
+    if (!sessionId || !fileList?.length) return;
+    setGeorefBusy(true);
+    try {
+      const props = await editorImportGeorefImages(sessionId, Array.from(fileList));
+      onUpdated(props);
+      onRefreshPreview();
+      const n = props.georef_imported_count ?? 0;
+      logConsole(`${tr("fileGeorefImportDone")}: ${n}`, "success");
+    } catch (e: unknown) {
+      onError(String(e));
+      logConsole(`${tr("fileGeorefImport")}: ${String(e)}`, "error");
+    } finally {
+      setGeorefBusy(false);
+      if (georefInputRef.current) georefInputRef.current.value = "";
     }
   };
 
@@ -101,7 +122,7 @@ export function PointCloudFileRibbon({
             ref={inputRef}
             type="file"
             multiple
-            accept=".ply,.pcd,.xyz,.pts,.las,.laz,.txt,.obj"
+            accept=".ply,.pcd,.xyz,.pts,.las,.laz,.txt,.obj,.fbx,.dxf,.dwg,.xml,.landxml"
             className="pc-file-input-hidden"
             onChange={(e) => void handleImport(e.target.files)}
           />
@@ -117,7 +138,32 @@ export function PointCloudFileRibbon({
             <input type="checkbox" checked={zFlip} onChange={(e) => setZFlip(e.target.checked)} />
             {tr("fileImportZFlip")}
           </label>
-          <p className="pc-process-hint">{tr("fileFormatsHint")}: {SUPPORTED_POINTCLOUD_LABEL}</p>
+          <p className="pc-process-hint">
+            {tr("fileFormatsHint")}: {SUPPORTED_POINTCLOUD_LABEL}
+          </p>
+        </div>
+
+        <div className="pc-process-group">
+          <span className="pc-ribbon-label">{tr("fileGroupGeoref")}</span>
+          <input
+            ref={georefInputRef}
+            type="file"
+            multiple
+            accept=".png,.jpg,.jpeg,.tif,.tiff,.pgw,.jgw,.tfw,.wld"
+            className="pc-file-input-hidden"
+            onChange={(e) => void handleGeorefImport(e.target.files)}
+          />
+          <button
+            type="button"
+            className="pc-process-btn"
+            disabled={!sessionId || georefBusy}
+            onClick={() => georefInputRef.current?.click()}
+          >
+            {georefBusy ? tr("pcMenuWorking") : tr("fileGeorefImport")}
+          </button>
+          <p className="pc-process-hint">
+            {tr("fileGeorefHint")}: {SUPPORTED_GEOREF_LABEL}
+          </p>
         </div>
 
         <div className="pc-process-group">

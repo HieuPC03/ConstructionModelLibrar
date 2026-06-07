@@ -7,6 +7,7 @@ import {
   editorDeleteMeasurement,
   editorDeleteRegion,
   editorRemoveFile,
+  editorSetGeorefVisibility,
   editorSetVisibility,
   editorToggleHiddenRegion,
   editorExportLasUrl,
@@ -177,7 +178,19 @@ export function PointCloudPropertyTable({
     properties.breaklines.length > 0 ||
     properties.hidden_regions.length > 0 ||
     (properties.coord_points?.length ?? 0) > 0 ||
-    (properties.traces?.length ?? 0) > 0;
+    (properties.traces?.length ?? 0) > 0 ||
+    (properties.georef_images?.length ?? 0) > 0;
+
+  const toggleGeorefVisible = async (id: string, visible: boolean) => {
+    if (!sessionId) return;
+    try {
+      const props = await editorSetGeorefVisibility(sessionId, id, visible);
+      onUpdated(props);
+      onRefreshPreview();
+    } catch (e: unknown) {
+      onError(String(e));
+    }
+  };
 
   const measurementLabel = (type: string) => {
     if (type === "distance") return tr("toolMeasureDistance");
@@ -435,6 +448,27 @@ export function PointCloudPropertyTable({
                     <button type="button" className="pc-prop-del" onClick={() => void removeMeasurement(m.id)}>
                       ×
                     </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {properties.georef_images && properties.georef_images.length > 0 && (
+            <div className="pc-property-section">
+              <h4>{tr("pcGeorefImages")}</h4>
+              <ul className="pc-prop-list">
+                {properties.georef_images.map((g) => (
+                  <li key={g.id}>
+                    <label className="pc-prop-region-row">
+                      <input
+                        type="checkbox"
+                        checked={g.visible}
+                        onChange={(e) => void toggleGeorefVisible(g.id, e.target.checked)}
+                      />
+                      <span>
+                        {g.name} · {g.width}×{g.height}
+                      </span>
+                    </label>
                   </li>
                 ))}
               </ul>

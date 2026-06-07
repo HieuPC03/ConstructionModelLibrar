@@ -45,6 +45,8 @@ from app.services.pointcloud_editor import (
     get_grid_binary,
     get_grid_surface_json,
     get_properties,
+    get_georef_image_path,
+    import_georef_images_to_session,
     import_survey_csv,
     lasso_action,
     mesh_add_vertex,
@@ -55,6 +57,7 @@ from app.services.pointcloud_editor import (
     save_viewpoint,
     set_class_visibility,
     set_file_visibility,
+    set_georef_visibility,
     show_all,
     split_session,
     subsample_session,
@@ -443,6 +446,72 @@ def editor_export_ply(session_id: str, file_index: int | None = None) -> FileRes
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     name = "pointcloud.ply" if file_index is None else f"pointcloud_{file_index}.ply"
     return FileResponse(path=path, media_type="application/octet-stream", filename=name)
+
+
+class GeorefVisibilityBody(BaseModel):
+    id: str
+    visible: bool
+
+
+@router.post("/{session_id}/import/georef-images")
+async def editor_import_georef_images(
+    session_id: str,
+    files: list[UploadFile] = File(default=[]),
+) -> dict:
+    _ensure_session(session_id)
+    import shutil
+    import tempfile
+    from pathlib import Path
+
+    allowed = settings.georef_image_extensions | settings.world_file_extensions
+    if not files:
+        raise HTTPException(status_code=400, detail="Chọn ảnh và file toạ độ (.pgw/.jgw/.tfw).")
+
+    tmp_dir = Path(tempfile.mkdtemp(prefix="georef_import_"))
+    paths: list[Path] = []
+    try:
+        for upload in files:
+            suffix = Path(upload.filename or "").suffix.lower()
+            if suffix not in allowed:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Định dạng không hỗ trợ: {upload.filename}",
+                )
+            content = await upload.read()
+            if len(content) == 0:
+                continue
+            safe = Path(upload.filename or f"upload{suffix}").name
+            dest = tmp_dir / safe
+            dest.write_bytes(content)
+            paths.append(dest)
+        if not paths:
+            raise HTTPException(status_code=400, detail="Tất cả file rỗng.")
+        return import_georef_images_to_session(session_id, paths)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+@router.get("/{session_id}/georef/{image_id}")
+def editor_georef_image(session_id: str, image_id: str) -> FileResponse:
+    _ensure_session(session_id)
+    try:
+        path = get_georef_image_path(session_id, image_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    media = "image/png"
+    if path.suffix.lower() in {".jpg", ".jpeg"}:
+        media = "image/jpeg"
+    elif path.suffix.lower() in {".tif", ".tiff"}:
+        media = "image/tiff"
+    return FileResponse(path=path, media_type=media, filename=path.name)
+
+
+@router.post("/{session_id}/georef/visibility")
+def editor_georef_visibility(session_id: str, body: GeorefVisibilityBody) -> dict:
+    _ensure_session(session_id)
+    return set_georef_visibility(session_id, body.id, body.visible)
 
 
 @router.post("/{session_id}/import/files")

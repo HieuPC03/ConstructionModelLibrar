@@ -720,6 +720,7 @@ function AppContent() {
                 showGridSurface={!!editorProperties?.view?.show_grid_surface}
                 breaklines={editorProperties?.breaklines ?? []}
                 traces={editorProperties?.traces ?? []}
+                georefImages={editorProperties?.georef_images ?? []}
                 breaklineDraft={breaklineDraft}
                 polygonDraft={polygonDraft}
                 coordPoints={editorProperties?.coord_points ?? []}
