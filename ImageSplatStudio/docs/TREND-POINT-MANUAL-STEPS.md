@@ -1,8 +1,10 @@
 # TREND-POINT Manual — Lộ trình chỉnh sửa từng bước
 
-Tham chiếu: [基本編 Smart Online](https://smart.fukuicompu.co.jp/civil_engineering/tabid101.html?pdid1=56501), TREND-POINT Ver.11/12 UI.
+Tham chiếu:
+- [基本編 Smart Online](https://smart.fukuicompu.co.jp/civil_engineering/tabid101.html?pdid1=56501)
+- **TREND-POINT Ver.11 cài trên PC local** — xem [TREND-POINT-V11-LOCAL-REFERENCE.md](./TREND-POINT-V11-LOCAL-REFERENCE.md)
 
-**Quy tắc:** Hoàn thành + test OK từng bước trước khi sang bước tiếp.
+**Quy tắc:** Hoàn thành + test OK (so sánh với Ver.11 nếu có) trước khi sang bước tiếp.
 
 | # | Manual (基本編) | Trạng thái | Ghi chú |
 |---|-----------------|------------|---------|
