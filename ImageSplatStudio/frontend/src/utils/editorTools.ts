@@ -15,6 +15,7 @@ export type EditorTool =
   | "mesh_add"
   | "mesh_delete"
   | "breakline"
+  | "trace_surface"
   | "grid_region";
 
 export type OsnapMode = "off" | "point" | "mesh";
@@ -38,6 +39,7 @@ export const TOOL_CURSORS: Record<EditorTool, string> = {
   mesh_add: "copy",
   mesh_delete: "not-allowed",
   breakline: "pointer",
+  trace_surface: "crosshair",
   grid_region: "crosshair",
 };
 
@@ -69,11 +71,11 @@ export const TOOL_GROUPS: ToolGroup[] = [
   {
     id: "mesh",
     labelKey: "toolGroupMesh",
-    tools: ["mesh_add", "mesh_delete", "breakline"],
+    tools: ["mesh_add", "mesh_delete", "breakline", "trace_surface"],
   },
 ];
 
-export const MESH_TOOLS: EditorTool[] = ["mesh_add", "mesh_delete", "breakline"];
+export const MESH_TOOLS: EditorTool[] = ["mesh_add", "mesh_delete", "breakline", "trace_surface"];
 
 /** Tools that may pick on the ground plane when no point is hit (TREND-POINT style). */
 export const PLANE_PICK_TOOLS: EditorTool[] = [
@@ -89,6 +91,7 @@ export const PLANE_PICK_TOOLS: EditorTool[] = [
   "coord_point",
   "add_point",
   "breakline",
+  "trace_surface",
 ];
 
 export function toolLabelKey(tool: EditorTool): string {
@@ -109,6 +112,7 @@ export function toolLabelKey(tool: EditorTool): string {
     mesh_add: "toolMeshAdd",
     mesh_delete: "toolMeshDelete",
     breakline: "toolBreakline",
+    trace_surface: "toolTraceSurface",
     grid_region: "toolGridRegion",
   };
   return map[tool];
@@ -132,6 +136,7 @@ export function toolHintKey(tool: EditorTool): string {
     mesh_add: "toolHint_mesh_add",
     mesh_delete: "toolHint_mesh_delete",
     breakline: "toolHint_breakline",
+    trace_surface: "toolHint_trace_surface",
     grid_region: "toolHint_grid_region",
   };
   return map[tool];

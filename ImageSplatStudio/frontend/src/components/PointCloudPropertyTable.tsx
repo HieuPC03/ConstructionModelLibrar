@@ -3,6 +3,7 @@ import {
   editorConfigureGrid,
   editorConfigureView,
   editorDeleteBreakline,
+  editorDeleteCoordPoint,
   editorDeleteMeasurement,
   editorDeleteRegion,
   editorSetVisibility,
@@ -123,6 +124,17 @@ export function PointCloudPropertyTable({
     }
   };
 
+  const removeCoordPoint = async (id: string) => {
+    if (!sessionId) return;
+    try {
+      const props = await editorDeleteCoordPoint(sessionId, id);
+      onUpdated(props);
+      onRefreshPreview();
+    } catch (e: unknown) {
+      onError(String(e));
+    }
+  };
+
   const wm = properties.norm_meta?.world_min;
   const wx = properties.norm_meta?.world_max;
   const gridRegion = properties.grid.region;
@@ -137,7 +149,17 @@ export function PointCloudPropertyTable({
   const hasResults =
     properties.measurements.length > 0 ||
     properties.breaklines.length > 0 ||
-    properties.hidden_regions.length > 0;
+    properties.hidden_regions.length > 0 ||
+    (properties.coord_points?.length ?? 0) > 0 ||
+    (properties.traces?.length ?? 0) > 0;
+
+  const measurementLabel = (type: string) => {
+    if (type === "distance") return tr("toolMeasureDistance");
+    if (type === "area") return tr("toolMeasureArea");
+    if (type === "angle") return tr("toolMeasureAngle");
+    if (type === "cross_section") return tr("toolCrossSection");
+    return type;
+  };
 
   return (
     <div className="panel pc-property-panel tp-panel">
@@ -325,6 +347,23 @@ export function PointCloudPropertyTable({
       {tab === "results" && (
         <>
           {!hasResults && <p className="tp-muted">{tr("propTabResultsEmpty")}</p>}
+          {properties.coord_points && properties.coord_points.length > 0 && (
+            <div className="pc-property-section">
+              <h4>{tr("toolCoordPoint")}</h4>
+              <ul className="pc-prop-list">
+                {properties.coord_points.map((cp) => (
+                  <li key={cp.id}>
+                    <span>
+                      {cp.label || cp.id}: {cp.position.map((v) => v.toFixed(3)).join(", ")}
+                    </span>
+                    <button type="button" className="pc-prop-del" onClick={() => void removeCoordPoint(cp.id)}>
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {properties.measurements.length > 0 && (
             <div className="pc-property-section">
               <h4>{tr("pcPropMeasurements")}</h4>
@@ -332,12 +371,25 @@ export function PointCloudPropertyTable({
                 {properties.measurements.map((m) => (
                   <li key={m.id}>
                     <span>
-                      {m.type === "distance" ? tr("toolMeasureDistance") : tr("toolMeasureArea")}:{" "}
-                      {m.value.toFixed(4)} {m.unit}
+                      {measurementLabel(m.type)}: {m.value.toFixed(4)} {m.unit}
                     </span>
                     <button type="button" className="pc-prop-del" onClick={() => void removeMeasurement(m.id)}>
                       ×
                     </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {properties.traces && properties.traces.length > 0 && (
+            <div className="pc-property-section">
+              <h4>{tr("traceResultsTitle")}</h4>
+              <ul className="pc-prop-list">
+                {properties.traces.map((t) => (
+                  <li key={t.id}>
+                    <span>
+                      {t.id} · {t.triangles} △
+                    </span>
                   </li>
                 ))}
               </ul>

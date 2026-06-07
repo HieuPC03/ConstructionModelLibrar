@@ -41,6 +41,7 @@ import {
   editorConfigureGrid,
   editorClassifyPolygon,
   editorCrossSection,
+  editorExtractTrace,
   editorDensityCheck,
   editorSaveViewpoint,
   editorLassoAction,
@@ -93,6 +94,7 @@ function AppContent() {
   const [inspectedPoint, setInspectedPoint] = useState<InspectedPoint | null>(null);
   const [activeClassId, setActiveClassId] = useState(2);
   const [lassoAction, setLassoAction] = useState<"classify" | "delete" | "hide">("classify");
+  const [crossSectionWidth, setCrossSectionWidth] = useState(0.5);
   const [crossSectionStart, setCrossSectionStart] = useState<[number, number, number] | null>(null);
   const [crossSectionProfile, setCrossSectionProfile] = useState<CrossSectionProfile | null>(null);
   const [contourData, setContourData] = useState<ContourData | null>(null);
@@ -325,6 +327,13 @@ function AppContent() {
         handleEditorUpdated(props);
         setLastResult(`${tr("toolMeasureArea")}: ${area.toFixed(4)} m²`);
         setPolygonDraft([]);
+      } else if (activeTool === "trace_surface") {
+        const props = await editorExtractTrace(pcSessionId, polygonDraft);
+        handleEditorUpdated(props);
+        bumpPreview();
+        setLastResult(tr("traceExtractDone"));
+        setPolygonDraft([]);
+        setActiveTool("navigate");
       }
     } catch (e: unknown) {
       setError(String(e));
@@ -398,6 +407,7 @@ function AppContent() {
         case "polygon_delete":
         case "polygon_classify":
         case "measure_area":
+        case "trace_surface":
           setPolygonDraft((d) => [...d, pos]);
           break;
         case "measure_distance": {
@@ -435,7 +445,7 @@ function AppContent() {
           if (!crossSectionStart) {
             setCrossSectionStart(pos);
           } else {
-            const profile = await editorCrossSection(pcSessionId, crossSectionStart, pos);
+            const profile = await editorCrossSection(pcSessionId, crossSectionStart, pos, crossSectionWidth);
             setCrossSectionProfile(profile);
             const props = await editorAddMeasurement(
               pcSessionId,
@@ -626,7 +636,8 @@ function AppContent() {
             polygonCount={polygonDraft.length}
             inspectedPoint={inspectedPoint}
             gridCellSize={gridCellSize}
-            onGridCellSizeChange={setGridCellSize}
+            crossSectionWidth={crossSectionWidth}
+            onCrossSectionWidthChange={setCrossSectionWidth}
             onUpdated={handleEditorUpdated}
             onRefreshPreview={bumpPreview}
             onError={setError}

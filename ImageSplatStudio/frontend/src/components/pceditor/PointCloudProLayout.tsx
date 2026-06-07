@@ -2,7 +2,9 @@ import { useState, type ReactNode } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
 import { PointCloudConsole } from "./PointCloudConsole";
 import { PointCloudDbTree } from "./PointCloudDbTree";
+import { PointCloudDisplayRibbon } from "./PointCloudDisplayRibbon";
 import { PointCloudFileRibbon } from "./PointCloudFileRibbon";
+import { PointCloudFilterRibbon } from "./PointCloudFilterRibbon";
 import { PointCloudIconRibbon } from "./PointCloudIconRibbon";
 import { PointCloudInspector, type InspectedPoint } from "./PointCloudInspector";
 import { PointCloudProcessRibbon } from "./PointCloudProcessRibbon";
@@ -13,7 +15,7 @@ import type { NormMeta } from "../../utils/coordTransform";
 
 import type { ContourData, VolumeResult } from "../../utils/editorTools";
 
-type ProTab = "file" | "tools" | "process" | "survey";
+type ProTab = "file" | "tools" | "display" | "filter" | "process" | "survey";
 
 interface PointCloudProLayoutProps {
   sessionId: string | null;
@@ -26,7 +28,8 @@ interface PointCloudProLayoutProps {
   polygonCount: number;
   inspectedPoint: InspectedPoint | null;
   gridCellSize: number;
-  onGridCellSizeChange: (v: number) => void;
+  crossSectionWidth: number;
+  onCrossSectionWidthChange: (v: number) => void;
   onUpdated: (props: EditorProperties) => void;
   onRefreshPreview: () => void;
   onError: (msg: string) => void;
@@ -61,6 +64,8 @@ export function PointCloudProLayout({
   polygonCount,
   inspectedPoint,
   gridCellSize,
+  crossSectionWidth,
+  onCrossSectionWidthChange,
   onUpdated,
   onRefreshPreview,
   onError,
@@ -110,6 +115,20 @@ export function PointCloudProLayout({
         </button>
         <button
           type="button"
+          className={ribbonTab === "display" ? "active" : ""}
+          onClick={() => setRibbonTab("display")}
+        >
+          {tr("chromeTabDisplay")}
+        </button>
+        <button
+          type="button"
+          className={ribbonTab === "filter" ? "active" : ""}
+          onClick={() => setRibbonTab("filter")}
+        >
+          {tr("chromeTabFilter")}
+        </button>
+        <button
+          type="button"
           className={ribbonTab === "process" ? "active" : ""}
           onClick={() => setRibbonTab("process")}
         >
@@ -153,6 +172,21 @@ export function PointCloudProLayout({
           onUndo={onUndo}
           onRedo={onRedo}
         />
+      ) : ribbonTab === "display" ? (
+        <PointCloudDisplayRibbon
+          sessionId={sessionId}
+          properties={properties}
+          onUpdated={onUpdated}
+          onRefreshPreview={onRefreshPreview}
+          onError={onError}
+        />
+      ) : ribbonTab === "filter" ? (
+        <PointCloudFilterRibbon
+          sessionId={sessionId}
+          onUpdated={onUpdated}
+          onRefreshPreview={onRefreshPreview}
+          onError={onError}
+        />
       ) : ribbonTab === "process" ? (
         <PointCloudProcessRibbon
           sessionId={sessionId}
@@ -166,6 +200,8 @@ export function PointCloudProLayout({
           sessionId={sessionId}
           properties={properties}
           gridCellSize={gridCellSize}
+          crossSectionWidth={crossSectionWidth}
+          onCrossSectionWidthChange={onCrossSectionWidthChange}
           onUpdated={onUpdated}
           onRefreshPreview={onRefreshPreview}
           onError={onError}

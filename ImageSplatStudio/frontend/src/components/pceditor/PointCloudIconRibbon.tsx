@@ -371,6 +371,11 @@ export function PointCloudIconRibbon(props: PointCloudIconRibbonProps) {
               {tr("toolFinishMeasure")} ({props.polygonCount})
             </button>
           )}
+          {props.activeTool === "trace_surface" && props.polygonCount >= 3 && (
+            <button type="button" className="pc-ribbon-accent" onClick={props.onFinishPolygon}>
+              {tr("toolFinishTrace")} ({props.polygonCount})
+            </button>
+          )}
         </div>
       )}
     </div>

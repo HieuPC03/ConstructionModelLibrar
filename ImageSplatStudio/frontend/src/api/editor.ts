@@ -43,6 +43,7 @@ export interface EditorProperties {
     tolerance_warn: number;
   } | null;
   viewpoints?: { id: string; name: string; camera: number[]; target: number[]; up?: number[] }[];
+  traces?: { id: string; polygon: number[][]; path: string; vertices: number; triangles: number }[];
   has_splat?: boolean;
 }
 
@@ -609,4 +610,41 @@ export async function editorDeleteViewpoint(sessionId: string, id: string): Prom
       body: JSON.stringify({ id }),
     }),
   );
+}
+
+export async function editorDeleteCoordPoint(sessionId: string, id: string): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/coord-point/delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    }),
+  );
+}
+
+export async function editorExtractTrace(
+  sessionId: string,
+  polygon: [number, number, number][],
+): Promise<EditorProperties & { trace_id?: string }> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/trace/extract`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ polygon }),
+    }),
+  );
+}
+
+export async function editorDeleteTrace(sessionId: string, id: string): Promise<EditorProperties> {
+  return parseJson(
+    await fetch(`${API}/${sessionId}/trace/delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    }),
+  );
+}
+
+export function editorExportViewerUrl(sessionId: string): string {
+  return `${API}/${sessionId}/export/viewer`;
 }

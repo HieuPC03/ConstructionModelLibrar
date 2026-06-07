@@ -166,11 +166,59 @@ def get_properties(session_id: str) -> dict:
         "viewpoints": state.get("viewpoints", []),
         "has_splat": state.get("has_splat", False),
         "survey_imports": state.get("survey_imports", []),
+        "traces": state.get("traces", []),
     }
 
 
 def toggle_swap_xy(session_id: str) -> dict:
     state = load_state(session_id)
+    meta = state.get("norm_meta", {})
+    _pipeline_path()
+    from pointcloud_transform import swap_viewer_points
+
+    def swap_pts(pts: list) -> list:
+        return swap_viewer_points(pts, meta)
+
+    for cp in state.get("coord_points", []):
+        cp["position"] = swap_pts(cp["position"])
+    for m in state.get("measurements", []):
+        m["points"] = swap_pts(m["points"])
+    for bl in state.get("breaklines", []):
+        bl["points"] = swap_pts(bl["points"])
+    for r in state.get("hidden_regions", []):
+        corners = swap_pts([r["min"], r["max"]])
+        r["min"] = [
+            min(corners[0][0], corners[1][0]),
+            min(corners[0][1], corners[1][1]),
+            min(corners[0][2], corners[1][2]),
+        ]
+        r["max"] = [
+            max(corners[0][0], corners[1][0]),
+            max(corners[0][1], corners[1][1]),
+            max(corners[0][2], corners[1][2]),
+        ]
+    grid = state.get("grid", {})
+    if grid.get("region"):
+        corners = swap_pts([grid["region"]["min"], grid["region"]["max"]])
+        grid["region"]["min"] = [
+            min(corners[0][0], corners[1][0]),
+            min(corners[0][1], corners[1][1]),
+            min(corners[0][2], corners[1][2]),
+        ]
+        grid["region"]["max"] = [
+            max(corners[0][0], corners[1][0]),
+            max(corners[0][1], corners[1][1]),
+            max(corners[0][2], corners[1][2]),
+        ]
+        state["grid"] = grid
+    for tr in state.get("traces", []):
+        tr["polygon"] = swap_pts(tr["polygon"])
+    lcs = state.get("last_cross_section")
+    if lcs:
+        lcs["start"] = swap_pts(lcs["start"])
+        lcs["end"] = swap_pts(lcs["end"])
+        state["last_cross_section"] = lcs
+
     state["swap_xy"] = not bool(state.get("swap_xy", False))
     save_state(session_id, state)
     return get_properties(session_id)
@@ -223,6 +271,7 @@ def clean_outliers(session_id: str) -> dict:
     _pipeline_path()
     from pointcloud_editor_ops import remove_statistical_outliers
 
+    push_undo(session_id)
     pts, cols = load_points_colors(session_id)
     new_pts, new_cols, _ = remove_statistical_outliers(pts, cols)
     save_points_colors(session_id, new_pts, new_cols)
@@ -247,6 +296,7 @@ def split_session(session_id: str, axis: int, value: float) -> dict:
 
     if axis not in (0, 1, 2):
         raise ValueError("axis phải là 0, 1 hoặc 2.")
+    push_undo(session_id)
     pts, cols = load_points_colors(session_id)
     (left_pts, left_cols), (right_pts, right_cols) = split_by_axis(pts, cols, axis, value)
     save_points_colors(session_id, left_pts, left_cols)
@@ -356,6 +406,7 @@ def create_mesh(session_id: str, method: str = "idw", cell_size: float | None = 
         mx = np.max(visible_pts, axis=0)
 
     mesh_path = _session_dir(session_id) / "mesh.obj"
+    breaklines = [bl.get("points", []) for bl in state.get("breaklines", []) if bl.get("points")]
     info = mesh_from_points(
         visible_pts,
         visible_cols,
@@ -364,6 +415,7 @@ def create_mesh(session_id: str, method: str = "idw", cell_size: float | None = 
         cell_size=cell,
         bbox_min=mn,
         bbox_max=mx,
+        breaklines=breaklines if breaklines else None,
     )
     state["mesh"] = {"path": str(mesh_path.name), **info}
     save_state(session_id, state)
@@ -833,6 +885,97 @@ def apply_ground_filter(session_id: str, cell_size: float, max_offset: float) ->
     result = get_properties(session_id)
     result["removed_count"] = removed
     return result
+
+
+def delete_coord_point(session_id: str, point_id: str) -> dict:
+    state = load_state(session_id)
+    points = [p for p in state.get("coord_points", []) if p.get("id") != point_id]
+    state["coord_points"] = points
+    save_state(session_id, state)
+    return get_properties(session_id)
+
+
+def extract_trace_surface(session_id: str, polygon: list[list[float]]) -> dict:
+    """Trace closed polygon → extract TIN surface patch (TREND-POINT 面抽出)."""
+    _pipeline_path()
+    from pointcloud_survey import extract_tin_patch_inside_polygon
+
+    import open3d as o3d
+
+    state = load_state(session_id)
+    grid = state.get("grid", {})
+    grid_data_path = _session_dir(session_id) / "grid_data.json"
+    if not grid_data_path.exists():
+        raise ValueError("Cần tạo lưới IDW trước (計測 → IDWグリッド作成).")
+
+    idw = json.loads(grid_data_path.read_text(encoding="utf-8"))
+    verts, tris = extract_tin_patch_inside_polygon(idw, polygon)
+    mesh = o3d.geometry.TriangleMesh(
+        o3d.utility.Vector3dVector(verts),
+        o3d.utility.Vector3iVector(tris),
+    )
+    mesh.compute_vertex_normals()
+    mesh.paint_uniform_color([0.55, 0.75, 0.45])
+
+    trace_id = uuid.uuid4().hex[:8]
+    trace_path = _session_dir(session_id) / f"trace_{trace_id}.obj"
+    if not o3d.io.write_triangle_mesh(str(trace_path), mesh):
+        raise RuntimeError("Không ghi được trace mesh.")
+
+    traces = state.get("traces", [])
+    traces.append(
+        {
+            "id": trace_id,
+            "polygon": polygon,
+            "path": trace_path.name,
+            "vertices": int(len(mesh.vertices)),
+            "triangles": int(len(mesh.triangles)),
+        }
+    )
+    state["traces"] = traces
+    save_state(session_id, state)
+    props = get_properties(session_id)
+    props["trace_id"] = trace_id
+    return props
+
+
+def delete_trace(session_id: str, trace_id: str) -> dict:
+    state = load_state(session_id)
+    traces = state.get("traces", [])
+    kept = []
+    for tr in traces:
+        if tr.get("id") == trace_id:
+            path = _session_dir(session_id) / tr.get("path", "")
+            if path.exists():
+                path.unlink()
+        else:
+            kept.append(tr)
+    state["traces"] = kept
+    save_state(session_id, state)
+    return get_properties(session_id)
+
+
+def export_viewer_package(session_id: str) -> Path:
+    """Export session metadata + viewpoints for offline viewer (Ch.14)."""
+    state = load_state(session_id)
+    props = get_properties(session_id)
+    package = {
+        "format": "imagesplat-viewer-v1",
+        "session_id": session_id,
+        "total_points": props["total_points"],
+        "crs": props.get("crs"),
+        "norm_meta": props.get("norm_meta"),
+        "viewpoints": props.get("viewpoints", []),
+        "files": props.get("files", []),
+        "mesh": props.get("mesh"),
+        "traces": props.get("traces", []),
+        "coord_points": props.get("coord_points", []),
+    }
+    out_dir = _session_dir(session_id) / "exports"
+    out_dir.mkdir(exist_ok=True)
+    out = out_dir / "viewer_package.json"
+    out.write_text(json.dumps(package, ensure_ascii=False, indent=2), encoding="utf-8")
+    return out
 
 
 def add_coord_point(session_id: str, position: list[float], label: str = "") -> dict:

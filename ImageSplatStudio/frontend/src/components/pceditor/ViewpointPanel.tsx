@@ -1,5 +1,6 @@
 import { useI18n } from "../../i18n/I18nProvider";
-import { editorDeleteViewpoint, type EditorProperties } from "../../api/editor";
+import { editorDeleteViewpoint, editorExportViewerUrl, type EditorProperties } from "../../api/editor";
+import { triggerDownload } from "../../utils/export";
 
 interface ViewpointPanelProps {
   sessionId: string | null;
@@ -25,6 +26,16 @@ export function ViewpointPanel({
         <strong>{tr("viewpointTitle")}</strong>
         <button type="button" className="pc-process-btn" disabled={!sessionId} onClick={onSaveView}>
           {tr("viewpointSave")}
+        </button>
+        <button
+          type="button"
+          className="pc-process-btn"
+          disabled={!sessionId}
+          onClick={() => {
+            if (sessionId) triggerDownload(editorExportViewerUrl(sessionId), "viewer_package.json");
+          }}
+        >
+          {tr("viewpointExport")}
         </button>
       </div>
       {views.length === 0 ? (

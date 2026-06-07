@@ -285,3 +285,47 @@ def compute_region_density(
         "min_density": int(np.min(flat)),
         "max_density": int(np.max(flat)),
     }
+
+
+def point_in_polygon_xy(x: float, y: float, polygon: np.ndarray) -> bool:
+    """Ray-casting point-in-polygon test (XY plane)."""
+    inside = False
+    n = len(polygon)
+    if n < 3:
+        return False
+    j = n - 1
+    for i in range(n):
+        xi, yi = float(polygon[i, 0]), float(polygon[i, 1])
+        xj, yj = float(polygon[j, 0]), float(polygon[j, 1])
+        if (yi > y) != (yj > y) and x < (xj - xi) * (y - yi) / (yj - yi + 1e-15) + xi:
+            inside = not inside
+        j = i
+    return inside
+
+
+def extract_tin_patch_inside_polygon(idw: dict, polygon: list[list[float]]) -> tuple[np.ndarray, np.ndarray]:
+    """Extract TIN triangles inside a closed trace polygon (面抽出)."""
+    from pointcloud_editor_ops import idw_grid_to_tin
+
+    poly = np.asarray(polygon, dtype=np.float64)
+    if poly.ndim != 2 or poly.shape[1] < 2 or len(poly) < 3:
+        raise ValueError("Polygon trace cần ít nhất 3 điểm.")
+
+    verts, tris = idw_grid_to_tin(idw)
+    if len(tris) == 0:
+        raise ValueError("Không có TIN để trích xuất.")
+
+    keep: list[list[int]] = []
+    for tri in tris:
+        c = verts[tri].mean(axis=0)
+        if point_in_polygon_xy(float(c[0]), float(c[1]), poly):
+            keep.append(tri.tolist())
+
+    if not keep:
+        raise ValueError("Không có tam giác nào trong vùng trace.")
+
+    used = sorted({i for tri in keep for i in tri})
+    remap = {old: new for new, old in enumerate(used)}
+    new_verts = verts[used]
+    new_tris = np.asarray([[remap[i] for i in tri] for tri in keep], dtype=np.int32)
+    return new_verts, new_tris

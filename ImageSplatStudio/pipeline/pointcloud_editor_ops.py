@@ -185,6 +185,36 @@ def idw_grid_to_tin(idw: dict) -> tuple[np.ndarray, np.ndarray]:
     return np.asarray(vertices, dtype=np.float64), np.asarray(triangles, dtype=np.int32)
 
 
+def _apply_breaklines_to_idw(idw: dict, breaklines: list[list[list[float]]], cell_size: float) -> None:
+    """Enforce breakline elevations on IDW grid (TREND-POINT トレース constraint)."""
+    if not breaklines:
+        return
+    values = np.asarray(idw["values"], dtype=np.float64)
+    xs = np.asarray(idw["xs"], dtype=np.float64)
+    ys = np.asarray(idw["ys"], dtype=np.float64)
+    ny, nx = values.shape
+    cell = max(float(idw.get("cell_size", cell_size)), 1e-6)
+    x0, y0 = float(xs[0]), float(ys[0])
+
+    for line in breaklines:
+        pts = np.asarray(line, dtype=np.float64)
+        if len(pts) < 2:
+            continue
+        for i in range(len(pts) - 1):
+            p0, p1 = pts[i], pts[i + 1]
+            seg_len = float(np.linalg.norm(p1[:2] - p0[:2]))
+            steps = max(int(seg_len / (cell * 0.25)), 2)
+            for t in np.linspace(0.0, 1.0, steps):
+                x = p0[0] + t * (p1[0] - p0[0])
+                y = p0[1] + t * (p1[1] - p0[1])
+                z = p0[2] + t * (p1[2] - p0[2])
+                ix = int(round((x - x0) / cell))
+                iy = int(round((y - y0) / cell))
+                if 0 <= iy < ny and 0 <= ix < nx:
+                    values[iy, ix] = z
+    idw["values"] = values.tolist()
+
+
 def mesh_from_idw_surface(
     points: np.ndarray,
     colors: np.ndarray | None,
@@ -195,6 +225,7 @@ def mesh_from_idw_surface(
     cell_size: float = 0.2,
     surface_mode: str = "idw",
     snap_to_points: bool = True,
+    breaklines: list[list[list[float]]] | None = None,
 ) -> dict:
     """Terrain mesh via IDW surface interpolation → TIN (TREND-POINT workflow)."""
     import open3d as o3d
@@ -209,6 +240,9 @@ def mesh_from_idw_surface(
 
     if snap_to_points:
         _snap_idw_to_points(idw, points, cell_size)
+
+    if breaklines:
+        _apply_breaklines_to_idw(idw, breaklines, cell_size)
 
     verts, tris = idw_grid_to_tin(idw)
     mesh = o3d.geometry.TriangleMesh(
@@ -316,6 +350,7 @@ def mesh_from_points(
     cell_size: float = 0.2,
     bbox_min: np.ndarray | None = None,
     bbox_max: np.ndarray | None = None,
+    breaklines: list[list[list[float]]] | None = None,
 ):
     """Create mesh from points. Default: IDW surface → TIN (TREND-POINT)."""
     pts = np.asarray(points, dtype=np.float64)
@@ -332,6 +367,7 @@ def mesh_from_points(
             bbox_min=mn,
             bbox_max=mx,
             cell_size=cell_size,
+            breaklines=breaklines,
         )
 
     import open3d as o3d
@@ -408,6 +444,7 @@ def default_state(*, files: list[dict], norm_meta: dict) -> dict:
         "basemap": {"enabled": False, "mode": "aerial"},
         "view": {"show_axes": True, "fov": 50, "color_mode": "rgb", "show_grid_surface": False},
         "hidden_class_ids": [],
+        "traces": [],
     }
 
 

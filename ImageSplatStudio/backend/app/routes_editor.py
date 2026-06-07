@@ -28,12 +28,16 @@ from app.services.pointcloud_editor import (
     create_mesh,
     check_density,
     delete_breakline,
+    delete_coord_point,
     delete_hidden_region,
     delete_measurement,
     delete_points_at,
+    delete_trace,
     delete_viewpoint,
     evaluate_deviation,
     export_session,
+    export_viewer_package,
+    extract_trace_surface,
     import_files_to_session,
     extract_cross_section_profile,
     get_contours,
@@ -537,6 +541,37 @@ def editor_filter_ground(session_id: str, body: FilterGroundBody) -> dict:
 def editor_coord_point(session_id: str, body: CoordPointBody) -> dict:
     _ensure_session(session_id)
     return add_coord_point(session_id, body.position, body.label)
+
+
+@router.post("/{session_id}/coord-point/delete")
+def editor_coord_point_delete(session_id: str, body: IdBody) -> dict:
+    _ensure_session(session_id)
+    return delete_coord_point(session_id, body.id)
+
+
+@router.post("/{session_id}/trace/extract")
+def editor_trace_extract(session_id: str, body: PolygonBody) -> dict:
+    _ensure_session(session_id)
+    try:
+        return extract_trace_surface(session_id, body.polygon)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{session_id}/trace/delete")
+def editor_trace_delete(session_id: str, body: IdBody) -> dict:
+    _ensure_session(session_id)
+    return delete_trace(session_id, body.id)
+
+
+@router.get("/{session_id}/export/viewer")
+def editor_export_viewer(session_id: str) -> FileResponse:
+    _ensure_session(session_id)
+    try:
+        path = export_viewer_package(session_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return FileResponse(path=path, media_type="application/json", filename="viewer_package.json")
 
 
 @router.post("/{session_id}/measurement")

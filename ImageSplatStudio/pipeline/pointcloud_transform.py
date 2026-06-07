@@ -60,3 +60,11 @@ def normalize_single_world(point: list[float], meta: dict, *, swap_xy: bool = Fa
         wc[[0, 1]] = wc[[1, 0]]
     v = viewer_from_centered_world(wc.reshape(1, 3), meta)[0]
     return [float(v[0]), float(v[1]), float(v[2])]
+
+
+def swap_viewer_points(points: list[list[float]] | list[float], meta: dict) -> list:
+    """Apply X↔Y world swap to stored viewer-space annotation points."""
+    arr = np.asarray(points, dtype=np.float64)
+    if arr.ndim == 1:
+        return apply_swap_xy(arr.reshape(1, 3), meta)[0].tolist()
+    return apply_swap_xy(arr, meta).tolist()

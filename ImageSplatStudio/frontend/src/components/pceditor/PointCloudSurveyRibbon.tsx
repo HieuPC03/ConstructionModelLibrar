@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
 import {
   editorEvaluateDeviation,
@@ -12,6 +12,8 @@ interface PointCloudSurveyRibbonProps {
   sessionId: string | null;
   properties: EditorProperties | null;
   gridCellSize: number;
+  crossSectionWidth: number;
+  onCrossSectionWidthChange: (v: number) => void;
   onUpdated: (props: EditorProperties) => void;
   onRefreshPreview: () => void;
   onError: (msg: string) => void;
@@ -25,6 +27,8 @@ export function PointCloudSurveyRibbon({
   sessionId,
   properties,
   gridCellSize,
+  crossSectionWidth,
+  onCrossSectionWidthChange,
   onUpdated,
   onRefreshPreview,
   onError,
@@ -36,16 +40,22 @@ export function PointCloudSurveyRibbon({
   const { tr } = useI18n();
   const [busy, setBusy] = useState(false);
   const [contourInterval] = useState(1.0);
-  const [baseZ] = useState(() => {
-    const mn = properties?.bounds.min[2];
-    return mn != null ? mn.toFixed(2) : "0";
-  });
-  const [designZ, setDesignZ] = useState(() => baseZ);
+  const [baseZ, setBaseZ] = useState("0");
+  const [designZ, setDesignZ] = useState("0");
   const [tolOk] = useState(0.05);
   const [tolWarn] = useState(0.15);
   const [csvSkipRows] = useState(2);
   const [csvZFlip, setCsvZFlip] = useState(false);
   const csvRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const mn = properties?.bounds.min[2];
+    if (mn != null) {
+      const z = mn.toFixed(2);
+      setBaseZ(z);
+      setDesignZ(z);
+    }
+  }, [properties?.bounds.min[2], properties?.session_id]);
 
   const disabled = !sessionId || busy;
   const hasGrid = !!properties?.grid.has_data;
@@ -121,6 +131,21 @@ export function PointCloudSurveyRibbon({
         </div>
 
         <div className="pc-process-group">
+          <span className="pc-ribbon-label">{tr("crossSectionSettings")}</span>
+          <label className="pc-process-inline">
+            W={crossSectionWidth.toFixed(2)}m
+            <input
+              type="range"
+              min={0.1}
+              max={5}
+              step={0.1}
+              value={crossSectionWidth}
+              onChange={(e) => onCrossSectionWidthChange(Number(e.target.value))}
+            />
+          </label>
+        </div>
+
+        <div className="pc-process-group">
           <span className="pc-ribbon-label">{tr("dekiGroupTitle")}</span>
           <label className="pc-process-inline">
             {tr("dekiDesignZ")}
@@ -137,8 +162,7 @@ export function PointCloudSurveyRibbon({
               );
               if (data) {
                 onDeviationReady(data);
-                const props = await import("../../api/editor").then((m) => m.fetchEditorProperties(sessionId));
-                onUpdated(await props);
+                onUpdated(await import("../../api/editor").then((m) => m.fetchEditorProperties(sessionId)));
               }
             }}
           >
@@ -148,6 +172,10 @@ export function PointCloudSurveyRibbon({
 
         <div className="pc-process-group">
           <span className="pc-ribbon-label">{tr("surveyGroupVolume")}</span>
+          <label className="pc-process-inline">
+            {tr("surveyBaseZ")}
+            <input type="number" className="pc-survey-input" step={0.01} value={baseZ} onChange={(e) => setBaseZ(e.target.value)} />
+          </label>
           <button
             type="button"
             className="pc-process-btn"
@@ -168,11 +196,17 @@ export function PointCloudSurveyRibbon({
 
         <div className="pc-process-group">
           <span className="pc-ribbon-label">{tr("dekiCsvImport")}</span>
-          <input ref={csvRef} type="file" accept=".csv,.txt" hidden onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void handleCsvFile(f);
-            e.target.value = "";
-          }} />
+          <input
+            ref={csvRef}
+            type="file"
+            accept=".csv,.txt"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleCsvFile(f);
+              e.target.value = "";
+            }}
+          />
           <button type="button" className="pc-process-btn" disabled={disabled} onClick={() => csvRef.current?.click()}>
             {tr("dekiCsvImport")}
           </button>
@@ -188,6 +222,17 @@ export function PointCloudSurveyRibbon({
           </button>
         </div>
       </div>
+
+      {properties?.volumes && properties.volumes.length > 0 && (
+        <div className="pc-survey-volumes">
+          <strong>{tr("surveyVolumeHistory")}</strong>
+          {properties.volumes.slice(-5).map((v) => (
+            <span key={v.id}>
+              Z₀={v.base_z.toFixed(2)} · {tr("surveyCut")}={v.cut_m3.toFixed(1)} · {tr("surveyFill")}={v.fill_m3.toFixed(1)} m³
+            </span>
+          ))}
+        </div>
+      )}
 
       {properties?.deviation_heatmap?.stats && (
         <div className="pc-survey-volumes">
