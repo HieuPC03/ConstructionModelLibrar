@@ -59,7 +59,7 @@ export function PointCloudDisplayRibbon({
             <input
               type="checkbox"
               disabled={disabled}
-              checked={properties?.view?.show_axes ?? true}
+              checked={properties?.view?.show_axes ?? false}
               onChange={(e) => void apply({ show_axes: e.target.checked })}
             />
             {tr("pcAxesEnable")}

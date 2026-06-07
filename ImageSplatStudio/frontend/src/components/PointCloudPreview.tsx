@@ -142,7 +142,7 @@ export function PointCloudPreview({
   gridEnabled = false,
   showMesh = false,
   meshReloadToken = 0,
-  showAxes = true,
+  showAxes = false,
   crsEpsg = 6668,
   normMeta,
   swapXy = false,
@@ -467,11 +467,14 @@ export function PointCloudPreview({
 
     const gZ = groundPlaneZ(box.min, normMeta, swapXy);
 
-    const axesGroup =
-      normMeta && (normMeta.center || normMeta.world_min)
-        ? createWorldAxesHelper(maxDim * 0.45, normMeta, swapXy)
-        : createAxesHelper(maxDim * 0.45);
-    axesGroup.visible = showAxes;
+    const axesGroup = new THREE.Group();
+    if (showAxes) {
+      const axes =
+        normMeta && (normMeta.center || normMeta.world_min)
+          ? createWorldAxesHelper(maxDim * 0.45, normMeta, swapXy)
+          : createAxesHelper(maxDim * 0.45);
+      axesGroup.add(axes);
+    }
     scene.add(axesGroup);
 
     const meshRoot = new THREE.Group();
@@ -833,8 +836,20 @@ export function PointCloudPreview({
 
   useEffect(() => {
     const ctx = sceneCtxRef.current;
-    if (ctx) ctx.axesGroup.visible = showAxes;
-  }, [showAxes]);
+    if (!ctx) return;
+    while (ctx.axesGroup.children.length) {
+      ctx.axesGroup.remove(ctx.axesGroup.children[0]);
+    }
+    if (!showAxes) return;
+    const meta = normMetaRef.current;
+    const swapped = swapXyRef.current;
+    const maxDim = ctx.maxDim;
+    const axes =
+      meta && (meta.center || meta.world_min)
+        ? createWorldAxesHelper(maxDim * 0.45, meta, swapped)
+        : createAxesHelper(maxDim * 0.45);
+    ctx.axesGroup.add(axes);
+  }, [showAxes, normMeta, swapXy]);
 
   useEffect(() => {
     const ctx = sceneCtxRef.current;

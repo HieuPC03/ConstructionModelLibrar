@@ -251,7 +251,7 @@ export function PointCloudPropertyTable({
           <label className="pc-grid-label">
             <input
               type="checkbox"
-              checked={properties.view?.show_axes ?? true}
+              checked={properties.view?.show_axes ?? false}
               onChange={(e) => void applyView({ show_axes: e.target.checked })}
             />
             {tr("pcAxesEnable")}

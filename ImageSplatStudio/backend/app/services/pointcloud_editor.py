@@ -176,7 +176,7 @@ def get_properties(session_id: str) -> dict:
         "basemap": state.get("basemap", {"enabled": False, "mode": "aerial"}),
         "view": state.get(
             "view",
-            {"show_axes": True, "fov": 50, "color_mode": "rgb", "show_grid_surface": False},
+            {"show_axes": False, "fov": 50, "color_mode": "rgb", "show_grid_surface": False},
         ),
         "contours": state.get("contours"),
         "volumes": state.get("volumes", []),
@@ -1249,7 +1249,7 @@ def configure_view(
     if basemap_mode is not None and basemap_mode in ("aerial", "road", "hybrid", "off"):
         basemap["mode"] = basemap_mode
     state["basemap"] = basemap
-    view = state.get("view", {"show_axes": True, "fov": 50, "color_mode": "rgb", "show_grid_surface": False})
+    view = state.get("view", {"show_axes": False, "fov": 50, "color_mode": "rgb", "show_grid_surface": False})
     if show_axes is not None:
         view["show_axes"] = bool(show_axes)
     if color_mode is not None and color_mode in ("rgb", "elevation", "intensity", "uniform", "classification"):

@@ -706,7 +706,7 @@ function AppContent() {
                 gridEnabled={!!editorProperties?.grid.enabled}
                 showMesh={!!editorProperties?.mesh}
                 meshReloadToken={meshReloadToken}
-                showAxes={editorProperties?.view?.show_axes ?? true}
+                showAxes={editorProperties?.view?.show_axes ?? false}
                 crsEpsg={editorProperties?.crs?.epsg ?? 6668}
                 normMeta={editorProperties?.norm_meta}
                 swapXy={!!editorProperties?.swap_xy}
