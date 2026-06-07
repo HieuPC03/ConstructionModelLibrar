@@ -385,6 +385,18 @@ def editor_mesh_download(session_id: str) -> FileResponse:
     return FileResponse(path=mesh_path, media_type="model/obj", filename="mesh.obj")
 
 
+@router.get("/{session_id}/trace/{trace_id}.obj")
+def editor_trace_mesh_download(session_id: str, trace_id: str) -> FileResponse:
+    _ensure_session(session_id)
+    from app.services.pointcloud_editor import get_trace_mesh_path
+
+    try:
+        path = get_trace_mesh_path(session_id, trace_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return FileResponse(path=path, media_type="model/obj", filename=f"trace_{trace_id}.obj")
+
+
 @router.get("/{session_id}/export/las")
 def editor_export_las(session_id: str, file_index: int | None = None) -> FileResponse:
     _ensure_session(session_id)

@@ -6,6 +6,7 @@ const translations = {
   vi: {
     appTagline: "3D Reconstruction Studio",
     appTitle: "ImageSplat Studio",
+    tpEditorBadge: "TREND-POINT Editor",
     tabPointCloud: "Point Cloud → 3D Gaussian",
     tabImages: "Ảnh → Gaussian Splat",
     viewerTitle: "Xem mô hình 3D",
@@ -329,6 +330,7 @@ const translations = {
   ja: {
     appTagline: "3D再構築スタジオ",
     appTitle: "ImageSplat Studio",
+    tpEditorBadge: "TREND-POINT 編集",
     tabPointCloud: "点群 → 3D Gaussian",
     tabImages: "画像 → Gaussian Splat",
     viewerTitle: "3Dモデルを表示",

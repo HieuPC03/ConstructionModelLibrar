@@ -25,6 +25,7 @@ router = APIRouter(prefix="/api")
 def health() -> HealthResponse:
     return HealthResponse(
         status="ok",
+        version=settings.app_version,
         gpu_available=check_gpu_available(),
         colmap_available=check_colmap_available(),
         open3d_available=check_open3d_available(),

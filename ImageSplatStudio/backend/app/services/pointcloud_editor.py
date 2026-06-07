@@ -568,6 +568,17 @@ def get_mesh_path(session_id: str) -> Path:
     return path
 
 
+def get_trace_mesh_path(session_id: str, trace_id: str) -> Path:
+    state = load_state(session_id)
+    for tr in state.get("traces", []):
+        if tr.get("id") == trace_id:
+            path = _session_dir(session_id) / tr.get("path", "")
+            if path.exists():
+                return path
+            break
+    raise ValueError("Trace mesh không tồn tại.")
+
+
 def init_session_state(session_id: str, files_info: list[dict], norm_meta: dict) -> None:
     _pipeline_path()
     from pointcloud_editor_ops import default_state, save_json

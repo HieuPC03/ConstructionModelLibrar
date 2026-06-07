@@ -4,7 +4,8 @@ const path = require("path");
 const fs = require("fs");
 const http = require("http");
 
-const APP_VERSION = "0.1.3";
+const { version: APP_VERSION } = require("../package.json");
+const OFFLINE_ZIP = `ImageSplatStudio-${APP_VERSION}-win-offline.zip`;
 const PORT = 17890;
 let backendProcess = null;
 let mainWindow = null;
@@ -55,7 +56,7 @@ function findPythonExecutable() {
         `Thieu: resources\\python\\python.exe`,
         ``,
         `Hay tai lai file ZIP OFFLINE (~250 MB):`,
-        `ImageSplatStudio-0.1.3-win-offline.zip`,
+        OFFLINE_ZIP,
         ``,
         `Link: https://github.com/HieuPC03/ConstructionModelLibrar/releases`,
         ``,
@@ -201,7 +202,7 @@ app.whenReady().then(async () => {
   } catch (err) {
     const msg = String(err.message || err);
     const hint = msg.includes("Python was not found")
-      ? "\n\nBan dang dung ban CU (chua dong goi Python).\nTai ImageSplatStudio-0.1.3-win-offline.zip tu GitHub Releases."
+      ? `\n\nBan dang dung ban CU (chua dong goi Python).\nTai ${OFFLINE_ZIP} tu GitHub Releases.`
       : "";
     dialog.showErrorBox("ImageSplat Studio", `Khong khoi dong duoc (v${APP_VERSION}):\n\n${msg}${hint}`);
     app.quit();

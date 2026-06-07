@@ -65,6 +65,7 @@ import type { DeviationHeatmap } from "./api/editor";
 import { logConsole } from "./utils/consoleLog";
 import type { ColorMode } from "./utils/colorModes";
 import type { AppMode, HealthInfo, JobInfo } from "./types";
+import { APP_VERSION } from "./version";
 import "./styles.css";
 
 function AppContent() {
@@ -260,7 +261,7 @@ function AppContent() {
     if (activeTool !== "clip_box" && activeTool !== "hide_region" && activeTool !== "grid_region")
       setRegionStart(null);
     if (activeTool !== "breakline") setBreaklineDraft([]);
-    if (activeTool !== "polygon_delete" && activeTool !== "polygon_classify" && activeTool !== "measure_area")
+    if (activeTool !== "polygon_delete" && activeTool !== "polygon_classify" && activeTool !== "measure_area" && activeTool !== "trace_surface")
       setPolygonDraft([]);
     if (activeTool !== "measure_distance" && activeTool !== "cross_section") setMeasureStart(null);
     if (activeTool !== "cross_section") setCrossSectionStart(null);
@@ -331,6 +332,7 @@ function AppContent() {
         const props = await editorExtractTrace(pcSessionId, polygonDraft);
         handleEditorUpdated(props);
         bumpPreview();
+        bumpMesh();
         setLastResult(tr("traceExtractDone"));
         setPolygonDraft([]);
         setActiveTool("navigate");
@@ -586,7 +588,13 @@ function AppContent() {
           <Logo size={showPointCloudPreview ? 28 : 40} />
           <div>
             {!showPointCloudPreview && <p className="eyebrow">{tr("appTagline")}</p>}
-            <h1 className={showPointCloudPreview ? "app-title-compact" : ""}>{tr("appTitle")}</h1>
+            <h1 className={showPointCloudPreview ? "app-title-compact" : ""}>
+              {tr("appTitle")}
+              <span className="app-version-badge">v{APP_VERSION}</span>
+              {showPointCloudPreview && (
+                <span className="app-mode-badge">{tr("tpEditorBadge")}</span>
+              )}
+            </h1>
           </div>
         </div>
         <div className="header-actions">
@@ -706,6 +714,7 @@ function AppContent() {
                 colorMode={colorMode}
                 showGridSurface={!!editorProperties?.view?.show_grid_surface}
                 breaklines={editorProperties?.breaklines ?? []}
+                traces={editorProperties?.traces ?? []}
                 breaklineDraft={breaklineDraft}
                 polygonDraft={polygonDraft}
                 coordPoints={editorProperties?.coord_points ?? []}

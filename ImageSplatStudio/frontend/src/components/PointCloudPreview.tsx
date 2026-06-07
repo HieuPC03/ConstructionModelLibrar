@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { useI18n } from "../i18n/I18nProvider";
-import { decodeGridLines, editorGridUrl, editorMeshUrl } from "../api/editor";
+import { decodeGridLines, editorGridUrl, editorMeshUrl, editorTraceMeshUrl } from "../api/editor";
 import {
   fetchPreviewGeometry,
   previewPointClouds,
@@ -58,6 +58,7 @@ interface PointCloudPreviewProps {
   activeTool?: EditorTool;
   osnapMode?: OsnapMode;
   breaklines?: { id: string; points: number[][] }[];
+  traces?: { id: string; polygon: number[][]; path: string; vertices: number; triangles: number }[];
   breaklineDraft?: [number, number, number][];
   polygonDraft?: [number, number, number][];
   coordPoints?: { id: string; position: number[]; label: string }[];
@@ -141,6 +142,7 @@ export function PointCloudPreview({
   activeTool = "navigate",
   osnapMode = "point",
   breaklines = [],
+  traces = [],
   breaklineDraft = [],
   polygonDraft = [],
   coordPoints = [],
@@ -173,6 +175,7 @@ export function PointCloudPreview({
     controls: OrbitControls;
     points: THREE.Points;
     meshRoot: THREE.Group;
+    traceRoot: THREE.Group;
     breaklineGroup: THREE.Group;
     snapMarker: THREE.Mesh;
     regionGroup: THREE.Group;
@@ -453,6 +456,9 @@ export function PointCloudPreview({
     const meshRoot = new THREE.Group();
     scene.add(meshRoot);
 
+    const traceRoot = new THREE.Group();
+    scene.add(traceRoot);
+
     const breaklineGroup = new THREE.Group();
     scene.add(breaklineGroup);
 
@@ -484,6 +490,7 @@ export function PointCloudPreview({
       controls,
       points,
       meshRoot,
+      traceRoot,
       breaklineGroup,
       snapMarker,
       regionGroup,
@@ -847,6 +854,49 @@ export function PointCloudPreview({
       () => undefined,
     );
   }, [meshReloadToken, showMesh]);
+
+  useEffect(() => {
+    const ctx = sceneCtxRef.current;
+    if (!ctx) return;
+    const sid = sessionRef.current;
+    if (!sid) return;
+
+    while (ctx.traceRoot.children.length) {
+      const child = ctx.traceRoot.children[0];
+      ctx.traceRoot.remove(child);
+      child.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          obj.geometry?.dispose();
+          if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose());
+          else obj.material?.dispose();
+        }
+      });
+    }
+
+    if (traces.length === 0) return;
+
+    const loader = new OBJLoader();
+    for (const trace of traces) {
+      loader.load(
+        `${editorTraceMeshUrl(sid, trace.id)}?t=${Date.now()}`,
+        (obj) => {
+          obj.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+              child.material = new THREE.MeshStandardMaterial({
+                color: 0x44cc88,
+                transparent: true,
+                opacity: 0.55,
+                side: THREE.DoubleSide,
+              });
+            }
+          });
+          ctx.traceRoot.add(obj);
+        },
+        undefined,
+        () => undefined,
+      );
+    }
+  }, [traces, meshReloadToken]);
 
   useEffect(() => {
     const ctx = sceneCtxRef.current;

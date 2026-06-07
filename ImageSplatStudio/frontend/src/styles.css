@@ -99,6 +99,15 @@ h1 {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+h1 .app-version-badge,
+h1 .app-mode-badge {
+  -webkit-text-fill-color: initial;
 }
 
 h2,
@@ -1682,6 +1691,42 @@ body.iss-resizing {
   background: none !important;
   -webkit-text-fill-color: #1a1f2e !important;
   color: #1a1f2e;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.app-version-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(129, 140, 248, 0.2);
+  color: var(--accent);
+  vertical-align: middle;
+  letter-spacing: 0.02em;
+}
+
+.app-mode-badge {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #2563eb;
+  color: #fff;
+  letter-spacing: 0.04em;
+}
+
+.tp-editor .app-version-badge {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.tp-editor .app-mode-badge {
+  background: #059669;
 }
 
 .tp-grid-panel .tp-grid-hint {

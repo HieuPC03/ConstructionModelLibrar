@@ -166,6 +166,10 @@ export function editorMeshUrl(sessionId: string): string {
   return `${API}/${sessionId}/mesh.obj`;
 }
 
+export function editorTraceMeshUrl(sessionId: string, traceId: string): string {
+  return `${API}/${sessionId}/trace/${traceId}.obj`;
+}
+
 export function editorGridUrl(sessionId: string): string {
   return `${API}/${sessionId}/grid`;
 }

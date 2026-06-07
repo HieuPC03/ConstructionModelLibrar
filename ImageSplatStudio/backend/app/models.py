@@ -58,6 +58,7 @@ class JobInfo(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
+    version: str = "0.13.1"
     gpu_available: bool
     colmap_available: bool
     open3d_available: bool
