@@ -537,9 +537,6 @@ textarea {
 }
 
 .settings-bar {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
   padding: 0.35rem 0.75rem;
   background: color-mix(in srgb, var(--surface) 90%, transparent);
   border-bottom: 1px solid var(--border);
@@ -551,6 +548,14 @@ textarea {
   flex-wrap: wrap;
   gap: 0.3rem 0.5rem;
   align-items: center;
+}
+
+.settings-row-single {
+  row-gap: 0.25rem;
+}
+
+.settings-field-stt select {
+  max-width: 13.5rem;
 }
 
 .settings-bar select,

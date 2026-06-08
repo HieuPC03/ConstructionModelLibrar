@@ -1,9 +1,9 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.66
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.67
 
 Trang release:
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.66
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.67
 
 Link tải trực tiếp (Setup.exe):
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.66/Meeting-Translator-Setup-1.8.66.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.67/Meeting-Translator-Setup-1.8.67.exe
 
-v1.8.66 — Xuất dữ liệu trên thanh cài đặt, pop-up chọn thư mục và định dạng
+v1.8.67 — Gộp Model STT lên một dòng cài đặt trên cùng

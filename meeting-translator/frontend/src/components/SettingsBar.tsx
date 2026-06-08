@@ -50,7 +50,7 @@ export default function SettingsBar() {
 
   return (
     <div className="settings-bar">
-      <div className="settings-row">
+      <div className="settings-row settings-row-single">
         <span className="settings-title">{tr("settings")}</span>
         <label className="settings-field">
           {tr("defaultMode")}
@@ -82,17 +82,7 @@ export default function SettingsBar() {
             <option value="jasty">{tr("themeJasty")}</option>
           </select>
         </label>
-        <button
-          type="button"
-          className="secondary settings-export-btn"
-          disabled={!canExport}
-          onClick={openExportModal}
-        >
-          {tr("exportData")}
-        </button>
-      </div>
-      <div className="settings-row">
-        <label className="settings-field">
+        <label className="settings-field settings-field-stt">
           {tr("sttModel")}
           <select value={sttModel} onChange={(e) => setSttModel(e.target.value)}>
             <option value="gpt-4o-mini-transcribe">gpt-4o-mini-transcribe</option>
@@ -120,6 +110,14 @@ export default function SettingsBar() {
           </button>
         )}
         {testMsg && <span className="settings-msg">{testMsg}</span>}
+        <button
+          type="button"
+          className="secondary settings-export-btn"
+          disabled={!canExport}
+          onClick={openExportModal}
+        >
+          {tr("exportData")}
+        </button>
       </div>
     </div>
   );
