@@ -538,13 +538,19 @@ textarea {
 
 .settings-bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem 0.5rem;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.25rem;
   padding: 0.35rem 0.75rem;
   background: color-mix(in srgb, var(--surface) 90%, transparent);
   border-bottom: 1px solid var(--border);
   font-size: 0.72rem;
+}
+
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.5rem;
+  align-items: center;
 }
 
 .settings-bar select,
@@ -552,10 +558,6 @@ textarea {
   padding: 0.28rem 0.45rem;
   font-size: 0.72rem;
   max-width: 11rem;
-}
-
-.settings-bar .settings-hotwords input {
-  max-width: 14rem;
 }
 
 .settings-bar button {
@@ -842,6 +844,53 @@ textarea {
 .panel-header-compact button {
   padding: 0.38rem 0.7rem;
   font-size: 0.74rem;
+}
+
+.panel-header-actions {
+  justify-content: flex-start;
+}
+
+.panel-header-actions .panel-export-btn {
+  margin-left: auto;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.modal-dialog {
+  min-width: min(92vw, 360px);
+  padding: 1.1rem 1.25rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: var(--shadow-panel);
+}
+
+.modal-dialog h3 {
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.modal-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 1rem;
+  line-height: 1.45;
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
 }
 
 [data-theme="light"] {

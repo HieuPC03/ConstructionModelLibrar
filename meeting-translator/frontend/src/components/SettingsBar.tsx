@@ -18,16 +18,14 @@ export default function SettingsBar() {
   const { sessionMode, setSessionMode } = useSessionMode();
   const [testMsg, setTestMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [hotwords, setHotwords] = useState("");
   const [sttModel, setSttModel] = useState("gpt-4o-mini-transcribe");
   const [accuracyMode, setAccuracyMode] = useState("high");
 
   useEffect(() => {
     setSessionMode(settings?.session_mode || "transcript");
-    setHotwords(settings?.hotwords || "");
     setSttModel(settings?.stt_model || "gpt-4o-mini-transcribe");
     setAccuracyMode(settings?.accuracy_mode || "high");
-  }, [settings?.session_mode, settings?.hotwords, settings?.stt_model, settings?.accuracy_mode, setSessionMode]);
+  }, [settings?.session_mode, settings?.stt_model, settings?.accuracy_mode, setSessionMode]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -38,7 +36,6 @@ export default function SettingsBar() {
         recordings_dir: exportDir,
         ui_language: lang,
         theme,
-        hotwords,
         stt_model: sttModel,
         accuracy_mode: accuracyMode,
       });
@@ -67,88 +64,83 @@ export default function SettingsBar() {
 
   return (
     <div className="settings-bar">
-      <span className="settings-title">{tr("settings")}</span>
-      <label className="settings-field">
-        {tr("defaultMode")}
-        <select
-          value={sessionMode}
-          onChange={(e) =>
-            setSessionMode(
-              e.target.value as "translate_realtime" | "transcript"
-            )
-          }
-        >
-          <option value="transcript">{tr("modeTranscript")}</option>
-          <option value="translate_realtime">{tr("modeRealtime")}</option>
-        </select>
-      </label>
-      <label className="settings-field">
-        {tr("uiLang")}
-        <select value={lang} onChange={(e) => setLang(e.target.value as "vi" | "ja")}>
-          <option value="vi">Tiếng Việt</option>
-          <option value="ja">日本語</option>
-        </select>
-      </label>
-      <label className="settings-field">
-        {tr("theme")}
-        <select value={theme} onChange={(e) => setTheme(e.target.value as ThemeId)}>
-          <option value="dark">{tr("themeDark")}</option>
-          <option value="light">{tr("themeLight")}</option>
-          <option value="ocean">{tr("themeOcean")}</option>
-          <option value="jasty">{tr("themeJasty")}</option>
-        </select>
-      </label>
-      <label className="settings-field settings-path">
-        {tr("exportFolder")}
-        <input
-          type="text"
-          value={exportDir}
-          onChange={(e) => setExportDir(e.target.value)}
-          placeholder={settings?.recordings_dir_active ?? "AppData"}
-        />
-        {window.desktopApp?.pickFolder && (
-          <button type="button" className="secondary" onClick={() => void pickFolder()}>
-            {tr("pick")}
+      <div className="settings-row">
+        <span className="settings-title">{tr("settings")}</span>
+        <label className="settings-field">
+          {tr("defaultMode")}
+          <select
+            value={sessionMode}
+            onChange={(e) =>
+              setSessionMode(
+                e.target.value as "translate_realtime" | "transcript"
+              )
+            }
+          >
+            <option value="transcript">{tr("modeTranscript")}</option>
+            <option value="translate_realtime">{tr("modeRealtime")}</option>
+          </select>
+        </label>
+        <label className="settings-field">
+          {tr("uiLang")}
+          <select value={lang} onChange={(e) => setLang(e.target.value as "vi" | "ja")}>
+            <option value="vi">Tiếng Việt</option>
+            <option value="ja">日本語</option>
+          </select>
+        </label>
+        <label className="settings-field">
+          {tr("theme")}
+          <select value={theme} onChange={(e) => setTheme(e.target.value as ThemeId)}>
+            <option value="dark">{tr("themeDark")}</option>
+            <option value="light">{tr("themeLight")}</option>
+            <option value="ocean">{tr("themeOcean")}</option>
+            <option value="jasty">{tr("themeJasty")}</option>
+          </select>
+        </label>
+        <label className="settings-field settings-path">
+          {tr("exportFolder")}
+          <input
+            type="text"
+            value={exportDir}
+            onChange={(e) => setExportDir(e.target.value)}
+            placeholder={settings?.recordings_dir_active ?? "AppData"}
+          />
+          {window.desktopApp?.pickFolder && (
+            <button type="button" className="secondary" onClick={() => void pickFolder()}>
+              {tr("pick")}
+            </button>
+          )}
+        </label>
+      </div>
+      <div className="settings-row">
+        <label className="settings-field">
+          {tr("sttModel")}
+          <select value={sttModel} onChange={(e) => setSttModel(e.target.value)}>
+            <option value="gpt-4o-mini-transcribe">gpt-4o-mini-transcribe</option>
+            <option value="gpt-4o-transcribe">gpt-4o-transcribe</option>
+            <option value="whisper-1">whisper-1</option>
+          </select>
+        </label>
+        <label className="settings-field">
+          {tr("accuracyMode")}
+          <select value={accuracyMode} onChange={(e) => setAccuracyMode(e.target.value)}>
+            <option value="high">{tr("accuracyHigh")}</option>
+            <option value="balanced">{tr("accuracyBalanced")}</option>
+            <option value="fast">{tr("accuracyFast")}</option>
+          </select>
+        </label>
+        <button type="button" className="secondary" onClick={() => void handleSave()} disabled={saving}>
+          {saving ? "…" : tr("save")}
+        </button>
+        <button type="button" className="secondary" onClick={() => void runTest()}>
+          {tr("testApi")}
+        </button>
+        {window.desktopApp?.openConfigFolder && (
+          <button type="button" className="secondary" onClick={() => window.desktopApp?.openConfigFolder?.()}>
+            {tr("openEnv")}
           </button>
         )}
-      </label>
-      <label className="settings-field settings-hotwords">
-        {tr("hotwords")}
-        <input
-          type="text"
-          value={hotwords}
-          onChange={(e) => setHotwords(e.target.value)}
-          placeholder={tr("hotwordsHint")}
-        />
-      </label>
-      <label className="settings-field">
-        {tr("sttModel")}
-        <select value={sttModel} onChange={(e) => setSttModel(e.target.value)}>
-          <option value="gpt-4o-mini-transcribe">gpt-4o-mini-transcribe</option>
-          <option value="gpt-4o-transcribe">gpt-4o-transcribe (chính xác hơn)</option>
-          <option value="whisper-1">whisper-1</option>
-        </select>
-      </label>
-      <label className="settings-field">
-        {tr("accuracyMode")}
-        <select value={accuracyMode} onChange={(e) => setAccuracyMode(e.target.value)}>
-          <option value="high">{tr("accuracyHigh")}</option>
-          <option value="balanced">{tr("accuracyBalanced")}</option>
-          <option value="fast">{tr("accuracyFast")}</option>
-        </select>
-      </label>
-      <button type="button" className="secondary" onClick={() => void handleSave()} disabled={saving}>
-        {saving ? "…" : tr("save")}
-      </button>
-      <button type="button" className="secondary" onClick={() => void runTest()}>
-        {tr("testApi")}
-      </button>
-      {window.desktopApp?.openConfigFolder && (
-        <button type="button" className="secondary" onClick={() => window.desktopApp?.openConfigFolder?.()}>
-          {tr("openEnv")}
-        </button>
-      )}
-      {testMsg && <span className="settings-msg">{testMsg}</span>}
+        {testMsg && <span className="settings-msg">{testMsg}</span>}
+      </div>
     </div>
   );
 }

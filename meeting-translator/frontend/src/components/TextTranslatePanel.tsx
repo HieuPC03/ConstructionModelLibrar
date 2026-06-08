@@ -167,26 +167,6 @@ export default function TextTranslatePanel() {
 
       <div className="text-translate-body">
         <div className="lang-swap">
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => {
-              setSourceLang("vi");
-              setTargetLang("ja");
-            }}
-          >
-            {tr("viToJa")}
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => {
-              setSourceLang("ja");
-              setTargetLang("vi");
-            }}
-          >
-            {tr("jaToVi")}
-          </button>
           <label>
             {tr("from")}
             <select

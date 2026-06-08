@@ -49,7 +49,7 @@ export default function ConversationPanel() {
   const [starting, setStarting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
-  const [exportOpen, setExportOpen] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [captureStream, setCaptureStream] = useState<MediaStream | null>(null);
 
   const isTranslate = sessionMode === "translate_realtime";
@@ -158,7 +158,7 @@ export default function ConversationPanel() {
       session.setStatus(`error:${tr("exportNeedDir")}`);
       return;
     }
-    setExportOpen(false);
+    setExportModalOpen(false);
     try {
       if (isTranslate) {
         if (!session.utterances.length) return;
@@ -242,9 +242,21 @@ export default function ConversationPanel() {
 
   return (
     <section className="panel">
-      <div className="panel-header panel-header-compact">
+      <div className="panel-header panel-header-compact panel-header-actions">
         <h2>{tr("meeting")}</h2>
         {session.isLive && <span className="badge live">{tr("live")}</span>}
+        <button
+          type="button"
+          className="secondary panel-export-btn"
+          disabled={
+            ((!hasTranscriptContent && !isTranslate) ||
+              (isTranslate && session.utterances.length === 0)) &&
+            !session.sessionId
+          }
+          onClick={() => setExportModalOpen(true)}
+        >
+          {tr("exportData")}
+        </button>
       </div>
 
       <div className="mode-switch mode-switch-compact">
@@ -361,35 +373,6 @@ export default function ConversationPanel() {
               {tr("translateSegment")}
             </button>
           )}
-          <div className="export-dropdown">
-            <button
-              type="button"
-              className="secondary"
-              disabled={
-                ((!hasTranscriptContent && !isTranslate) ||
-                  (isTranslate && session.utterances.length === 0)) &&
-                !session.sessionId
-              }
-              onClick={() => setExportOpen((o) => !o)}
-            >
-              {tr("exportData")} ▾
-            </button>
-            {exportOpen && (
-              <div className="export-menu">
-                <button
-                  type="button"
-                  disabled={
-                    isTranslate
-                      ? session.utterances.length === 0
-                      : !hasTranscriptContent
-                  }
-                  onClick={() => void handleExportTxt()}
-                >
-                  {tr("exportAsTxt")}
-                </button>
-              </div>
-            )}
-          </div>
           <button
             type="button"
             className="secondary"
@@ -573,6 +556,44 @@ export default function ConversationPanel() {
         </span>
         <span className="dev-credit">Developed by PTH</span>
       </div>
+
+      {exportModalOpen && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onClick={() => setExportModalOpen(false)}
+        >
+          <div
+            className="modal-dialog"
+            role="dialog"
+            aria-labelledby="export-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="export-modal-title">{tr("exportData")}</h3>
+            <p className="modal-hint">{tr("exportModalHint")}</p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                disabled={
+                  isTranslate
+                    ? session.utterances.length === 0
+                    : !hasTranscriptContent
+                }
+                onClick={() => void handleExportTxt()}
+              >
+                {tr("exportAsTxt")}
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setExportModalOpen(false)}
+              >
+                {tr("wordLookupClose")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

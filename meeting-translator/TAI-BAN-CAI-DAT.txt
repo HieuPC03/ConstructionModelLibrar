@@ -1,10 +1,11 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.64
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.65
 ==========================================================
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.64
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.65
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.64/Meeting-Translator-Setup-1.8.64.exe
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.65/Meeting-Translator-Setup-1.8.65.exe
 
+v1.8.65 — UI gọn: bỏ hotwords, xuất dữ liệu pop-up, STT+độ chính xác cùng dòng
 v1.8.64 — UI gọn: header cố định, vùng transcript rộng hơn, khớp màn hình
 v1.8.63 — Logo nền JASTY cố định (không nhân khi cuộn)
 v1.8.61 — Logo JASTY trên header + gọn nhãn theme JASTY
