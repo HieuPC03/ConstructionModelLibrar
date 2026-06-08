@@ -206,7 +206,7 @@ class ViewSettingsBody(BaseModel):
     show_axes: bool | None = None
     color_mode: str | None = None
     show_grid_surface: bool | None = None
-    orbit_sensitivity: float | None = None    orbit_sensitivity: float | None = None
+    orbit_sensitivity: float | None = None
 
 
 class SubsampleBody(BaseModel):
