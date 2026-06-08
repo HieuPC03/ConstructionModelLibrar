@@ -360,21 +360,61 @@ export function applyViewDirection(
   controls.update();
 }
 
+const ORBIT_BASE_SPEED = 0.012;
+
 export function rotateCameraOrbit(
   camera: THREE.PerspectiveCamera,
   controls: { target: THREE.Vector3; update: () => void },
   deltaX: number,
   deltaY: number,
+  sensitivity = 1,
 ): void {
+  const speed = ORBIT_BASE_SPEED * Math.max(0.05, Math.min(2, sensitivity));
   const offset = camera.position.clone().sub(controls.target);
   const spherical = new THREE.Spherical().setFromVector3(offset);
-  spherical.theta -= deltaX * 0.012;
-  spherical.phi = Math.max(0.05, Math.min(Math.PI - 0.05, spherical.phi + deltaY * 0.012));
+  spherical.theta -= deltaX * speed;
+  spherical.phi = Math.max(0.05, Math.min(Math.PI - 0.05, spherical.phi + deltaY * speed));
   offset.setFromSpherical(spherical);
   camera.position.copy(controls.target).add(offset);
   camera.up.set(0, 0, 1);
   camera.lookAt(controls.target);
   controls.update();
+}
+
+/** Fit perspective camera to an axis-aligned bounding box (Z-up). */
+export function fitCameraToBox(
+  camera: THREE.PerspectiveCamera,
+  controls: { target: THREE.Vector3; update: () => void },
+  box: THREE.Box3,
+  padding = 1.25,
+): void {
+  if (box.isEmpty()) return;
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z, 0.001);
+  const dist = (maxDim * padding) / (2 * Math.tan((camera.fov * Math.PI) / 360));
+  controls.target.copy(center);
+  camera.up.set(0, 0, 1);
+  camera.position.set(center.x + dist * 0.65, center.y - dist * 0.65, center.z + dist * 0.45);
+  camera.lookAt(center);
+  controls.update();
+}
+
+/** Bounding box from a subset of interleaved xyz positions. */
+export function boundingBoxFromPositions(
+  positions: Float32Array | number[],
+  startIndex = 0,
+  count?: number,
+): THREE.Box3 {
+  const box = new THREE.Box3();
+  const total = Math.floor(positions.length / 3);
+  const end = count != null ? Math.min(startIndex + count, total) : total;
+  const v = new THREE.Vector3();
+  for (let i = startIndex; i < end; i++) {
+    v.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+    box.expandByPoint(v);
+  }
+  return box;
 }
 
 export function rotateCameraAroundZ(

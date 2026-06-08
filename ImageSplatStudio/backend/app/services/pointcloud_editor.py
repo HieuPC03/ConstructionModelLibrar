@@ -176,7 +176,7 @@ def get_properties(session_id: str) -> dict:
         "basemap": state.get("basemap", {"enabled": False, "mode": "aerial"}),
         "view": state.get(
             "view",
-            {"show_axes": False, "fov": 50, "color_mode": "rgb", "show_grid_surface": False},
+            {"show_axes": False, "fov": 50, "color_mode": "rgb", "show_grid_surface": False, "orbit_sensitivity": 1.0},
         ),
         "contours": state.get("contours"),
         "volumes": state.get("volumes", []),
@@ -551,7 +551,8 @@ def _slice_file_points(
 def import_files_to_session(session_id: str, paths: list[Path], *, z_flip: bool = False) -> dict:
     """Append point cloud files to an open editor session (TREND-POINT 読込)."""
     _pipeline_path()
-    from pointcloud_coords import extend_norm_meta_bounds, load_path_world_data, normalize_world_points
+    from pointcloud_coords import load_path_world_data, normalize_point_cloud
+    from pointcloud_transform import denormalize_points
 
     if not paths:
         raise ValueError("Không có file để nhập.")
@@ -568,12 +569,11 @@ def import_files_to_session(session_id: str, paths: list[Path], *, z_flip: bool 
     new_cols_chunks: list[np.ndarray | None] = []
     new_cls_chunks: list[np.ndarray] = []
     imported = 0
+    import_start = offset
 
     for path in paths:
         world_pts, world_cols, world_cls = load_path_world_data(path, z_flip=z_flip)
-        meta = extend_norm_meta_bounds(meta, world_pts)
-        viewer_pts = normalize_world_points(world_pts, meta)
-        count = len(viewer_pts)
+        count = len(world_pts)
         files.append(
             {
                 "name": path.name,
@@ -586,25 +586,45 @@ def import_files_to_session(session_id: str, paths: list[Path], *, z_flip: bool 
         )
         offset += count
         imported += count
-        new_pts_chunks.append(viewer_pts.astype(np.float32))
-        new_cols_chunks.append(world_cols.astype(np.float32) if world_cols is not None else None)
+        new_pts_chunks.append(world_pts.astype(np.float64))
+        new_cols_chunks.append(world_cols.astype(np.float64) if world_cols is not None else None)
         if world_cls is not None and len(world_cls) == count:
             new_cls_chunks.append(world_cls.astype(np.uint8))
         else:
             new_cls_chunks.append(np.zeros(count, dtype=np.uint8))
 
-    merged_pts = np.vstack([pts] + new_pts_chunks)
+    if imported == 0:
+        raise ValueError("Không import được điểm nào.")
+
+    import open3d as o3d
+
+    if len(pts) > 0:
+        world_existing = denormalize_points(pts, meta, swap_xy=False)
+        all_world = np.vstack([world_existing] + new_pts_chunks)
+    else:
+        all_world = np.vstack(new_pts_chunks)
+
+    merged_pcd = o3d.geometry.PointCloud()
+    merged_pcd.points = o3d.utility.Vector3dVector(all_world.astype(np.float64))
+
     old_has_color = cols is not None and len(cols) == len(pts)
     any_new_color = any(c is not None for c in new_cols_chunks)
     if old_has_color or any_new_color:
-        parts: list[np.ndarray] = []
-        parts.append(cols if old_has_color else np.full((len(pts), 3), 0.5, dtype=np.float32))
+        color_parts: list[np.ndarray] = []
+        if len(pts) > 0:
+            color_parts.append(cols if old_has_color else np.full((len(pts), 3), 0.5, dtype=np.float32))
         for i, nc in enumerate(new_cols_chunks):
             if nc is not None:
-                parts.append(nc.astype(np.float32))
+                color_parts.append(nc.astype(np.float32))
             else:
-                parts.append(np.full((len(new_pts_chunks[i]), 3), 0.5, dtype=np.float32))
-        merged_cols = np.vstack(parts)
+                color_parts.append(np.full((len(new_pts_chunks[i]), 3), 0.5, dtype=np.float32))
+        merged_colors = np.vstack(color_parts)
+        merged_pcd.colors = o3d.utility.Vector3dVector(merged_colors.astype(np.float64))
+
+    merged_pts, meta = normalize_point_cloud(merged_pcd)
+    merged_pts_np = np.asarray(merged_pts.points, dtype=np.float32)
+    if merged_pcd.has_colors():
+        merged_cols = np.asarray(merged_pcd.colors, dtype=np.float32)
     else:
         merged_cols = cols
 
@@ -615,10 +635,11 @@ def import_files_to_session(session_id: str, paths: list[Path], *, z_flip: bool 
         save_hidden_mask(session_id, hidden_mask)
     state["files"] = files
     state["norm_meta"] = meta
-    save_points_colors(session_id, merged_pts, merged_cols, merged_cls)
+    save_points_colors(session_id, merged_pts_np, merged_cols, merged_cls)
     save_state(session_id, state)
     props = get_properties(session_id)
     props["imported_count"] = imported
+    props["imported_file"] = {"start_index": int(import_start), "point_count": int(imported)}
     return props
 
 
@@ -1239,6 +1260,7 @@ def configure_view(
     show_axes: bool | None = None,
     color_mode: str | None = None,
     show_grid_surface: bool | None = None,
+    orbit_sensitivity: float | None = None,
 ) -> dict:
     state = load_state(session_id)
     if crs_epsg is not None:
@@ -1249,13 +1271,15 @@ def configure_view(
     if basemap_mode is not None and basemap_mode in ("aerial", "road", "hybrid", "off"):
         basemap["mode"] = basemap_mode
     state["basemap"] = basemap
-    view = state.get("view", {"show_axes": False, "fov": 50, "color_mode": "rgb", "show_grid_surface": False})
+    view = state.get("view", {"show_axes": False, "fov": 50, "color_mode": "rgb", "show_grid_surface": False, "orbit_sensitivity": 1.0})
     if show_axes is not None:
         view["show_axes"] = bool(show_axes)
     if color_mode is not None and color_mode in ("rgb", "elevation", "intensity", "uniform", "classification"):
         view["color_mode"] = color_mode
     if show_grid_surface is not None:
         view["show_grid_surface"] = bool(show_grid_surface)
+    if orbit_sensitivity is not None:
+        view["orbit_sensitivity"] = float(min(max(orbit_sensitivity, 0.05), 2.0))
     state["view"] = view
     save_state(session_id, state)
     return get_properties(session_id)

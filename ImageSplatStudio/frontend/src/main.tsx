@@ -79,6 +79,8 @@ function AppContent() {
   const [pcSessionId, setPcSessionId] = useState<string | null>(null);
   const [editorProperties, setEditorProperties] = useState<EditorProperties | null>(null);
   const [previewRefresh, setPreviewRefresh] = useState(0);
+  const [fitViewToken, setFitViewToken] = useState(0);
+  const [fitToIndices, setFitToIndices] = useState<{ start_index: number; point_count: number } | null>(null);
   const [gridCellSize, setGridCellSize] = useState(0.2);
   const [activeTool, setActiveTool] = useState<EditorTool>("navigate");
   const [osnapMode, setOsnapMode] = useState<OsnapMode>("point");
@@ -248,7 +250,13 @@ function AppContent() {
     }
   }, []);
 
-  const bumpPreview = () => setPreviewRefresh((n) => n + 1);
+  const bumpPreview = (fitTarget?: { start_index: number; point_count: number }) => {
+    if (fitTarget) {
+      setFitToIndices(fitTarget);
+      setFitViewToken((n) => n + 1);
+    }
+    setPreviewRefresh((n) => n + 1);
+  };
   const bumpMesh = () => setMeshReloadToken((n) => n + 1);
 
   const handleEditorUpdated = (props: EditorProperties) => {
@@ -703,6 +711,9 @@ function AppContent() {
               <PointCloudPreview
                 files={pcPreviewFiles}
                 refreshToken={previewRefresh}
+                fitViewToken={fitViewToken}
+                fitToIndices={fitToIndices}
+                orbitSensitivity={editorProperties?.view?.orbit_sensitivity ?? 1}
                 gridEnabled={!!editorProperties?.grid.enabled}
                 showMesh={!!editorProperties?.mesh}
                 meshReloadToken={meshReloadToken}

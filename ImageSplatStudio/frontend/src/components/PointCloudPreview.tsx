@@ -14,7 +14,7 @@ import { formatFileSize } from "../utils/pointcloud";
 import { viewerToWorld, worldToViewer, formatWorldCoords, type NormMeta } from "../utils/coordTransform";
 import { LassoOverlay } from "./pceditor/LassoOverlay";
 import { OrientationGizmo } from "./pceditor/OrientationGizmo";
-import { createAxesHelper, createWorldAxesHelper, applyViewDirection, rotateCameraOrbit, type ViewDirection } from "./ViewCube";
+import { createAxesHelper, createWorldAxesHelper, applyViewDirection, rotateCameraOrbit, fitCameraToBox, boundingBoxFromPositions, type ViewDirection } from "./ViewCube";
 import { OSNAP_CURSOR, PLANE_PICK_TOOLS, TOOL_CURSORS, toolHintKey, type EditorTool, type OsnapMode } from "../utils/editorTools";
 import { applyColorMode, type ColorMode } from "../utils/colorModes";
 import { fetchGridSurface } from "../api/editor";
@@ -49,6 +49,9 @@ export interface PickMeta {
 interface PointCloudPreviewProps {
   files: File[];
   refreshToken?: number;
+  fitViewToken?: number;
+  fitToIndices?: { start_index: number; point_count: number } | null;
+  orbitSensitivity?: number;
   gridEnabled?: boolean;
   showMesh?: boolean;
   meshReloadToken?: number;
@@ -140,6 +143,9 @@ function buildBreaklineGeometry(lines: number[][][]): THREE.BufferGeometry | nul
 export function PointCloudPreview({
   files,
   refreshToken = 0,
+  fitViewToken = 0,
+  fitToIndices = null,
+  orbitSensitivity = 1,
   gridEnabled = false,
   showMesh = false,
   meshReloadToken = 0,
@@ -206,13 +212,30 @@ export function PointCloudPreview({
   const onSnapHoverRef = useRef(onSnapHover);
   const onSessionReadyRef = useRef(onSessionReady);
   const cameraSavedRef = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
+  const fitViewPendingRef = useRef(true);
+  const fitIndicesRef = useRef<{ start_index: number; point_count: number } | null>(null);
+  const orbitSensitivityRef = useRef(orbitSensitivity);
   const filesKeyRef = useRef<string>("");
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+
+  useEffect(() => {
+    orbitSensitivityRef.current = orbitSensitivity;
+  }, [orbitSensitivity]);
+
+  useEffect(() => {
+    fitViewPendingRef.current = true;
+    cameraSavedRef.current = null;
+  }, [fitViewToken]);
+
+  useEffect(() => {
+    fitIndicesRef.current = fitToIndices;
+    if (fitToIndices) fitViewPendingRef.current = true;
+  }, [fitToIndices]);
 
   const handleGizmoDrag = useCallback((deltaX: number, deltaY: number) => {
     const ctx = sceneCtxRef.current;
     if (!ctx) return;
-    rotateCameraOrbit(ctx.camera, ctx.controls, deltaX, deltaY);
+    rotateCameraOrbit(ctx.camera, ctx.controls, deltaX, deltaY, orbitSensitivityRef.current);
   }, []);
   const [data, setData] = useState<PreviewData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -278,6 +301,7 @@ export function PointCloudPreview({
     if (key !== filesKeyRef.current) {
       filesKeyRef.current = key;
       cameraSavedRef.current = null;
+      fitViewPendingRef.current = true;
     }
     sessionRef.current = null;
     setSamplePercent(DEFAULT_PERCENT);
@@ -351,6 +375,11 @@ export function PointCloudPreview({
       materialRef.current.needsUpdate = true;
     }
   }, [pointSizeM]);
+
+  useEffect(() => {
+    const ctx = sceneCtxRef.current;
+    if (ctx) ctx.controls.rotateSpeed = orbitSensitivity;
+  }, [orbitSensitivity]);
 
   useEffect(() => {
     const ctx = sceneCtxRef.current;
@@ -452,8 +481,6 @@ export function PointCloudPreview({
 
     const camera = new THREE.PerspectiveCamera(50, 1, maxDim * 0.001, maxDim * 100);
     camera.up.set(0, 0, 1);
-    camera.position.set(maxDim * 1.2, -maxDim * 1.2, maxDim * 0.9);
-    cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -461,14 +488,25 @@ export function PointCloudPreview({
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.rotateSpeed = orbitSensitivityRef.current;
     controls.target.copy(center);
 
     const savedCam = cameraSavedRef.current;
-    if (savedCam) {
+    const shouldFit = fitViewPendingRef.current;
+    const fitIdx = fitIndicesRef.current;
+    if (savedCam && !shouldFit) {
       camera.position.copy(savedCam.pos);
       controls.target.copy(savedCam.target);
       cameraSavedRef.current = null;
+    } else {
+      const fitBox = fitIdx
+        ? boundingBoxFromPositions(positions, fitIdx.start_index, fitIdx.point_count)
+        : box;
+      fitCameraToBox(camera, controls, fitBox.isEmpty() ? box : fitBox);
+      fitViewPendingRef.current = false;
+      fitIndicesRef.current = null;
     }
+    cameraRef.current = camera;
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.85));
     scene.add(new THREE.DirectionalLight(0xffffff, 0.45));

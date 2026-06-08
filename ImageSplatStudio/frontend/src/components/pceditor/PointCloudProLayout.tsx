@@ -32,7 +32,7 @@ interface PointCloudProLayoutProps {
   crossSectionWidth: number;
   onCrossSectionWidthChange: (v: number) => void;
   onUpdated: (props: EditorProperties) => void;
-  onRefreshPreview: () => void;
+  onRefreshPreview: (fitTarget?: { start_index: number; point_count: number }) => void;
   onError: (msg: string) => void;
   onToolChange: (tool: EditorTool) => void;
   onCancelCommand?: () => void;

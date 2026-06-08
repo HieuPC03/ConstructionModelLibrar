@@ -6,112 +6,93 @@ interface OrientationGizmoProps {
   onDragRotate?: (deltaX: number, deltaY: number) => void;
 }
 
-function axisColorHex(color: number): string {
-  return `#${color.toString(16).padStart(6, "0")}`;
-}
+const AXIS_LEN = 0.62;
+const GRID_SPAN = 0.55;
 
-function makeLabel(text: string, color: number): THREE.Sprite {
-  const canvas = document.createElement("canvas");
-  canvas.width = 32;
-  canvas.height = 32;
-  const ctx = canvas.getContext("2d")!;
-  ctx.font = "bold 18px Segoe UI, system-ui, sans-serif";
-  ctx.fillStyle = axisColorHex(color);
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(text, 16, 17);
-  const tex = new THREE.CanvasTexture(canvas);
-  const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true });
-  const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(0.24, 0.24, 1);
-  return sprite;
-}
+/** Project fixed Z-up WCS axes onto 2D canvas using main camera orientation. */
+function drawOrientationGizmo(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  mainCam: THREE.Camera,
+): void {
+  mainCam.updateMatrixWorld();
+  const right = new THREE.Vector3().setFromMatrixColumn(mainCam.matrixWorld, 0).normalize();
+  const up = new THREE.Vector3().setFromMatrixColumn(mainCam.matrixWorld, 1).normalize();
+  const world = new THREE.Vector3();
 
-/** Z-up WCS axes + horizontal XY grid (TREND-POINT style). */
-function createGizmoGroup(): THREE.Group {
-  const group = new THREE.Group();
+  const cx = size / 2;
+  const cy = size / 2;
+  const pxScale = size * 0.34;
 
-  const gridLines: number[] = [];
-  const span = 0.55;
-  for (let i = -1; i <= 1; i++) {
-    const t = i * span;
-    gridLines.push(-span, t, 0, span, t, 0);
-    gridLines.push(t, -span, 0, t, span, 0);
-  }
-  const gridGeom = new THREE.BufferGeometry();
-  gridGeom.setAttribute("position", new THREE.Float32BufferAttribute(gridLines, 3));
-  group.add(
-    new THREE.LineSegments(
-      gridGeom,
-      new THREE.LineBasicMaterial({ color: 0xcccccc, transparent: true, opacity: 0.9 }),
-    ),
-  );
-
-  const cube = new THREE.Mesh(
-    new THREE.BoxGeometry(0.16, 0.16, 0.16),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.96 }),
-  );
-  group.add(cube);
-  group.add(
-    new THREE.LineSegments(
-      new THREE.EdgesGeometry(new THREE.BoxGeometry(0.17, 0.17, 0.17)),
-      new THREE.LineBasicMaterial({ color: 0x888888 }),
-    ),
-  );
-
-  const addAxis = (dir: THREE.Vector3, color: number, label: string) => {
-    const len = 0.62;
-    const end = dir.clone().multiplyScalar(len);
-    group.add(
-      new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), end]),
-        new THREE.LineBasicMaterial({ color }),
-      ),
-    );
-    const cone = new THREE.Mesh(
-      new THREE.ConeGeometry(0.045, 0.11, 10),
-      new THREE.MeshBasicMaterial({ color }),
-    );
-    cone.position.copy(end);
-    cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
-    group.add(cone);
-    const lbl = makeLabel(label, color);
-    lbl.position.copy(end.clone().multiplyScalar(1.18));
-    group.add(lbl);
+  const project = (x: number, y: number, z: number) => {
+    world.set(x, y, z);
+    return { x: cx + world.dot(right) * pxScale, y: cy - world.dot(up) * pxScale };
   };
 
-  addAxis(new THREE.Vector3(1, 0, 0), 0xff3333, "X");
-  addAxis(new THREE.Vector3(0, 1, 0), 0x33cc33, "Y");
-  addAxis(new THREE.Vector3(0, 0, 1), 0x3388ff, "Z");
+  const drawSeg = (a: { x: number; y: number }, b: { x: number; y: number }, color: string, width = 1.5) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  };
 
-  return group;
+  ctx.clearRect(0, 0, size, size);
+
+  const origin = project(0, 0, 0);
+  const cubeHalf = size * 0.09;
+  ctx.fillStyle = "rgba(255,255,255,0.96)";
+  ctx.strokeStyle = "rgba(136,136,136,0.9)";
+  ctx.lineWidth = 1;
+  ctx.fillRect(origin.x - cubeHalf, origin.y - cubeHalf, cubeHalf * 2, cubeHalf * 2);
+  ctx.strokeRect(origin.x - cubeHalf, origin.y - cubeHalf, cubeHalf * 2, cubeHalf * 2);
+
+  ctx.strokeStyle = "rgba(204,204,204,0.9)";
+  ctx.lineWidth = 1;
+  for (let i = -1; i <= 1; i++) {
+    const t = i * GRID_SPAN;
+    drawSeg(project(-GRID_SPAN, t, 0), project(GRID_SPAN, t, 0), "rgba(204,204,204,0.9)", 1);
+    drawSeg(project(t, -GRID_SPAN, 0), project(t, GRID_SPAN, 0), "rgba(204,204,204,0.9)", 1);
+  }
+
+  const axes: { dir: [number, number, number]; color: string; label: string }[] = [
+    { dir: [1, 0, 0], color: "#ff3333", label: "X" },
+    { dir: [0, 1, 0], color: "#33cc33", label: "Y" },
+    { dir: [0, 0, 1], color: "#3388ff", label: "Z" },
+  ];
+
+  for (const { dir, color, label } of axes) {
+    const end = project(dir[0] * AXIS_LEN, dir[1] * AXIS_LEN, dir[2] * AXIS_LEN);
+    drawSeg(origin, end, color, 2.2);
+    const tip = project(dir[0] * AXIS_LEN * 1.18, dir[1] * AXIS_LEN * 1.18, dir[2] * AXIS_LEN * 1.18);
+    ctx.fillStyle = color;
+    ctx.font = "bold 13px Segoe UI, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, tip.x, tip.y);
+  }
 }
 
 export function OrientationGizmo({ cameraRef, onDragRotate }: OrientationGizmoProps) {
-  const mountRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const onDragRef = useRef(onDragRotate);
   onDragRef.current = onDragRotate;
 
   useEffect(() => {
-    const mount = mountRef.current;
-    if (!mount) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
     const size = 88;
-    const scene = new THREE.Scene();
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setClearColor(0x000000, 0);
-    renderer.setSize(size, size);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    mount.appendChild(renderer.domElement);
+    const dpr = Math.min(window.devicePixelRatio, 2);
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    canvas.style.width = `${size}px`;
+    canvas.style.height = `${size}px`;
 
-    const cam = new THREE.PerspectiveCamera(28, 1, 0.1, 20);
-    cam.up.set(0, 0, 1);
-
-    const gizmo = createGizmoGroup();
-    scene.add(gizmo);
-
-    const lookDir = new THREE.Vector3();
-    const camDistance = 2.4;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     let dragStart: { x: number; y: number } | null = null;
     let dragging = false;
@@ -121,7 +102,7 @@ export function OrientationGizmo({ cameraRef, onDragRotate }: OrientationGizmoPr
       event.stopPropagation();
       dragStart = { x: event.clientX, y: event.clientY };
       dragging = false;
-      renderer.domElement.style.cursor = "grabbing";
+      canvas.style.cursor = "grabbing";
     };
 
     const onMove = (event: MouseEvent) => {
@@ -135,55 +116,33 @@ export function OrientationGizmo({ cameraRef, onDragRotate }: OrientationGizmoPr
     const onUp = () => {
       dragStart = null;
       dragging = false;
-      renderer.domElement.style.cursor = "grab";
+      canvas.style.cursor = "grab";
     };
 
-    renderer.domElement.addEventListener("mousedown", onDown);
-    renderer.domElement.addEventListener("mousemove", onMove);
+    canvas.addEventListener("mousedown", onDown);
+    canvas.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
-    renderer.domElement.style.cursor = "grab";
+    canvas.style.cursor = "grab";
 
     let frame = 0;
     const tick = () => {
       frame = requestAnimationFrame(tick);
       const mainCam = cameraRef.current;
-      if (mainCam) {
-        mainCam.updateMatrixWorld();
-        mainCam.getWorldDirection(lookDir);
-        cam.position.copy(lookDir).multiplyScalar(-camDistance);
-        cam.up.set(0, 0, 1);
-        cam.lookAt(0, 0, 0);
-      }
-      renderer.render(scene, cam);
+      if (mainCam && ctx) drawOrientationGizmo(ctx, size, mainCam);
     };
     tick();
 
     return () => {
       cancelAnimationFrame(frame);
-      renderer.domElement.removeEventListener("mousedown", onDown);
-      renderer.domElement.removeEventListener("mousemove", onMove);
+      canvas.removeEventListener("mousedown", onDown);
+      canvas.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
-      gizmo.traverse((obj) => {
-        if (obj instanceof THREE.Mesh) {
-          obj.geometry.dispose();
-          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-          mats.forEach((m) => m.dispose());
-        } else if (obj instanceof THREE.Line || obj instanceof THREE.LineSegments) {
-          obj.geometry.dispose();
-          (obj.material as THREE.Material).dispose();
-        } else if (obj instanceof THREE.Sprite) {
-          (obj.material as THREE.SpriteMaterial).map?.dispose();
-          (obj.material as THREE.Material).dispose();
-        }
-      });
-      renderer.dispose();
-      mount.removeChild(renderer.domElement);
     };
   }, [cameraRef]);
 
   return (
     <div className="tp-orient-gizmo" title="XYZ">
-      <div ref={mountRef} className="tp-orient-gizmo-canvas" />
+      <canvas ref={canvasRef} className="tp-orient-gizmo-canvas" />
     </div>
   );
 }

@@ -31,7 +31,14 @@ export interface EditorProperties {
   norm_meta: { center?: number[]; scale?: number; world_min?: number[]; world_max?: number[] };
   crs: { epsg: number; name: string };
   basemap: { enabled: boolean; mode?: string };
-  view: { show_axes: boolean; fov: number; color_mode?: string; show_grid_surface?: boolean };
+  view: {
+    show_axes: boolean;
+    fov: number;
+    color_mode?: string;
+    show_grid_surface?: boolean;
+    orbit_sensitivity?: number;
+  };
+  imported_file?: { start_index: number; point_count: number };
   bounds: { min: number[]; max: number[] };
   contours?: { interval: number; segment_count: number } | null;
   volumes?: { id: string; base_z: number; cut_m3: number; fill_m3: number; net_m3: number }[];
@@ -447,6 +454,7 @@ export async function editorConfigureView(
     show_axes?: boolean;
     color_mode?: string;
     show_grid_surface?: boolean;
+    orbit_sensitivity?: number;
   },
 ): Promise<EditorProperties> {
   return parseJson(

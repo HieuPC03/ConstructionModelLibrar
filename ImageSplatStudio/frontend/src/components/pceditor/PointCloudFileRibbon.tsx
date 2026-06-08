@@ -17,7 +17,7 @@ interface PointCloudFileRibbonProps {
   sessionId: string | null;
   properties: EditorProperties | null;
   onUpdated: (props: EditorProperties) => void;
-  onRefreshPreview: () => void;
+  onRefreshPreview: (fitTarget?: { start_index: number; point_count: number }) => void;
   onError: (msg: string) => void;
 }
 
@@ -45,7 +45,7 @@ export function PointCloudFileRibbon({
     try {
       const props = await editorImportFiles(sessionId, Array.from(fileList), { z_flip: zFlip });
       onUpdated(props);
-      onRefreshPreview();
+      onRefreshPreview(props.imported_file);
       const n = props.imported_count ?? 0;
       logConsole(`${tr("fileImportDone")}: +${n.toLocaleString()}`, "success");
     } catch (e: unknown) {

@@ -206,6 +206,7 @@ class ViewSettingsBody(BaseModel):
     show_axes: bool | None = None
     color_mode: str | None = None
     show_grid_surface: bool | None = None
+    orbit_sensitivity: float | None = None    orbit_sensitivity: float | None = None
 
 
 class SubsampleBody(BaseModel):
@@ -714,6 +715,7 @@ def editor_view_settings(session_id: str, body: ViewSettingsBody) -> dict:
         show_axes=body.show_axes,
         color_mode=body.color_mode,
         show_grid_surface=body.show_grid_surface,
+        orbit_sensitivity=body.orbit_sensitivity,
     )
 
 
