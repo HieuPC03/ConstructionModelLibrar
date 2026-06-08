@@ -104,16 +104,14 @@ export function OrientationGizmo({ cameraRef, onDragRotate }: OrientationGizmoPr
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mount.appendChild(renderer.domElement);
 
-    const cam = new THREE.OrthographicCamera(-0.95, 0.95, 0.95, -0.95, 0.1, 20);
-    cam.position.set(2.1, -2.1, 1.55);
+    const cam = new THREE.PerspectiveCamera(28, 1, 0.1, 20);
     cam.up.set(0, 0, 1);
-    cam.lookAt(0, 0, 0);
-    cam.updateProjectionMatrix();
 
     const gizmo = createGizmoGroup();
     scene.add(gizmo);
 
-    const syncMatrix = new THREE.Matrix4();
+    const lookDir = new THREE.Vector3();
+    const camDistance = 2.4;
 
     let dragStart: { x: number; y: number } | null = null;
     let dragging = false;
@@ -151,8 +149,10 @@ export function OrientationGizmo({ cameraRef, onDragRotate }: OrientationGizmoPr
       const mainCam = cameraRef.current;
       if (mainCam) {
         mainCam.updateMatrixWorld();
-        syncMatrix.copy(mainCam.matrixWorld).invert();
-        gizmo.quaternion.setFromRotationMatrix(syncMatrix);
+        mainCam.getWorldDirection(lookDir);
+        cam.position.copy(lookDir).multiplyScalar(-camDistance);
+        cam.up.set(0, 0, 1);
+        cam.lookAt(0, 0, 0);
       }
       renderer.render(scene, cam);
     };

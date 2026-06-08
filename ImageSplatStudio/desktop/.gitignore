@@ -2,3 +2,4 @@ node_modules/
 dist-installer/
 python/*
 !python/.gitkeep
+ODAFileConverter/

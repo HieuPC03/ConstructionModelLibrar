@@ -96,11 +96,21 @@ def configure_odafc() -> bool:
         return False
 
 
+def _bundled_oda_available() -> bool:
+    return find_oda_executable() is not None
+
+
 def dwg_import_hint() -> str:
+    if _bundled_oda_available():
+        return (
+            "ODA File Converter đã có trong bản cài nhưng chưa chạy được.\n"
+            "Khởi động lại ImageSplat Studio hoặc cài lại bản offline mới nhất.\n"
+            "Cách khác: AutoCAD → SAVEAS → DXF rồi import file .dxf"
+        )
     return (
         "Để import DWG trực tiếp, cài ODA File Converter (miễn phí):\n"
         "  winget install -e --id ODA.ODAFileConverter\n"
-        "Hoặc tải tại: https://www.opendesign.com/guestfiles/oda_file_converter\n"
-        "Sau đó khởi động lại ImageSplat Studio.\n"
+        "Hoặc tải bản offline ImageSplat Studio (đã tích hợp sẵn ODA).\n"
+        "Link: https://github.com/HieuPC03/ConstructionModelLibrar/releases\n"
         "Cách khác: AutoCAD → SAVEAS → DXF rồi import file .dxf"
     )

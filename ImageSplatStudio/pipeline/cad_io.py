@@ -191,7 +191,7 @@ def load_dwg_point_cloud(path: Path):
         if oda is None:
             raise ValueError(
                 f"Không đọc được DWG: {path.name}.\n\n"
-                f"Chưa cài ODA File Converter trên máy Windows.\n\n{dwg_import_hint()}"
+                f"Chưa tìm thấy ODA File Converter.\n\n{dwg_import_hint()}"
             )
         raise ValueError(
             f"Không cấu hình được ODA File Converter tại: {oda}\n\n{dwg_import_hint()}"

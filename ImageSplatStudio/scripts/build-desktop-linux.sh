@@ -20,6 +20,9 @@ python3 "$ROOT/scripts/generate-app-icon.py"
 echo ">> Bundle Windows Python..."
 bash "$ROOT/scripts/bundle-windows-python.sh"
 
+echo ">> Bundle ODA File Converter (DWG import)..."
+bash "$ROOT/scripts/bundle-oda-converter.sh"
+
 echo ">> Electron package..."
 (cd "$DESKTOP" && npm install --silent)
 export CSC_IDENTITY_AUTO_DISCOVERY=false
