@@ -1,24 +1,9 @@
-TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.65
-==========================================================
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.66
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.65
+Trang release:
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.66
 
-https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.65/Meeting-Translator-Setup-1.8.65.exe
+Link tải trực tiếp (Setup.exe):
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.66/Meeting-Translator-Setup-1.8.66.exe
 
-v1.8.65 — UI gọn: bỏ hotwords, xuất dữ liệu pop-up, STT+độ chính xác cùng dòng
-v1.8.64 — UI gọn: header cố định, vùng transcript rộng hơn, khớp màn hình
-v1.8.63 — Logo nền JASTY cố định (không nhân khi cuộn)
-v1.8.61 — Logo JASTY trên header + gọn nhãn theme JASTY
-v1.8.60 — Sửa lỗi màn hình trống khi bấm Stop (Live Caption)
-v1.8.59 — 12 cải tiến độ chính xác: hotwords, JMdict, VAD, adaptive chunk, STT sửa LLM, dịch 2-pass, click tra từ, sửa transcript học lại
-v1.8.58 — Từ điển JP (hán tự/đọc) + bôi đen từ xem nghĩa
-v1.8.57 — Dịch realtime chunk 1.5s (chính xác hơn)
-v1.8.56 — Độ chính xác STT/dịch cao hơn (Janome, hậu xử lý, caption_sync)
-v1.8.55 — Realtime tách từng câu dịch; chunk Live Caption 1.5s / realtime 1.2s
-v1.8.53 — STT âm hệ thống chính xác hơn; Live Caption 1s, realtime 0.8s/chunk
-v1.8.52 — Logo JASTY nền vùng transcript/dịch (opacity ~50%)
-v1.8.51 — Dựa trên v1.8.5 + 3 cải tiến:
-  • Logo nền JASTY rõ hơn
-  • Live Caption: 1 đoạn văn liên tục (không tách từng câu)
-  • Chờ im lặng ~1.2s trước khi chốt câu (Live Caption + dịch realtime)
-v1.8.5 — Logo JASTY nền chéo, UI tương lai, nền RGB khi live, credit PTH
+v1.8.66 — Xuất dữ liệu trên thanh cài đặt, pop-up chọn thư mục và định dạng
