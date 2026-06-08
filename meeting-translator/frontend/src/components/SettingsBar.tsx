@@ -1,21 +1,14 @@
 import { useEffect, useState } from "react";
 import { testApiKey, updateSettings } from "../api";
 import { useAppSettings, type ThemeId } from "../AppSettingsContext";
+import { useExport } from "../ExportContext";
 import { useSessionMode } from "../SessionModeContext";
 
 export default function SettingsBar() {
-  const {
-    tr,
-    lang,
-    setLang,
-    theme,
-    setTheme,
-    exportDir,
-    setExportDir,
-    saveSettings,
-    settings,
-  } = useAppSettings();
+  const { tr, lang, setLang, theme, setTheme, saveSettings, settings } =
+    useAppSettings();
   const { sessionMode, setSessionMode } = useSessionMode();
+  const { canExport, openExportModal } = useExport();
   const [testMsg, setTestMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [sttModel, setSttModel] = useState("gpt-4o-mini-transcribe");
@@ -32,8 +25,6 @@ export default function SettingsBar() {
     try {
       await updateSettings({
         session_mode: sessionMode,
-        export_dir: exportDir,
-        recordings_dir: exportDir,
         ui_language: lang,
         theme,
         stt_model: sttModel,
@@ -46,11 +37,6 @@ export default function SettingsBar() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const pickFolder = async () => {
-    const dir = await window.desktopApp?.pickFolder?.();
-    if (dir) setExportDir(dir);
   };
 
   const runTest = async () => {
@@ -96,20 +82,14 @@ export default function SettingsBar() {
             <option value="jasty">{tr("themeJasty")}</option>
           </select>
         </label>
-        <label className="settings-field settings-path">
-          {tr("exportFolder")}
-          <input
-            type="text"
-            value={exportDir}
-            onChange={(e) => setExportDir(e.target.value)}
-            placeholder={settings?.recordings_dir_active ?? "AppData"}
-          />
-          {window.desktopApp?.pickFolder && (
-            <button type="button" className="secondary" onClick={() => void pickFolder()}>
-              {tr("pick")}
-            </button>
-          )}
-        </label>
+        <button
+          type="button"
+          className="secondary settings-export-btn"
+          disabled={!canExport}
+          onClick={openExportModal}
+        >
+          {tr("exportData")}
+        </button>
       </div>
       <div className="settings-row">
         <label className="settings-field">

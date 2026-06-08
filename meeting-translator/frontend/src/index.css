@@ -761,9 +761,41 @@ textarea {
   font-weight: 500;
 }
 
-.settings-path input {
-  min-width: 160px;
-  max-width: 280px;
+.settings-export-btn {
+  margin-left: auto;
+}
+
+.export-modal {
+  min-width: min(92vw, 420px);
+}
+
+.export-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.export-modal-field select,
+.export-modal-path input {
+  font-weight: 400;
+  width: 100%;
+  max-width: none;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+.export-modal-path {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.export-modal-path input {
+  flex: 1;
+  min-width: 0;
 }
 
 .settings-msg {

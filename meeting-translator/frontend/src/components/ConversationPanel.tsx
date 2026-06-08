@@ -8,11 +8,10 @@ import { useAudioCapture } from "../hooks/useAudioCapture";
 import { useRealtimeSession } from "../hooks/useRealtimeSession";
 import {
   checkHealth,
-  exportTranscript,
-  exportTranscriptSegments,
   fillTextTranslateInput,
   translateCaptionMeeting,
 } from "../api";
+import { useExport } from "../ExportContext";
 import { copyText } from "../utils/clipboard";
 import LookupableText from "./LookupableText";
 import { formatSegmentParagraph } from "../utils/transcriptText";
@@ -39,7 +38,8 @@ function statusLabel(
 export default function ConversationPanel() {
   const feedRef = useRef<HTMLDivElement>(null);
   const { sessionMode, setSessionMode, resetToDefaults } = useSessionMode();
-  const { tr, exportDir, recordingsDir } = useAppSettings();
+  const { tr, recordingsDir, settings } = useAppSettings();
+  const { registerPayload } = useExport();
   const [sourceLang, setSourceLang] = useState<LangCode>("ja");
   const [targetLang, setTargetLang] = useState<LangCode>("vi");
   const [captureMode, setCaptureMode] = useState<CaptureMode>("loopback");
@@ -49,7 +49,6 @@ export default function ConversationPanel() {
   const [starting, setStarting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
-  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [captureStream, setCaptureStream] = useState<MediaStream | null>(null);
 
   const isTranslate = sessionMode === "translate_realtime";
@@ -62,11 +61,31 @@ export default function ConversationPanel() {
     updateVadMeta(vad);
   }, [vad, updateVadMeta]);
 
-  const exportBaseDir = exportDir || recordingsDir;
+  const autoSaveDir = recordingsDir || settings?.recordings_dir_active || "";
 
   const hasTranscriptContent = session.transcriptSegments.some((s) =>
     s.original.trim()
   );
+
+  useEffect(() => {
+    registerPayload({
+      isTranslate,
+      utterances: session.utterances,
+      transcriptSegments: session.transcriptSegments,
+      sessionId: session.sessionId,
+      hasTranscriptContent,
+      setStatus: session.setStatus,
+    });
+    return () => registerPayload(null);
+  }, [
+    isTranslate,
+    session.utterances,
+    session.transcriptSegments,
+    session.sessionId,
+    hasTranscriptContent,
+    session.setStatus,
+    registerPayload,
+  ]);
 
   useEffect(() => {
     audio.refreshDevices();
@@ -122,7 +141,7 @@ export default function ConversationPanel() {
 
   const handleStop = async () => {
     try {
-      await session.stopSession(exportBaseDir);
+      await session.stopSession(autoSaveDir || undefined);
     } catch (e) {
       session.setStatus(`error:${friendlyMediaError(e)}`);
     } finally {
@@ -150,35 +169,6 @@ export default function ConversationPanel() {
       session.setStatus("idle");
     } finally {
       setRefreshing(false);
-    }
-  };
-
-  const handleExportTxt = async () => {
-    if (!exportBaseDir) {
-      session.setStatus(`error:${tr("exportNeedDir")}`);
-      return;
-    }
-    setExportModalOpen(false);
-    try {
-      if (isTranslate) {
-        if (!session.utterances.length) return;
-        const msg = await exportTranscript(
-          session.utterances,
-          exportBaseDir,
-          `transcript-${Date.now()}.txt`
-        );
-        session.setStatus(`saved:${msg}`);
-      } else {
-        if (!hasTranscriptContent) return;
-        const msg = await exportTranscriptSegments(
-          session.transcriptSegments,
-          exportBaseDir,
-          `transcript-${Date.now()}.txt`
-        );
-        session.setStatus(`saved:${msg}`);
-      }
-    } catch (e) {
-      session.setStatus(`error:${friendlyMediaError(e)}`);
     }
   };
 
@@ -245,18 +235,6 @@ export default function ConversationPanel() {
       <div className="panel-header panel-header-compact panel-header-actions">
         <h2>{tr("meeting")}</h2>
         {session.isLive && <span className="badge live">{tr("live")}</span>}
-        <button
-          type="button"
-          className="secondary panel-export-btn"
-          disabled={
-            ((!hasTranscriptContent && !isTranslate) ||
-              (isTranslate && session.utterances.length === 0)) &&
-            !session.sessionId
-          }
-          onClick={() => setExportModalOpen(true)}
-        >
-          {tr("exportData")}
-        </button>
       </div>
 
       <div className="mode-switch mode-switch-compact">
@@ -557,43 +535,6 @@ export default function ConversationPanel() {
         <span className="dev-credit">Developed by PTH</span>
       </div>
 
-      {exportModalOpen && (
-        <div
-          className="modal-backdrop"
-          role="presentation"
-          onClick={() => setExportModalOpen(false)}
-        >
-          <div
-            className="modal-dialog"
-            role="dialog"
-            aria-labelledby="export-modal-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="export-modal-title">{tr("exportData")}</h3>
-            <p className="modal-hint">{tr("exportModalHint")}</p>
-            <div className="modal-actions">
-              <button
-                type="button"
-                disabled={
-                  isTranslate
-                    ? session.utterances.length === 0
-                    : !hasTranscriptContent
-                }
-                onClick={() => void handleExportTxt()}
-              >
-                {tr("exportAsTxt")}
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => setExportModalOpen(false)}
-              >
-                {tr("wordLookupClose")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

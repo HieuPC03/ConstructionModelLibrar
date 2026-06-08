@@ -5,6 +5,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import SettingsBar from "./components/SettingsBar";
 import TextTranslatePanel from "./components/TextTranslatePanel";
 import { AppSettingsProvider, useAppSettings } from "./AppSettingsContext";
+import { ExportProvider } from "./ExportContext";
 import { SessionModeProvider } from "./SessionModeContext";
 import { checkHealth } from "./api";
 
@@ -77,7 +78,9 @@ export default function App() {
     <ErrorBoundary>
       <AppSettingsProvider>
         <SessionModeProvider>
-          <AppInner />
+          <ExportProvider>
+            <AppInner />
+          </ExportProvider>
         </SessionModeProvider>
       </AppSettingsProvider>
     </ErrorBoundary>
