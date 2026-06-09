@@ -23,7 +23,9 @@ jobs:
 
       - name: Build frontend
         run: |
-          cd ImageSplatStudio/frontend
+          cd ImageSplatStudio
+          rm -rf frontend/dist frontend/node_modules/.vite desktop/dist-installer
+          cd frontend
           npm install
           npm run build
 
