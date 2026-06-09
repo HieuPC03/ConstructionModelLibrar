@@ -11,8 +11,10 @@ ZIP="$DIST/ImageSplatStudio-${VERSION}-win-offline.zip"
 
 echo "==> ImageSplat Studio Linux → Windows build (v$VERSION)"
 
+echo ">> Clean stale artifacts..."
+rm -rf "$FRONTEND/dist" "$FRONTEND/node_modules/.vite" "$DESKTOP/dist-installer"
+
 echo ">> Frontend..."
-rm -rf "$FRONTEND/dist"
 (cd "$FRONTEND" && npm install --silent && npm run build)
 
 echo ">> App icons..."
@@ -40,6 +42,8 @@ rm -f "$ZIP"
 echo "ImageSplat Studio v$VERSION" > "$DESKTOP/dist-installer/win-unpacked/VERSION.txt"
 echo "Built: $(date -u +%Y-%m-%dT%H:%MZ)" >> "$DESKTOP/dist-installer/win-unpacked/VERSION.txt"
 (cd "$DESKTOP/dist-installer/win-unpacked" && zip -r -q "$ZIP" .)
+
+bash "$ROOT/scripts/verify-build-version.sh" "$ZIP"
 
 echo ""
 echo "==> DONE: $ZIP ($(du -h "$ZIP" | cut -f1))"

@@ -20,6 +20,14 @@ $PythonUrl = "https://www.python.org/ftp/python/$PythonVersion/$PythonZip"
 Write-Host "==> ImageSplat Studio Desktop Builder" -ForegroundColor Cyan
 Write-Host "    Root: $Root" -ForegroundColor Gray
 
+Write-Host "==> Clean stale artifacts..." -ForegroundColor Yellow
+$frontendDist = Join-Path $Frontend "dist"
+$viteCache = Join-Path $Frontend "node_modules\.vite"
+$outDir = Join-Path $Desktop "dist-installer"
+foreach ($p in @($frontendDist, $viteCache, $outDir)) {
+    if (Test-Path $p) { Remove-Item $p -Recurse -Force }
+}
+
 Write-Host "==> Building frontend..." -ForegroundColor Yellow
 Push-Location $Frontend
 npm install
@@ -106,6 +114,15 @@ foreach ($required in @("write_splat.py", "pointcloud_io.py", "pointcloud_to_gau
 Write-Host "    Verified pipeline files in app package" -ForegroundColor Green
 
 $pkgVersion = (Get-Content (Join-Path $Desktop 'package.json') | ConvertFrom-Json).version
+
+$jsBundle = Get-ChildItem (Join-Path $winUnpacked "resources\frontend\dist\assets\index-*.js") -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $jsBundle) { throw "No frontend bundle in win-unpacked" }
+$jsText = Get-Content $jsBundle.FullName -Raw -Encoding UTF8
+if ($jsText -notmatch "`"$pkgVersion`"") {
+    throw "Frontend bundle missing version $pkgVersion — stale build? Re-run after cleaning frontend/dist"
+}
+Write-Host "    Verified frontend v$pkgVersion in $($jsBundle.Name)" -ForegroundColor Green
+
 $versionFile = Join-Path $winUnpacked "VERSION.txt"
 @(
     "ImageSplat Studio v$pkgVersion"

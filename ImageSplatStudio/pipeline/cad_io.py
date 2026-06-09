@@ -1,4 +1,4 @@
-"""FBX, DXF, DWG → point cloud loaders."""
+"""FBX, DXF, DWG → point cloud loaders (centerline geometry, no lineweight)."""
 
 from __future__ import annotations
 
@@ -7,6 +7,12 @@ import re
 from pathlib import Path
 
 import numpy as np
+
+# Centerline sampling step (meters/drawing units) — ignores CAD lineweight / polyline width.
+_SAMPLE_STEP = 0.1
+
+# Entity types where ezdxf path flattening may trace width outlines instead of centerlines.
+_WIDTH_SENSITIVE = frozenset({"LWPOLYLINE", "POLYLINE", "LINE", "POINT", "MLINE"})
 
 
 def _mesh_to_pointcloud(vertices: np.ndarray, faces: np.ndarray | None = None, sample: int | None = None):
@@ -92,8 +98,37 @@ def _append_vec3(out: list[list[float]], v) -> None:
         _append_point(out, v[0], v[1], v[2] if len(v) > 2 else 0.0)
 
 
-def _path_entity_points(entity, distance: float = 0.15) -> list[list[float]]:
-    """Flatten curves/surfaces via ezdxf path addon."""
+def _vec3_tuple(v) -> tuple[float, float, float]:
+    if hasattr(v, "x"):
+        return (float(v.x), float(v.y), float(getattr(v, "z", 0) or 0))
+    if isinstance(v, (list, tuple)) and len(v) >= 2:
+        return (float(v[0]), float(v[1]), float(v[2]) if len(v) > 2 else 0.0)
+    return (0.0, 0.0, 0.0)
+
+
+def _sample_segment(
+    p0: tuple[float, float, float],
+    p1: tuple[float, float, float],
+    step: float = _SAMPLE_STEP,
+) -> list[list[float]]:
+    """Centerline samples along a segment (no thickness)."""
+    dx, dy, dz = p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]
+    length = math.sqrt(dx * dx + dy * dy + dz * dz)
+    if length < 1e-9:
+        return [[p0[0], p0[1], p0[2]]]
+    n = max(1, int(math.ceil(length / step)))
+    out: list[list[float]] = []
+    for i in range(n + 1):
+        t = i / n
+        out.append([p0[0] + dx * t, p0[1] + dy * t, p0[2] + dz * t])
+    return out
+
+
+def _path_centerline_points(entity, distance: float = _SAMPLE_STEP) -> list[list[float]]:
+    """Flatten curves via ezdxf path — skip width-sensitive types."""
+    dt = entity.dxftype()
+    if dt in _WIDTH_SENSITIVE:
+        return []
     try:
         from ezdxf import path
 
@@ -123,8 +158,7 @@ def _mesh_entity_points(entity) -> list[list[float]]:
         try:
             for v in entity.vertices:
                 if hasattr(v.dxf, "location"):
-                    loc = v.dxf.location
-                    _append_vec3(out, loc)
+                    _append_vec3(out, v.dxf.location)
         except Exception:
             pass
     elif dt in {"3DSOLID", "BODY", "REGION", "SURFACE"}:
@@ -139,21 +173,81 @@ def _mesh_entity_points(entity) -> list[list[float]]:
     return out
 
 
+def _scrape_dxf_locations(entity) -> list[list[float]]:
+    """Collect any Vec3-like DXF attributes from unknown entity types."""
+    out: list[list[float]] = []
+    if not hasattr(entity, "dxf"):
+        return out
+    skip = {
+        "extrusion",
+        "text_style",
+        "dimstyle",
+        "layer",
+        "color",
+        "linetype",
+        "lineweight",
+        "ltscale",
+        "true_color",
+        "color_name",
+        "transparency",
+        "thickness",
+        "width",
+        "const_width",
+        "start_width",
+        "end_width",
+    }
+    try:
+        attrs = entity.dxf.all_existing_dxf_attribs()
+    except Exception:
+        attrs = []
+    for key in attrs:
+        if key in skip or key.endswith("_width"):
+            continue
+        try:
+            val = getattr(entity.dxf, key)
+        except Exception:
+            continue
+        if hasattr(val, "x") and hasattr(val, "y"):
+            _append_vec3(out, val)
+        elif isinstance(val, (list, tuple)) and len(val) >= 2:
+            try:
+                nums = [float(v) for v in val]
+                if len(nums) >= 3:
+                    _append_point(out, nums[0], nums[1], nums[2])
+                elif len(nums) >= 2:
+                    _append_point(out, nums[0], nums[1], 0.0)
+            except (TypeError, ValueError):
+                pass
+    return out
+
+
+def _expand_virtual(entity) -> list[list[float]]:
+    out: list[list[float]] = []
+    for fn_name in ("virtual_entities", "explode"):
+        fn = getattr(entity, fn_name, None)
+        if not callable(fn):
+            continue
+        try:
+            for child in fn():
+                out.extend(_dxf_entity_points(child))
+        except Exception:
+            pass
+        if out:
+            return out
+    return out
+
+
 def _dxf_entity_points(entity) -> list[list[float]]:
     dt = entity.dxftype()
     out: list[list[float]] = []
 
     if dt == "INSERT":
-        try:
-            for ve in entity.virtual_entities():
-                out.extend(_dxf_entity_points(ve))
-        except Exception:
-            pass
-        return out
+        return _expand_virtual(entity)
 
-    path_pts = _path_entity_points(entity)
-    if path_pts:
-        return path_pts
+    if dt in {"MLINE", "ACAD_PROXY_ENTITY"}:
+        pts = _expand_virtual(entity)
+        if pts:
+            return pts
 
     mesh_pts = _mesh_entity_points(entity)
     if mesh_pts:
@@ -161,38 +255,50 @@ def _dxf_entity_points(entity) -> list[list[float]]:
 
     if dt == "POINT":
         _append_vec3(out, entity.dxf.location)
+
     elif dt == "LINE":
-        _append_vec3(out, entity.dxf.start)
-        _append_vec3(out, entity.dxf.end)
+        p0 = _vec3_tuple(entity.dxf.start)
+        p1 = _vec3_tuple(entity.dxf.end)
+        out.extend(_sample_segment(p0, p1))
+
     elif dt in {"XLINE", "RAY"}:
-        _append_vec3(out, entity.dxf.start)
+        base = _vec3_tuple(entity.dxf.start)
         try:
             d = entity.dxf.unit_vector
-            base = entity.dxf.start
-            for t in (-50.0, 50.0):
-                _append_point(
-                    out,
-                    base.x + d.x * t,
-                    base.y + d.y * t,
-                    (getattr(base, "z", 0) or 0) + d.z * t,
-                )
+            dx, dy, dz = float(d.x), float(d.y), float(getattr(d, "z", 0) or 0)
+            span = 50.0
+            out.extend(_sample_segment(base, (base[0] + dx * span, base[1] + dy * span, base[2] + dz * span)))
+            if dt == "XLINE":
+                out.extend(_sample_segment(base, (base[0] - dx * span, base[1] - dy * span, base[2] - dz * span)))
         except Exception:
-            pass
-    elif dt == "3DFACE":
-        for attr in ("vtx0", "vtx1", "vtx2", "vtx3"):
-            if hasattr(entity.dxf, attr):
-                _append_vec3(out, getattr(entity.dxf, attr))
-    elif dt in {"SOLID", "TRACE"}:
-        for attr in ("vtx0", "vtx1", "vtx2", "vtx3"):
-            if hasattr(entity.dxf, attr):
-                _append_vec3(out, getattr(entity.dxf, attr))
+            out.append(list(base))
+
     elif dt == "LWPOLYLINE":
         elev = float(getattr(entity.dxf, "elevation", 0) or 0)
-        for x, y, *_ in entity.get_points("xy"):
-            _append_point(out, x, y, elev)
+        try:
+            for p in entity.flattening(_SAMPLE_STEP):
+                if hasattr(p, "x"):
+                    _append_point(out, p.x, p.y, getattr(p, "z", elev) or elev)
+                else:
+                    _append_point(out, p[0], p[1], p[2] if len(p) > 2 else elev)
+        except Exception:
+            pts2d = list(entity.get_points("xy"))
+            for i, (x, y, *_) in enumerate(pts2d):
+                _append_point(out, x, y, elev)
+                if i > 0:
+                    p0 = (pts2d[i - 1][0], pts2d[i - 1][1], elev)
+                    p1 = (x, y, elev)
+                    out.extend(_sample_segment(p0, p1)[1:])
+
     elif dt == "POLYLINE":
+        verts = []
         for v in entity.vertices:
-            _append_vec3(out, v.dxf.location)
+            verts.append(_vec3_tuple(v.dxf.location))
+        for i, p in enumerate(verts):
+            out.append(list(p))
+            if i > 0:
+                out.extend(_sample_segment(verts[i - 1], p)[1:])
+
     elif dt in {"CIRCLE", "ARC"}:
         c = entity.dxf.center
         r = float(entity.dxf.radius)
@@ -201,39 +307,57 @@ def _dxf_entity_points(entity) -> list[list[float]]:
         if dt == "CIRCLE":
             start, end = 0.0, 360.0
         cz = float(getattr(c, "z", 0) or 0)
-        steps = max(12, int(abs(end - start) / 10))
+        arc_len = abs(end - start) * math.pi / 180.0 * r
+        steps = max(12, int(math.ceil(arc_len / _SAMPLE_STEP)))
         for i in range(steps + 1):
             ang = math.radians(start + (end - start) * i / steps)
             _append_point(out, c.x + r * math.cos(ang), c.y + r * math.sin(ang), cz)
+
     elif dt == "ELLIPSE":
         c = entity.dxf.center
         cz = float(getattr(c, "z", 0) or 0)
         try:
-            for p in entity.construction_tool().approximate(24):
+            for p in entity.construction_tool().approximate(48):
                 _append_point(out, p.x, p.y, getattr(p, "z", cz) or cz)
         except Exception:
             _append_vec3(out, c)
+
     elif dt == "SPLINE":
         try:
-            for p in entity.control_points:
-                _append_point(out, p[0], p[1], p[2] if len(p) > 2 else 0.0)
+            for p in entity.flattening(_SAMPLE_STEP):
+                if hasattr(p, "x"):
+                    _append_point(out, p.x, p.y, getattr(p, "z", 0) or 0)
+                else:
+                    _append_point(out, p[0], p[1], p[2] if len(p) > 2 else 0.0)
         except Exception:
-            pass
-        try:
-            for p in entity.fit_points:
+            for p in getattr(entity, "fit_points", []) or []:
                 _append_point(out, p[0], p[1], p[2] if len(p) > 2 else 0.0)
-        except Exception:
-            pass
-        try:
-            for p in entity.flattening(0.1):
+            for p in getattr(entity, "control_points", []) or []:
                 _append_point(out, p[0], p[1], p[2] if len(p) > 2 else 0.0)
-        except Exception:
-            pass
+
+    elif dt == "3DFACE":
+        face_pts = []
+        for attr in ("vtx0", "vtx1", "vtx2", "vtx3"):
+            if hasattr(entity.dxf, attr):
+                face_pts.append(_vec3_tuple(getattr(entity.dxf, attr)))
+        for i, p in enumerate(face_pts):
+            out.append(list(p))
+            if i > 0:
+                out.extend(_sample_segment(face_pts[i - 1], p)[1:])
+        if len(face_pts) >= 3:
+            out.extend(_sample_segment(face_pts[-1], face_pts[0])[1:])
+
+    elif dt in {"SOLID", "TRACE"}:
+        for attr in ("vtx0", "vtx1", "vtx2", "vtx3"):
+            if hasattr(entity.dxf, attr):
+                _append_vec3(out, getattr(entity.dxf, attr))
+
     elif dt in {"TEXT", "MTEXT", "ATTRIB", "ATTDEF"}:
         if hasattr(entity.dxf, "insert"):
             _append_vec3(out, entity.dxf.insert)
         elif hasattr(entity.dxf, "location"):
             _append_vec3(out, entity.dxf.location)
+
     elif dt == "DIMENSION":
         for attr in (
             "defpoint",
@@ -245,70 +369,138 @@ def _dxf_entity_points(entity) -> list[list[float]]:
         ):
             if hasattr(entity.dxf, attr):
                 _append_vec3(out, getattr(entity.dxf, attr))
+
     elif dt in {"LEADER", "MLEADER"}:
+        verts = []
         try:
             for p in entity.vertices:
-                _append_vec3(out, p)
+                verts.append(_vec3_tuple(p))
         except Exception:
             pass
+        for i, p in enumerate(verts):
+            out.append(list(p))
+            if i > 0:
+                out.extend(_sample_segment(verts[i - 1], p)[1:])
         if hasattr(entity.dxf, "insert"):
             _append_vec3(out, entity.dxf.insert)
+
     elif dt == "HATCH":
         try:
             for path_obj in entity.paths:
                 for edge in path_obj.edges:
+                    edge_pts: list[tuple[float, float, float]] = []
                     if hasattr(edge, "start"):
-                        _append_point(out, edge.start[0], edge.start[1], edge.start[2] if len(edge.start) > 2 else 0)
-                    if hasattr(edge, "end"):
-                        _append_point(out, edge.end[0], edge.end[1], edge.end[2] if len(edge.end) > 2 else 0)
+                        edge_pts.append(
+                            (
+                                float(edge.start[0]),
+                                float(edge.start[1]),
+                                float(edge.start[2]) if len(edge.start) > 2 else 0.0,
+                            )
+                        )
                     try:
-                        for p in edge.flattening(0.15):
-                            _append_point(out, p[0], p[1], p[2] if len(p) > 2 else 0.0)
+                        for p in edge.flattening(_SAMPLE_STEP):
+                            edge_pts.append(
+                                (
+                                    float(p[0]),
+                                    float(p[1]),
+                                    float(p[2]) if len(p) > 2 else 0.0,
+                                )
+                            )
                     except Exception:
-                        pass
+                        if hasattr(edge, "end"):
+                            edge_pts.append(
+                                (
+                                    float(edge.end[0]),
+                                    float(edge.end[1]),
+                                    float(edge.end[2]) if len(edge.end) > 2 else 0.0,
+                                )
+                            )
+                    for i, p in enumerate(edge_pts):
+                        out.append(list(p))
+                        if i > 0:
+                            out.extend(_sample_segment(edge_pts[i - 1], p)[1:])
         except Exception:
             pass
+
     elif dt == "IMAGE":
         if hasattr(entity.dxf, "insert"):
             _append_vec3(out, entity.dxf.insert)
+
     elif dt == "WIPEOUT":
+        pts = []
         try:
             for p in entity.get_points():
-                _append_point(out, p[0], p[1], p[2] if len(p) > 2 else 0.0)
+                pts.append((float(p[0]), float(p[1]), float(p[2]) if len(p) > 2 else 0.0))
         except Exception:
             pass
+        for i, p in enumerate(pts):
+            out.append(list(p))
+            if i > 0:
+                out.extend(_sample_segment(pts[i - 1], p)[1:])
+
     elif dt == "VIEWPORT":
         if hasattr(entity.dxf, "center"):
             _append_vec3(out, entity.dxf.center)
+
     elif dt == "VERTEX":
         _append_vec3(out, entity.dxf.location)
-    elif dt == "SHAPE":
+
+    elif dt in {"SHAPE", "UNDERLAY", "TOLERANCE", "GEOPOSITIONMARKER"}:
         if hasattr(entity.dxf, "insert"):
             _append_vec3(out, entity.dxf.insert)
-    elif dt == "UNDERLAY":
-        if hasattr(entity.dxf, "insert"):
-            _append_vec3(out, entity.dxf.insert)
+
     elif dt == "LIGHT":
         if hasattr(entity.dxf, "location"):
             _append_vec3(out, entity.dxf.location)
+
     elif dt == "HELIX":
         _append_vec3(out, entity.dxf.center)
-    elif dt == "TOLERANCE":
-        if hasattr(entity.dxf, "insert"):
-            _append_vec3(out, entity.dxf.insert)
-    elif dt == "MLINE":
+
+    elif dt == "MPOLYGON":
         try:
-            for v in entity.virtual_entities():
-                out.extend(_dxf_entity_points(v))
+            for p in entity.flattening(_SAMPLE_STEP):
+                if hasattr(p, "x"):
+                    _append_point(out, p.x, p.y, getattr(p, "z", 0) or 0)
+                else:
+                    _append_point(out, p[0], p[1], p[2] if len(p) > 2 else 0.0)
         except Exception:
             pass
+
+    elif dt in {"TABLE", "ACAD_TABLE"}:
+        if hasattr(entity.dxf, "insert"):
+            _append_vec3(out, entity.dxf.insert)
+
+    elif dt == "OLE2FRAME":
+        if hasattr(entity.dxf, "location"):
+            _append_vec3(out, entity.dxf.location)
+
+    # Fallbacks for anything not handled above
+    if not out:
+        out.extend(_path_centerline_points(entity))
+    if not out:
+        out.extend(_expand_virtual(entity))
+    if not out:
+        out.extend(_scrape_dxf_locations(entity))
 
     return out
 
 
+def _iter_layout_entities(doc):
+    """Yield entities from model space and paper layouts (INSERT expands blocks)."""
+    yield from doc.modelspace()
+    for layout in doc.layouts:
+        if layout.name.upper() == "MODEL":
+            continue
+        try:
+            yield from layout
+        except Exception:
+            pass
+
+
 def _doc_to_pointcloud(doc, source_name: str):
     points: list[list[float]] = []
-    for entity in doc.modelspace():
+
+    for entity in _iter_layout_entities(doc):
         points.extend(_dxf_entity_points(entity))
 
     if not points:
