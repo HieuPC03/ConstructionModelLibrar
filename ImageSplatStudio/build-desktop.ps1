@@ -105,7 +105,14 @@ foreach ($required in @("write_splat.py", "pointcloud_io.py", "pointcloud_to_gau
 }
 Write-Host "    Verified pipeline files in app package" -ForegroundColor Green
 
-$offlineZip = Join-Path $DistDir "ImageSplatStudio-$((Get-Content (Join-Path $Desktop 'package.json') | ConvertFrom-Json).version)-win-offline.zip"
+$pkgVersion = (Get-Content (Join-Path $Desktop 'package.json') | ConvertFrom-Json).version
+$versionFile = Join-Path $winUnpacked "VERSION.txt"
+@(
+    "ImageSplat Studio v$pkgVersion"
+    "Built: $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mmZ'))"
+) | Set-Content -Path $versionFile -Encoding UTF8
+
+$offlineZip = Join-Path $DistDir "ImageSplatStudio-$pkgVersion-win-offline.zip"
 if (Test-Path $offlineZip) { Remove-Item $offlineZip -Force }
 Compress-Archive -Path (Join-Path $winUnpacked "*") -DestinationPath $offlineZip -Force
 Write-Host "    Created offline zip: $offlineZip" -ForegroundColor Green
