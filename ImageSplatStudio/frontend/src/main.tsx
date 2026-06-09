@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   createJob,
@@ -38,6 +38,7 @@ import {
   editorMeshDeleteVertex,
   editorPolygonDelete,
   editorConfigureGrid,
+  editorConfigureView,
   editorClassifyPolygon,
   editorCrossSection,
   editorExtractTrace,
@@ -105,19 +106,26 @@ function AppContent() {
   const [densityCheckMode, setDensityCheckMode] = useState(false);
   const [deviationHeatmap, setDeviationHeatmap] = useState<DeviationHeatmap | null>(null);
   const cameraBridgeRef = useRef<CameraBridge | null>(null);
+  const editorPropsRef = useRef(editorProperties);
+  const pcSessionRef = useRef(pcSessionId);
+  editorPropsRef.current = editorProperties;
+  pcSessionRef.current = pcSessionId;
 
-  const cancelActiveCommand = useCallback(() => {
-    setActiveTool("navigate");
-    setRegionStart(null);
-    setMeasureStart(null);
-    setCrossSectionStart(null);
-    setBreaklineDraft([]);
-    setPolygonDraft([]);
-    setAnglePoints([]);
-    setDensityCheckMode(false);
-    setCrossSectionProfile(null);
-    logConsole(tr("toolSelect"), "info");
-  }, [tr]);
+  const regionPreview = useMemo(() => {
+    if (activeTool !== "grid_region" || !regionStart || !snapCoords) return null;
+    return {
+      min: [
+        Math.min(regionStart[0], snapCoords[0]),
+        Math.min(regionStart[1], snapCoords[1]),
+        Math.min(regionStart[2], snapCoords[2]),
+      ],
+      max: [
+        Math.max(regionStart[0], snapCoords[0]),
+        Math.max(regionStart[1], snapCoords[1]),
+        Math.max(regionStart[2], snapCoords[2]),
+      ],
+    };
+  }, [activeTool, regionStart, snapCoords]);
 
   const selectedJob = jobs.find((j) => j.job_id === selectedId) ?? null;
 
@@ -133,15 +141,6 @@ function AppContent() {
   useEffect(() => {
     refresh().catch((e: unknown) => setError(String(e)));
   }, [refresh]);
-
-  useEffect(() => {
-    if (pcPreviewFiles.length === 0) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") cancelActiveCommand();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [pcPreviewFiles.length, cancelActiveCommand]);
 
   useEffect(() => {
     const active = jobs.some(
@@ -263,6 +262,34 @@ function AppContent() {
     setEditorProperties(props);
     if (props.grid.cell_size) setGridCellSize(props.grid.cell_size);
   };
+
+  const cancelActiveCommand = useCallback(() => {
+    setActiveTool("navigate");
+    setRegionStart(null);
+    setMeasureStart(null);
+    setCrossSectionStart(null);
+    setBreaklineDraft([]);
+    setPolygonDraft([]);
+    setAnglePoints([]);
+    setDensityCheckMode(false);
+    setCrossSectionProfile(null);
+    logConsole(tr("toolSelect"), "info");
+
+    const sid = pcSessionRef.current;
+    const props = editorPropsRef.current;
+    if (sid && props?.grid?.region) {
+      void editorConfigureGrid(sid, {
+        enabled: props.grid.enabled,
+        cell_size: gridCellSize,
+        clear_region: true,
+      })
+        .then((updated) => {
+          handleEditorUpdated(updated);
+          bumpPreview();
+        })
+        .catch((e: unknown) => setError(String(e)));
+    }
+  }, [gridCellSize, tr]);
 
   useEffect(() => {
     if (activeTool !== "clip_box" && activeTool !== "hide_region" && activeTool !== "grid_region")
@@ -524,7 +551,7 @@ function AppContent() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setActiveTool("navigate");
+      if (e.key === "Escape") cancelActiveCommand();
       if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey && pcSessionId) {
         e.preventDefault();
         void handleUndo();
@@ -714,6 +741,14 @@ function AppContent() {
                 fitViewToken={fitViewToken}
                 fitToIndices={fitToIndices}
                 orbitSensitivity={editorProperties?.view?.orbit_sensitivity ?? 1}
+                onOrbitSensitivityChange={(value) => {
+                  if (!pcSessionId) return;
+                  void editorConfigureView(pcSessionId, { orbit_sensitivity: value })
+                    .then(handleEditorUpdated)
+                    .catch((e: unknown) => setError(String(e)));
+                }}
+                highlightRegion={editorProperties?.grid?.region ?? null}
+                regionPreview={regionPreview}
                 gridEnabled={!!editorProperties?.grid.enabled}
                 showMesh={!!editorProperties?.mesh}
                 meshReloadToken={meshReloadToken}

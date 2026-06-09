@@ -767,8 +767,8 @@ body.iss-resizing-v {
 
 .pc-preview-sliders {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  align-items: flex-end;
+  gap: 10px;
   flex-shrink: 0;
 }
 
@@ -776,8 +776,13 @@ body.iss-resizing-v {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 140px;
-  max-width: 200px;
+  min-width: 108px;
+  max-width: 148px;
+}
+
+.pc-slider-group-orbit {
+  min-width: 100px;
+  max-width: 130px;
 }
 
 .pc-sample-label {
@@ -2171,8 +2176,21 @@ body.iss-resizing-v {
 }
 
 .pc-pro-viewport .pc-slider-group {
-  min-width: 110px;
-  max-width: 160px;
+  min-width: 92px;
+  max-width: 118px;
+}
+
+.pc-pro-viewport .pc-slider-group-orbit {
+  min-width: 88px;
+  max-width: 110px;
+}
+
+.pc-pro-viewport .pc-sample-label {
+  font-size: 0.62rem;
+}
+
+.pc-pro-viewport .pc-sample-label strong {
+  font-size: 0.66rem;
 }
 
 .pc-pro-viewport .pc-preview-meta {

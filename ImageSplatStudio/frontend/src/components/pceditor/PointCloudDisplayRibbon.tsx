@@ -64,28 +64,6 @@ export function PointCloudDisplayRibbon({
             />
             {tr("pcAxesEnable")}
           </label>
-          <label className="pc-process-inline pc-file-option">
-            <input
-              type="checkbox"
-              disabled={disabled || !properties?.grid.has_data}
-              checked={properties?.view?.show_grid_surface ?? false}
-              onChange={(e) => void apply({ show_grid_surface: e.target.checked })}
-            />
-            {tr("displayGridSurface")}
-          </label>
-          <label className="pc-process-inline pc-orbit-sensitivity">
-            <span>{tr("displayOrbitSensitivity")}</span>
-            <input
-              type="range"
-              min={0.1}
-              max={2}
-              step={0.05}
-              disabled={disabled}
-              value={properties?.view?.orbit_sensitivity ?? 1}
-              onChange={(e) => void apply({ orbit_sensitivity: Number(e.target.value) })}
-            />
-            <span>{(properties?.view?.orbit_sensitivity ?? 1).toFixed(2)}×</span>
-          </label>
         </div>
         <div className="pc-process-group">
           <span className="pc-ribbon-label">{tr("displayGroupCrs")}</span>

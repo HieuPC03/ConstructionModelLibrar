@@ -78,6 +78,31 @@ export function applyColorMode(
   return colors;
 }
 
+/** Paint points inside an axis-aligned box red (region selection preview). */
+export function applyRegionHighlight(
+  colors: Float32Array,
+  positions: Float32Array,
+  count: number,
+  region: { min: number[]; max: number[] },
+): void {
+  const minX = Math.min(region.min[0], region.max[0]);
+  const maxX = Math.max(region.min[0], region.max[0]);
+  const minY = Math.min(region.min[1], region.max[1]);
+  const maxY = Math.max(region.min[1], region.max[1]);
+  const minZ = Math.min(region.min[2] ?? 0, region.max[2] ?? 0);
+  const maxZ = Math.max(region.min[2] ?? 0, region.max[2] ?? 0);
+  for (let i = 0; i < count; i++) {
+    const x = positions[i * 3];
+    const y = positions[i * 3 + 1];
+    const z = positions[i * 3 + 2];
+    if (x >= minX && x <= maxX && y >= minY && y <= maxY && z >= minZ && z <= maxZ) {
+      colors[i * 3] = 1;
+      colors[i * 3 + 1] = 0.12;
+      colors[i * 3 + 2] = 0.12;
+    }
+  }
+}
+
 export function colorModeLabelKey(mode: ColorMode): string {
   const map: Record<ColorMode, string> = {
     rgb: "colorModeRgb",

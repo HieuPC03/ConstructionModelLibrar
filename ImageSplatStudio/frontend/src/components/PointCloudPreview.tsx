@@ -16,7 +16,7 @@ import { LassoOverlay } from "./pceditor/LassoOverlay";
 import { OrientationGizmo } from "./pceditor/OrientationGizmo";
 import { createAxesHelper, createWorldAxesHelper, applyViewDirection, rotateCameraOrbit, fitCameraToBox, boundingBoxFromPositions, type ViewDirection } from "./ViewCube";
 import { OSNAP_CURSOR, PLANE_PICK_TOOLS, TOOL_CURSORS, toolHintKey, type EditorTool, type OsnapMode } from "../utils/editorTools";
-import { applyColorMode, type ColorMode } from "../utils/colorModes";
+import { applyColorMode, applyRegionHighlight, type ColorMode } from "../utils/colorModes";
 import { fetchGridSurface } from "../api/editor";
 import { groundPlaneZ } from "../utils/trendPointGrid";
 import {
@@ -31,6 +31,41 @@ const DEFAULT_PERCENT = 20;
 const MIN_POINT_SIZE_M = 0.0001;
 const MAX_POINT_SIZE_M = 0.01;
 const DEFAULT_POINT_SIZE_M = 0.002;
+
+function addRegionWireBox(
+  group: THREE.Group,
+  region: { min: number[]; max: number[] },
+  color: number,
+): void {
+  const minX = Math.min(region.min[0], region.max[0]);
+  const maxX = Math.max(region.min[0], region.max[0]);
+  const minY = Math.min(region.min[1], region.max[1]);
+  const maxY = Math.max(region.min[1], region.max[1]);
+  const minZ = Math.min(region.min[2] ?? 0, region.max[2] ?? 0);
+  const maxZ = Math.max(region.min[2] ?? 0, region.max[2] ?? 0);
+  const c = [
+    [minX, minY, minZ],
+    [maxX, minY, minZ],
+    [maxX, maxY, minZ],
+    [minX, maxY, minZ],
+    [minX, minY, maxZ],
+    [maxX, minY, maxZ],
+    [maxX, maxY, maxZ],
+    [minX, maxY, maxZ],
+  ];
+  const edges = [
+    [0, 1], [1, 2], [2, 3], [3, 0],
+    [4, 5], [5, 6], [6, 7], [7, 4],
+    [0, 4], [1, 5], [2, 6], [3, 7],
+  ];
+  const segs: number[] = [];
+  for (const [a, b] of edges) {
+    segs.push(c[a][0], c[a][1], c[a][2], c[b][0], c[b][1], c[b][2]);
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.Float32BufferAttribute(segs, 3));
+  group.add(new THREE.LineSegments(geom, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.95 })));
+}
 
 function formatPointSize(m: number, dotLabel: string): string {
   if (m <= MIN_POINT_SIZE_M * 1.5) return dotLabel;
@@ -52,6 +87,9 @@ interface PointCloudPreviewProps {
   fitViewToken?: number;
   fitToIndices?: { start_index: number; point_count: number } | null;
   orbitSensitivity?: number;
+  onOrbitSensitivityChange?: (value: number) => void;
+  highlightRegion?: { min: number[]; max: number[] } | null;
+  regionPreview?: { min: number[]; max: number[] } | null;
   gridEnabled?: boolean;
   showMesh?: boolean;
   meshReloadToken?: number;
@@ -146,6 +184,9 @@ export function PointCloudPreview({
   fitViewToken = 0,
   fitToIndices = null,
   orbitSensitivity = 1,
+  onOrbitSensitivityChange,
+  highlightRegion = null,
+  regionPreview = null,
   gridEnabled = false,
   showMesh = false,
   meshReloadToken = 0,
@@ -381,25 +422,39 @@ export function PointCloudPreview({
     if (ctx) ctx.controls.rotateSpeed = orbitSensitivity;
   }, [orbitSensitivity]);
 
+  const refreshColors = useCallback(
+    (region?: { min: number[]; max: number[] } | null) => {
+      const ctx = sceneCtxRef.current;
+      if (!ctx || !positionsRef.current) return;
+      const geom = ctx.points.geometry;
+      const colorAttr = geom.getAttribute("color") as THREE.BufferAttribute;
+      if (!colorAttr) return;
+      const count = colorAttr.count;
+      const next = applyColorMode(
+        count,
+        positionsRef.current,
+        rawColorsRef.current,
+        colorModeRef.current,
+        undefined,
+        undefined,
+        rawClassificationsRef.current,
+      );
+      const activeRegion = region ?? highlightRegionRef.current ?? regionPreviewRef.current;
+      if (activeRegion) applyRegionHighlight(next, positionsRef.current, count, activeRegion);
+      colorAttr.array.set(next);
+      colorAttr.needsUpdate = true;
+    },
+    [],
+  );
+
+  const highlightRegionRef = useRef(highlightRegion);
+  const regionPreviewRef = useRef(regionPreview);
+  highlightRegionRef.current = highlightRegion;
+  regionPreviewRef.current = regionPreview;
+
   useEffect(() => {
-    const ctx = sceneCtxRef.current;
-    if (!ctx || !positionsRef.current) return;
-    const geom = ctx.points.geometry;
-    const colorAttr = geom.getAttribute("color") as THREE.BufferAttribute;
-    if (!colorAttr) return;
-    const count = colorAttr.count;
-    const next = applyColorMode(
-      count,
-      positionsRef.current,
-      rawColorsRef.current,
-      colorMode,
-      undefined,
-      undefined,
-      rawClassificationsRef.current,
-    );
-    colorAttr.array.set(next);
-    colorAttr.needsUpdate = true;
-  }, [colorMode, data?.count]);
+    refreshColors(regionPreview ?? highlightRegion);
+  }, [colorMode, data?.count, highlightRegion, regionPreview, refreshColors]);
 
   const resolvePick = useCallback(
     (
@@ -460,6 +515,8 @@ export function PointCloudPreview({
       undefined,
       data.classifications,
     );
+    const initRegion = regionPreviewRef.current ?? highlightRegionRef.current;
+    if (initRegion) applyRegionHighlight(colors, positions, count, initRegion);
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -1101,16 +1158,19 @@ export function PointCloudPreview({
       }
     }
 
-    if (!regionStart) return;
+    const active = regionPreview ?? highlightRegion;
+    if (active) addRegionWireBox(ctx.regionGroup, active, 0xff4444);
 
-    const s = new THREE.Vector3(...regionStart);
-    const marker = new THREE.Mesh(
-      new THREE.BoxGeometry(ctx.maxDim * 0.015, ctx.maxDim * 0.015, ctx.maxDim * 0.015),
-      new THREE.MeshBasicMaterial({ color: 0x44aaff, wireframe: true }),
-    );
-    marker.position.copy(s);
-    ctx.regionGroup.add(marker);
-  }, [regionStart]);
+    if (regionStart) {
+      const s = new THREE.Vector3(...regionStart);
+      const marker = new THREE.Mesh(
+        new THREE.BoxGeometry(ctx.maxDim * 0.015, ctx.maxDim * 0.015, ctx.maxDim * 0.015),
+        new THREE.MeshBasicMaterial({ color: 0x44aaff, wireframe: true }),
+      );
+      marker.position.copy(s);
+      ctx.regionGroup.add(marker);
+    }
+  }, [regionStart, highlightRegion, regionPreview]);
 
   useEffect(() => {
     const ctx = sceneCtxRef.current;
@@ -1320,6 +1380,22 @@ export function PointCloudPreview({
               value={pointSizeM}
               disabled={!data}
               onChange={(e) => setPointSizeM(Number(e.target.value))}
+            />
+          </div>
+          <div className="pc-slider-group pc-slider-group-orbit">
+            <label className="pc-sample-label" htmlFor="pc-orbit-sense">
+              {tr("pcPreviewOrbitSense")} <strong>{orbitSensitivity.toFixed(2)}×</strong>
+            </label>
+            <input
+              id="pc-orbit-sense"
+              className="pc-sample-slider"
+              type="range"
+              min={0.1}
+              max={2}
+              step={0.05}
+              value={orbitSensitivity}
+              disabled={!data}
+              onChange={(e) => onOrbitSensitivityChange?.(Number(e.target.value))}
             />
           </div>
         </div>
