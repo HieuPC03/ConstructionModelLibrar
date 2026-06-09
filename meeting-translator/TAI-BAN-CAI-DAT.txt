@@ -1,0 +1,24 @@
+TẢI BẢN CÀI ĐẶT — Meeting Translator (Windows)
+==============================================
+
+Mình KHÔNG thể ghi file trực tiếp lên ổ C: của bạn.
+Bạn tải file .exe về máy rồi chạy để cài (giống Zalo, Chrome).
+
+Link tải BẢN MỚI NHẤT (v1.2.0):
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.2.0
+
+File: Meeting-Translator-Setup-1.2.0.exe  (~123 MB)
+
+API key: KHÔNG có trong file cài — chạy CAU-HINH-API-KEY.bat sau khi cài.
+
+Sau khi tải:
+  1. Double-click file .exe
+  2. Install → mở app từ Start Menu
+  3. Sửa API key (BẮT BUỘC):
+     Win+R → gõ: %APPDATA%\meeting-translator-desktop
+     Mở file .env bằng Notepad
+     Dán key: OPENAI_API_KEY=sk-proj-xxxxxxxx
+     Lưu file → tắt app → mở lại
+
+  Lỗi 401 = key sai hoặc vẫn để sk-... mẫu. Tạo key mới tại:
+  https://platform.openai.com/api-keys
