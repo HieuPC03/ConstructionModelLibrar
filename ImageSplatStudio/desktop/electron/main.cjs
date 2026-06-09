@@ -198,7 +198,7 @@ function createWindow() {
     height: 900,
     minWidth: 1024,
     minHeight: 680,
-    title: "ImageSplat Studio",
+    title: `ImageSplat Studio v${APP_VERSION}`,
     icon,
     autoHideMenuBar: true,
     webPreferences: {

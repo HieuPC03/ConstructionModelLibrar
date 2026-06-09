@@ -12,6 +12,7 @@ ZIP="$DIST/ImageSplatStudio-${VERSION}-win-offline.zip"
 echo "==> ImageSplat Studio Linux → Windows build (v$VERSION)"
 
 echo ">> Frontend..."
+rm -rf "$FRONTEND/dist"
 (cd "$FRONTEND" && npm install --silent && npm run build)
 
 echo ">> App icons..."

@@ -70,6 +70,11 @@ import "./styles.css";
 
 function AppContent() {
   const { tr } = useI18n();
+
+  useEffect(() => {
+    document.title = `ImageSplat Studio v${APP_VERSION}`;
+  }, []);
+
   const [mode, setMode] = useState<AppMode>("pointcloud");
   const [health, setHealth] = useState<HealthInfo | null>(null);
   const [jobs, setJobs] = useState<JobInfo[]>([]);
