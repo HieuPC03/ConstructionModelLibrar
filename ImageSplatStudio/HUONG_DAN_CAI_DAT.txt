@@ -1,0 +1,27 @@
+# ImageSplat Studio v0.1.3 — Cài đặt Windows (OFFLINE)
+
+## Không cần cài Python!
+
+Bản này đã đóng gói sẵn Python + thư viện trong app.
+
+## Cách cài (3 bước)
+
+### 1. Tải đúng file (~250 MB)
+- **ImageSplatStudio-0.1.3-win-offline.zip**
+- Link: https://github.com/HieuPC03/ConstructionModelLibrar/releases
+
+> ⚠️ File ~110 MB là bản cũ — sẽ báo lỗi "Python was not found"!
+
+### 2. Giải nén toàn bộ
+- Click phải → **Extract All...**
+- Chọn thư mục: `C:\ImageSplatStudio\`
+
+### 3. Chạy app
+- Chạy **KIEM_TRA.bat** trước (kiểm tra cài đặt)
+- Double-click **`ImageSplat Studio.exe`**
+
+## Lưu ý
+- KHÔNG cần cài Python
+- KHÔNG cần pip install
+- Nếu Windows chặn: More info → Run anyway
+- Lần đầu mở có thể mất 10–20 giây

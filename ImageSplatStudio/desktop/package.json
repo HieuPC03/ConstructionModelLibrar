@@ -1,0 +1,103 @@
+{
+  "name": "imagesplat-studio-desktop",
+  "version": "0.16.0",
+  "description": "ImageSplat Studio — 3D Gaussian Splatting desktop app",
+  "main": "electron/main.cjs",
+  "author": "ImageSplat Studio",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist:win": "electron-builder --win nsis",
+    "dist:linux": "electron-builder --linux AppImage"
+  },
+  "devDependencies": {
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.imagesplat.studio",
+    "productName": "ImageSplat Studio",
+    "icon": "assets/icon.png",
+    "directories": {
+      "output": "dist-installer",
+      "buildResources": "assets"
+    },
+    "files": [
+      "electron/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../frontend/dist",
+        "to": "frontend/dist",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": ["**/*", "!**/__pycache__/**", "!**/.venv/**"]
+      },
+      {
+        "from": "../pipeline",
+        "to": "pipeline",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "python",
+        "to": "python",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "ODAFileConverter",
+        "to": "ODAFileConverter",
+        "filter": ["**/*"]
+      }
+    ],
+    "extraFiles": [
+      {
+        "from": "installer/CaiDat.bat",
+        "to": "CaiDat.bat"
+      },
+      {
+        "from": "installer/HUONG_DAN.txt",
+        "to": "HUONG_DAN.txt"
+      },
+      {
+        "from": "installer/KIEM_TRA.bat",
+        "to": "KIEM_TRA.bat"
+      }
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "ImageSplatStudio-${version}-${os}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ImageSplat Studio",
+      "installerLanguages": ["en_US", "vi_VN"],
+      "language": "1033"
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "target": ["AppImage"],
+      "category": "Graphics",
+      "artifactName": "ImageSplatStudio-${version}.${ext}"
+    }
+  }
+}

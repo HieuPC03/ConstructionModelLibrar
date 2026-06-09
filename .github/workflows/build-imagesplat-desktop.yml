@@ -1,0 +1,96 @@
+name: Build Desktop Installer
+
+on:
+  push:
+    branches: [cursor/desktop-installer-6a40, main]
+    paths:
+      - 'ImageSplatStudio/**'
+      - '.github/workflows/build-imagesplat-desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build frontend
+        run: |
+          cd ImageSplatStudio/frontend
+          npm install
+          npm run build
+
+      - name: Build Windows installer (with bundled Python)
+        shell: pwsh
+        timeout-minutes: 45
+        run: |
+          cd ImageSplatStudio
+          .\build-desktop.ps1
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ImageSplatStudio-Setup-Windows
+          path: |
+            ImageSplatStudio/dist/installers/ImageSplatStudio-*-win-offline.zip
+            ImageSplatStudio/desktop/dist-installer/*.exe
+            ImageSplatStudio/desktop/dist-installer/*.zip
+          retention-days: 90
+          if-no-files-found: warn
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build Linux AppImage
+        run: |
+          cd ImageSplatStudio/frontend && npm install && npm run build
+          cd ../desktop && npm install && npm run dist:linux
+          mkdir -p ../dist/installers
+          cp dist-installer/*.AppImage ../dist/installers/ || true
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ImageSplatStudio-AppImage-Linux
+          path: ImageSplatStudio/desktop/dist-installer/*.AppImage
+          retention-days: 90
+
+  release:
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/imagesplat-v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ImageSplatStudio-Setup-Windows
+          path: artifacts/win
+        continue-on-error: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ImageSplatStudio-AppImage-Linux
+          path: artifacts/linux
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/win/*
+            artifacts/linux/*
+          generate_release_notes: true
+          prerelease: true
