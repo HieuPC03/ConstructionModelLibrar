@@ -37,6 +37,8 @@ bash "$ROOT/scripts/embed-windows-icon.sh"
 
 mkdir -p "$DIST"
 rm -f "$ZIP"
+echo "ImageSplat Studio v$VERSION" > "$DESKTOP/dist-installer/win-unpacked/VERSION.txt"
+echo "Built: $(date -u +%Y-%m-%dT%H:%MZ)" >> "$DESKTOP/dist-installer/win-unpacked/VERSION.txt"
 (cd "$DESKTOP/dist-installer/win-unpacked" && zip -r -q "$ZIP" .)
 
 echo ""

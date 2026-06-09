@@ -1,20 +1,25 @@
-HUONG DAN CAI DAT - ImageSplat Studio v0.1.3 (OFFLINE)
+HUONG DAN CAI DAT - ImageSplat Studio v0.16.0 (OFFLINE)
 ========================================================
 
 KHONG CAN CAI PYTHON! Python da duoc dong goi san trong app.
 
-BUOC 1: Tai dung file (~250 MB)
-  ImageSplatStudio-0.1.3-win-offline.zip
-  Link: https://github.com/HieuPC03/ConstructionModelLibrar/releases
+BUOC 1: Tai dung file (~300 MB)
+  ImageSplatStudio-0.16.0-win-offline.zip
+  Link: https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/imagesplat-v0.16.0
 
-  CANH BAO: File ~110 MB la ban CU — se bao loi "Python was not found"!
-
-BUOC 2: Giai nen TOAN BO
+BUOC 2: Giai nen TOAN BO vao thu muc MOI
+  - XOA thu muc cu neu da co (khong giai nen de len file cu!)
   - Click phai file zip -> "Extract All..."
-  - Chon thu muc, vi du: C:\ImageSplatStudio\
+  - Chon thu muc moi, vi du: C:\ImageSplatStudio-0.16.0\
 
-BUOC 3: Kiem tra (tuy chon)
-  - Chay KIEM_TRA.bat — phai thay [OK] o tat ca dong
+BUOC 3: Kiem tra
+  - Chay KIEM_TRA.bat
+  - Phai co file VERSION.txt va hien "v0.16.0"
+  - Trong app, gooc tren trai phai hien badge "v0.16.0"
+
+NEU VAN HIEN v0.15.x:
+  Ban dang chay file cu trong thu muc da giai nen truoc do.
+  Xoa het thu muc, tai lai zip, giai nen lai — khong copy .exe rieng le.
 
 BUOC 4: Chay app
   - Double-click "ImageSplat Studio.exe"
