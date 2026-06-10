@@ -209,6 +209,9 @@ ipcMain.handle("pick-folder", async () => {
 });
 
 function setupDisplayMediaHandler() {
+  const handlerOptions =
+    process.platform === "darwin" ? { useSystemPicker: true } : {};
+
   session.defaultSession.setDisplayMediaRequestHandler(
     async (_request, callback) => {
       try {
@@ -219,11 +222,12 @@ function setupDisplayMediaHandler() {
           return;
         }
         callback({ video: screen, audio: "loopback" });
-      } catch {
+      } catch (err) {
+        console.error("displayMedia handler failed:", err);
         callback({});
       }
     },
-    { useSystemPicker: true }
+    handlerOptions
   );
 }
 

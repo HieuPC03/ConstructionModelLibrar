@@ -536,6 +536,14 @@ textarea {
   color: var(--text);
 }
 
+.hint-box-compact {
+  margin: 0 0.75rem 0.35rem;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
 .settings-bar {
   padding: 0.35rem 0.75rem;
   background: color-mix(in srgb, var(--surface) 90%, transparent);

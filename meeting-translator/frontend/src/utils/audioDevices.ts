@@ -4,7 +4,13 @@ import type { AudioDeviceOption } from "../types";
 export const SYSTEM_AUDIO_AUTO_ID = "";
 
 export function isStereoMixLabel(label: string): boolean {
-  return /stereo mix|what u hear|wave out mix|mixed output/i.test(label);
+  return (
+    /stereo mix|stereomix|stereo mixer|what u hear|wave out mix|mixed output/i.test(
+      label
+    ) ||
+    /trộn stereo|trộn kênh|khuếch đại stereo|tổng hợp stereo/i.test(label) ||
+    /ステレオ ミキサー|ステレオミックス/i.test(label)
+  );
 }
 
 export function isCableOutputLabel(label: string): boolean {
@@ -41,14 +47,16 @@ export function pickHeadphoneOutputDevice(
   if (headphones.length) return headphones[0];
 
   const physical = outputs.filter((d) => !isVirtualPlaybackLabel(d.label));
-  return physical[0] ?? outputs[0];
+  return physical[0];
 }
 
 /** VB-Cable, Voicemeeter, BlackHole… */
 export function isVirtualLoopbackLabel(label: string): boolean {
   if (isCableInputLabel(label)) return false;
-  return /loopback|blackhole|vb-audio|vb audio|cable output|voicemeeter|virtual audio|monitor of|wave link|elgato|steelseries sonar|rec.?order|system audio/i.test(
-    label
+  return (
+    /loopback|blackhole|vb-audio|vb audio|cable output|voicemeeter|virtual audio|monitor of|wave link|elgato|steelseries sonar|rec.?order|system audio|wasapi/i.test(
+      label
+    ) || /realtek.*mix|mix.*realtek/i.test(label)
   );
 }
 

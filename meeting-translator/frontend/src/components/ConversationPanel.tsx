@@ -44,7 +44,7 @@ export default function ConversationPanel() {
   const [targetLang, setTargetLang] = useState<LangCode>("vi");
   const [captureMode, setCaptureMode] = useState<CaptureMode>("loopback");
   const [loopbackId, setLoopbackId] = useState("");
-  const [includeMic, setIncludeMic] = useState(true);
+  const [includeMic, setIncludeMic] = useState(false);
   const [hearLoopback, setHearLoopback] = useState(true);
   const [starting, setStarting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -162,7 +162,7 @@ export default function ConversationPanel() {
       await resetToDefaults();
       setCaptureMode("loopback");
       setLoopbackId("");
-      setIncludeMic(true);
+      setIncludeMic(false);
       setSourceLang("ja");
       setTargetLang("vi");
       await audio.refreshDevices();
@@ -255,6 +255,15 @@ export default function ConversationPanel() {
           {tr("modeRealtime")}
         </button>
       </div>
+
+      {captureMode === "loopback" &&
+        (loopbackDevices.length === 0 || audio.error) && (
+          <div className="hint-box hint-box-compact">
+            {loopbackDevices.length === 0
+              ? tr("hintVbCableInstalled")
+              : audio.error}
+          </div>
+        )}
 
       <div className="panel-header panel-header-compact">
         <div className="controls-row">

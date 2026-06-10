@@ -38,9 +38,12 @@ async function routeContextToHeadphones(ctx: SinkCapableContext): Promise<void> 
 export async function startLoopbackMonitor(
   stream: MediaStream,
   volume = 1
-): Promise<void> {
+): Promise<boolean> {
   stopLoopbackMonitor();
-  if (!stream.getAudioTracks().length) return;
+  if (!stream.getAudioTracks().length) return false;
+
+  const sinkId = await resolveHeadphoneSinkId();
+  if (!sinkId) return false;
 
   const ctx = new AudioContext() as SinkCapableContext;
   await routeContextToHeadphones(ctx);
@@ -55,6 +58,7 @@ export async function startLoopbackMonitor(
 
   monitorCtx = ctx;
   monitorNodes = { source, gain };
+  return true;
 }
 
 export function setLoopbackMonitorVolume(volume: number): void {

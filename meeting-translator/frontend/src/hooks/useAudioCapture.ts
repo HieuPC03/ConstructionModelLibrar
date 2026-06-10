@@ -10,6 +10,7 @@ import {
   stopLoopbackMonitor,
 } from "../utils/loopbackMonitor";
 import {
+  canUseMediaRecorder,
   friendlyMediaError,
   pickRecordableAudioStream,
   prepareLoopbackRecordStream,
@@ -66,31 +67,56 @@ async function captureSystemAudioViaDisplay(): Promise<MediaStream> {
   return new MediaStream(audioTracks);
 }
 
-const LOOPBACK_AUDIO_CONSTRAINTS = {
-  echoCancellation: false,
-  noiseSuppression: false,
-  autoGainControl: false,
-  channelCount: { ideal: 2 },
-  sampleRate: { ideal: 48000 },
-  sampleSize: { ideal: 16 },
-} as const;
+const LOOPBACK_CONSTRAINT_TIERS: MediaTrackConstraints[] = [
+  {
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false,
+  },
+  {
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false,
+    channelCount: { ideal: 2 },
+  },
+  {
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false,
+    channelCount: { ideal: 2 },
+    sampleRate: { ideal: 48000 },
+    sampleSize: { ideal: 16 },
+  },
+];
+
+function ensureLiveAudioTrack(stream: MediaStream): MediaStream {
+  const track = stream.getAudioTracks()[0];
+  if (!track || track.readyState === "ended") {
+    stream.getTracks().forEach((t) => t.stop());
+    throw new Error("Thiết bị loopback không phát âm thanh. Kiểm tra cấu hình Windows.");
+  }
+  track.enabled = true;
+  return stream;
+}
 
 async function openLoopbackDevice(deviceId: string): Promise<MediaStream> {
-  try {
-    return await navigator.mediaDevices.getUserMedia({
-      audio: {
-        deviceId: { exact: deviceId },
-        ...LOOPBACK_AUDIO_CONSTRAINTS,
-      },
-    });
-  } catch {
-    return navigator.mediaDevices.getUserMedia({
-      audio: {
-        deviceId: { ideal: deviceId },
-        ...LOOPBACK_AUDIO_CONSTRAINTS,
-      },
-    });
+  let lastErr: unknown;
+  for (const tier of LOOPBACK_CONSTRAINT_TIERS) {
+    for (const exact of [true, false] as const) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            deviceId: exact ? { exact: deviceId } : { ideal: deviceId },
+            ...tier,
+          },
+        });
+        return ensureLiveAudioTrack(stream);
+      } catch (e) {
+        lastErr = e;
+      }
+    }
   }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
 }
 
 async function tryOpenLoopbackCandidates(
@@ -104,6 +130,49 @@ async function tryOpenLoopbackCandidates(
     }
   }
   return null;
+}
+
+async function resolveLoopbackStream(
+  loopbackDeviceId: string | undefined,
+  ordered: AudioDeviceOption[]
+): Promise<MediaStream | null> {
+  if (loopbackDeviceId && loopbackDeviceId !== SYSTEM_AUDIO_AUTO_ID) {
+    const picked = ordered.filter((d) => d.deviceId === loopbackDeviceId);
+    const fromPicked = await tryOpenLoopbackCandidates(picked);
+    if (fromPicked) return fromPicked;
+
+    try {
+      return await openLoopbackDevice(loopbackDeviceId);
+    } catch {
+      /* thử toàn bộ thiết bị loopback khác */
+    }
+  }
+
+  if (ordered.length > 0) {
+    return tryOpenLoopbackCandidates(ordered);
+  }
+
+  return null;
+}
+
+async function buildLoopbackRecordable(
+  loopbackRaw: MediaStream,
+  includeMic: boolean,
+  audioStreams: MediaStream[]
+): Promise<MediaStream> {
+  if (!includeMic) {
+    try {
+      const enhanced = await prepareLoopbackRecordStream(loopbackRaw);
+      if (canUseMediaRecorder(enhanced)) {
+        return enhanced;
+      }
+    } catch {
+      /* dùng luồng gốc */
+    }
+    return pickRecordableAudioStream([loopbackRaw]);
+  }
+
+  return pickRecordableAudioStream(audioStreams);
 }
 
 export function useAudioCapture() {
@@ -183,16 +252,10 @@ export function useAudioCapture() {
           const inputs = await listAudioInputs();
           const ordered = orderedLoopbackDevices(inputs);
 
-          if (loopbackDeviceId && loopbackDeviceId !== SYSTEM_AUDIO_AUTO_ID) {
-            loopbackRawForMonitor = await tryOpenLoopbackCandidates(
-              ordered.filter((d) => d.deviceId === loopbackDeviceId)
-            );
-            if (!loopbackRawForMonitor) {
-              loopbackRawForMonitor = await openLoopbackDevice(loopbackDeviceId);
-            }
-          } else if (ordered.length > 0) {
-            loopbackRawForMonitor = await tryOpenLoopbackCandidates(ordered);
-          }
+          loopbackRawForMonitor = await resolveLoopbackStream(
+            loopbackDeviceId,
+            ordered
+          );
 
           if (loopbackRawForMonitor) {
             audioStreams.push(loopbackRawForMonitor);
@@ -234,9 +297,12 @@ export function useAudioCapture() {
 
         let recordable: MediaStream;
         try {
-          if (mode === "loopback" && loopbackRawForMonitor && !includeMic) {
-            const enhanced = await prepareLoopbackRecordStream(loopbackRawForMonitor);
-            recordable = await pickRecordableAudioStream([enhanced]);
+          if (mode === "loopback" && loopbackRawForMonitor) {
+            recordable = await buildLoopbackRecordable(
+              loopbackRawForMonitor,
+              includeMic,
+              audioStreams
+            );
           } else {
             recordable = await pickRecordableAudioStream(audioStreams);
           }
@@ -260,7 +326,12 @@ export function useAudioCapture() {
           !systemAudioViaDisplayRef.current
         ) {
           const vol = includeMic ? 0.85 : 1;
-          await startLoopbackMonitor(loopbackRawForMonitor, vol);
+          const monitored = await startLoopbackMonitor(loopbackRawForMonitor, vol);
+          if (!monitored) {
+            setError(
+              "Không tìm thấy tai nghe thật để nghe lại. Vẫn ghi âm thanh hệ thống bình thường."
+            );
+          }
         }
 
         return recordable;
