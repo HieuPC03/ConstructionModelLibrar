@@ -1,0 +1,9 @@
+TẢI BẢN CÀI ĐẶT — Meeting Translator v1.8.68
+
+Trang release:
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/tag/meeting-translator-v1.8.68
+
+Link tải trực tiếp (Setup.exe):
+https://github.com/HieuPC03/ConstructionModelLibrar/releases/download/meeting-translator-v1.8.68/Meeting-Translator-Setup-1.8.68.exe
+
+v1.8.68 — Sửa bắt âm thanh hệ thống (VB-Cable / Stereo Mix / Realtek)

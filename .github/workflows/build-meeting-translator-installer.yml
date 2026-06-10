@@ -1,0 +1,118 @@
+name: Build Meeting Translator Installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cursor/meeting-realtime-translator-6e16
+      - cursor/fix-text-translate-gemini-6e16
+      - cursor/package-v1.4.2-6e16
+      - cursor/app-v1.5-features-6e16
+      - cursor/offline-live-caption-6e16
+      - cursor/v1-8-5-plus-6e16
+      - main
+    paths:
+      - "meeting-translator/**"
+      - ".github/workflows/build-meeting-translator-installer.yml"
+    tags:
+      - "meeting-translator-v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: meeting-translator-installer-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows-installer:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: meeting-translator
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Bundle Python runtime and VB-Cable
+        shell: pwsh
+        timeout-minutes: 25
+        run: |
+          ./scripts/bundle-python.ps1
+          ./scripts/bundle-vbcable.ps1
+          $vb = "runtime\vbcable\VBCABLE_Setup_x64.exe"
+          if (-not (Test-Path $vb)) { throw "Thieu VB-Cable setup — build khong hop le" }
+          if ((Get-Item $vb).Length -lt 500KB) { throw "VB-Cable setup qua nho — tai that bai" }
+          Write-Host "OK: VB-Cable bundled"
+
+      - name: Build installer (NSIS)
+        shell: pwsh
+        timeout-minutes: 45
+        run: ./pack-desktop.ps1 -SkipRuntimeBundle
+
+      - name: Read version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (Get-Content VERSION.txt -Raw).Trim()
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Package release zip
+        shell: pwsh
+        run: ./pack-v1.4.2.ps1 -Version "${{ steps.ver.outputs.version }}"
+
+      - name: Verify release artifacts exist
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          $setup = "dist\Meeting-Translator-Setup-$v.exe"
+          if (-not (Test-Path $setup)) {
+            throw "Khong co Setup.exe — khong the phat hanh"
+          }
+          Write-Host "OK: $setup"
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Meeting-Translator-v${{ steps.ver.outputs.version }}
+          path: |
+            meeting-translator/dist/Meeting-Translator-Setup-*.exe
+            meeting-translator/dist/Meeting-Translator-v*-Full-Package.zip
+            meeting-translator/dist/Meeting-Translator-v*-BAT-scripts.zip
+            meeting-translator/dist/desktop/Meeting-Translator-Setup-*.exe
+            meeting-translator/dist/release/**
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: |
+          startsWith(github.ref, 'refs/tags/meeting-translator-v') ||
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'push' && github.ref == 'refs/heads/cursor/offline-live-caption-6e16') ||
+          (github.event_name == 'push' && github.ref == 'refs/heads/cursor/v1-8-5-plus-6e16')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: meeting-translator-v${{ steps.ver.outputs.version }}
+          name: Meeting Translator v${{ steps.ver.outputs.version }}
+          prerelease: true
+          generate_release_notes: true
+          files: |
+            meeting-translator/dist/Meeting-Translator-Setup-${{ steps.ver.outputs.version }}.exe
+            meeting-translator/dist/Meeting-Translator-v${{ steps.ver.outputs.version }}-Full-Package.zip
+            meeting-translator/dist/Meeting-Translator-v${{ steps.ver.outputs.version }}-BAT-scripts.zip
+            meeting-translator/dist/Meeting-Translator-BAT-scripts.zip
+            meeting-translator/CAI-BANG-EXE.bat
+            meeting-translator/CAI-VB-CABLE.bat
+            meeting-translator/MO-APP.bat
+            meeting-translator/CAU-HINH-API-KEY.bat
+            meeting-translator/CHAY-PORTABLE.bat
+            meeting-translator/BAT-HUONG-DAN.txt
+            meeting-translator/TAI-BAN-CAI-DAT.txt
+            meeting-translator/HUONG_DAN_CAI_DAT.txt
+            meeting-translator/HUONG_DAN_AM_THANH.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

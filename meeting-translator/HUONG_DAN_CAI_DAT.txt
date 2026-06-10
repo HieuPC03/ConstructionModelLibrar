@@ -1,0 +1,55 @@
+═══════════════════════════════════════════════════════════════
+  MEETING TRANSLATOR — Bản cài đặt trên máy tính (Windows)
+═══════════════════════════════════════════════════════════════
+
+■ CÁCH 1 — CÀI TỪ FILE .EXE (khuyến nghị)
+──────────────────────────────────────────────────────────────
+  File cài:  Meeting-Translator-Setup-1.0.0.exe
+
+  Sau khi tạo bản cài (xem mục Tạo file cài bên dưới), file nằm tại:
+    meeting-translator\dist\release\
+    hoặc
+    meeting-translator\dist\desktop\
+
+  Các bước:
+    1. Double-click Meeting-Translator-Setup-1.0.0.exe
+    2. Chọn thư mục cài → Install → Finish
+    3. Mở app từ Desktop hoặc Start Menu
+    4. Điền API key lần đầu:
+         %APPDATA%\meeting-translator-desktop\.env
+
+  Không cần cài Python / Node.js trên máy người dùng.
+
+■ CÁCH 2 — TẠO FILE CÀI TRÊN MÁY BẠN (developer)
+──────────────────────────────────────────────────────────────
+  Yêu cầu: Windows 10/11, Node.js 18+, Internet
+
+  Double-click:
+    TAO-BAN-CAI-DAT.bat
+
+  Hoặc PowerShell:
+    cd meeting-translator
+    .\pack-desktop.ps1
+
+  Kết quả:
+    dist\release\Meeting-Translator-Setup-1.0.0.exe
+    dist\release\HUONG_DAN_CAI_DAT.txt
+    dist\release\DOC-DAI.txt
+
+■ CÁCH 3 — TẢI BẢN CÀI TỪ GITHUB (Actions)
+──────────────────────────────────────────────────────────────
+  Repo → Actions → "Build Meeting Translator Installer"
+  → Run workflow → tải artifact "Meeting-Translator-Windows-Setup"
+
+■ DỮ LIỆU TRÊN MÁY BẠN
+──────────────────────────────────────────────────────────────
+  %APPDATA%\meeting-translator-desktop\
+    .env           ← OPENAI_API_KEY (Whisper STT + dịch ChatGPT)
+    recordings\    ← Âm thanh + transcript đã lưu
+
+■ GỠ CÀI
+──────────────────────────────────────────────────────────────
+  Windows Settings → Apps → Meeting Translator → Uninstall
+  (Dữ liệu %APPDATA% giữ lại trừ khi xóa thủ công)
+
+═══════════════════════════════════════════════════════════════
