@@ -1,0 +1,20 @@
+backend/.venv/
+backend/.env
+backend/recordings/
+__pycache__/
+*.pyc
+frontend/node_modules/
+desktop/node_modules/
+dist/desktop/
+dist/release/
+runtime/python/
+runtime/whisper-models/
+build-cache/
+frontend/dist/
+dist/stage-*/
+dist/release-download/
+dist/v1.2-staging/
+dist/v1.3/
+# Giữ file zip bản phát hành trong git để tải trực tiếp
+# dist/*.zip — không ignore (zip được commit)
+.DS_Store

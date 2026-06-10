@@ -1,0 +1,90 @@
+{
+  "name": "meeting-translator-desktop",
+  "version": "1.8.17",
+  "description": "Meeting Translator — ứng dụng desktop offline (cửa sổ riêng)",
+  "main": "main.js",
+  "author": "Meeting Translator",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win --x64",
+    "dist:dir": "electron-builder --win --x64 --dir"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.meetingtranslator.desktop",
+    "productName": "Meeting Translator",
+    "copyright": "Copyright © 2026",
+    "directories": {
+      "output": "../dist/desktop"
+    },
+    "files": [
+      "main.js",
+      "preload.js"
+    ],
+    "extraResources": [
+      {
+        "from": "../runtime/python",
+        "to": "runtime/python",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!**/.venv/**",
+          "!**/recordings/**",
+          "!**/__pycache__/**"
+        ]
+      },
+      {
+        "from": "../frontend/dist",
+        "to": "frontend/dist"
+      },
+      {
+        "from": "../backend/.env.example",
+        "to": "backend/.env.example"
+      },
+      {
+        "from": "../runtime/vbcable",
+        "to": "runtime/vbcable",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../CAI-VB-CABLE.bat",
+        "to": "runtime/vbcable/Install-VB-Cable.bat"
+      },
+      {
+        "from": "../HUONG_DAN_AM_THANH.txt",
+        "to": "HUONG_DAN_AM_THANH.txt"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "compression": "maximum",
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerLanguages": ["vi_VN", "en_US"],
+      "language": "1066",
+      "shortcutName": "Meeting Translator",
+      "artifactName": "Meeting-Translator-Setup-${version}.${ext}",
+      "include": "installer.nsh",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}
